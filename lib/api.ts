@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { MediaItem } from "@/types/media";
 
 export const mockOrganizations = [
   {
@@ -89,13 +90,15 @@ export const mockVenues = [
   },
 ];
 
-export const mockMedia = [
+export const mockMedia: MediaItem[] = [
   {
     id: "1",
     name: "lobby_360.jpg",
     type: "image",
     size: "4.2 MB",
     url: "/placeholder.svg",
+    uploadedAt: "2023-10-25T14:30:00Z",
+    uploadedBy: "John Doe",
   },
   {
     id: "2",
@@ -103,6 +106,8 @@ export const mockMedia = [
     type: "image",
     size: "3.1 MB",
     url: "/placeholder.svg",
+    uploadedAt: "2023-10-25T11:15:00Z",
+    uploadedBy: "Jane Smith",
   },
   {
     id: "3",
@@ -110,6 +115,8 @@ export const mockMedia = [
     type: "video",
     size: "24.5 MB",
     url: "/placeholder.svg",
+    uploadedAt: "2023-10-24T09:45:00Z",
+    uploadedBy: "John Doe",
   },
   {
     id: "4",
@@ -117,6 +124,8 @@ export const mockMedia = [
     type: "image",
     size: "2.8 MB",
     url: "/placeholder.svg",
+    uploadedAt: "2023-10-23T16:20:00Z",
+    uploadedBy: "Jane Smith",
   },
   {
     id: "5",
@@ -124,6 +133,8 @@ export const mockMedia = [
     type: "image",
     size: "5.6 MB",
     url: "/placeholder.svg",
+    uploadedAt: "2023-10-22T10:00:00Z",
+    uploadedBy: "Bob Johnson",
   },
 ];
 
@@ -224,3 +235,59 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
+
+// Media API functions
+export const uploadMedia = async (
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<MediaItem> => {
+  // Simulate upload progress
+  if (onProgress) {
+    for (let i = 0; i <= 100; i += 10) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      onProgress(i);
+    }
+  }
+
+  // Simulate API response
+  const media: MediaItem = {
+    id: Date.now().toString(),
+    name: file.name,
+    type: file.type.startsWith("image/")
+      ? "image"
+      : file.type.startsWith("video/")
+      ? "video"
+      : "panorama",
+    size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+    url: URL.createObjectURL(file), // In real app, this would be the uploaded URL
+    uploadedAt: new Date().toISOString(),
+    uploadedBy: "Current User", // In real app, get from auth
+  };
+
+  return media;
+
+  // Uncomment below for real API call
+  // const formData = new FormData();
+  // formData.append("file", file);
+  //
+  // const response = await api.post("/media/upload", formData, {
+  //   headers: {
+  //     'Content-Type': 'multipart/form-data',
+  //   },
+  //   onUploadProgress: (progressEvent) => {
+  //     if (onProgress && progressEvent.total) {
+  //       const progress = Math.round(
+  //         (progressEvent.loaded * 100) / progressEvent.total
+  //       );
+  //       onProgress(progress);
+  //     }
+  //   },
+  // });
+  //
+  // return response.data;
+};
+
+export const getMedia = async (): Promise<MediaItem[]> => {
+  const response = await api.get("/media");
+  return response.data;
+};

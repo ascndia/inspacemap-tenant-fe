@@ -41,6 +41,7 @@ interface MediaGridProps {
   viewMode?: "grid" | "list";
   mode?: "manage" | "select";
   onSelect?: (media: any) => void;
+  media?: MediaItem[];
 }
 
 export function MediaGrid({
@@ -50,14 +51,13 @@ export function MediaGrid({
   viewMode = "grid",
   mode = "manage",
   onSelect,
+  media = mockMedia,
 }: MediaGridProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [mediaToDelete, setMediaToDelete] = useState<
-    (typeof mockMedia)[0] | null
-  >(null);
+  const [mediaToDelete, setMediaToDelete] = useState<MediaItem | null>(null);
 
-  const handleDeleteClick = (media: (typeof mockMedia)[0]) => {
-    setMediaToDelete(media);
+  const handleDeleteClick = (mediaItem: MediaItem) => {
+    setMediaToDelete(mediaItem);
     setDeleteDialogOpen(true);
   };
 
@@ -73,7 +73,7 @@ export function MediaGrid({
 
   // Filter and sort media
   const filteredAndSortedMedia = useMemo(() => {
-    let filtered = mockMedia.filter((item) => {
+    let filtered = media.filter((item) => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -90,7 +90,7 @@ export function MediaGrid({
       // Date filter (simplified - in real app would check actual dates)
       if (filters.date !== "all") {
         // Mock date filtering logic
-        const itemIndex = mockMedia.indexOf(item);
+        const itemIndex = media.indexOf(item);
         const daysOld = itemIndex * 10; // Mock age calculation
         switch (filters.date) {
           case "7days":
@@ -132,7 +132,7 @@ export function MediaGrid({
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "oldest":
-          return mockMedia.indexOf(a) - mockMedia.indexOf(b);
+          return media.indexOf(a) - media.indexOf(b);
         case "name":
           return a.name.localeCompare(b.name);
         case "size":
@@ -142,12 +142,12 @@ export function MediaGrid({
           return bSize - aSize;
         case "newest":
         default:
-          return mockMedia.indexOf(b) - mockMedia.indexOf(a);
+          return media.indexOf(b) - media.indexOf(a);
       }
     });
 
     return filtered;
-  }, [searchQuery, filters, sortBy]);
+  }, [searchQuery, filters, sortBy, media]);
 
   return (
     <>
@@ -263,10 +263,10 @@ export function MediaGrid({
 }
 
 interface MediaItemProps {
-  item: (typeof mockMedia)[0];
+  item: MediaItem;
   mode: "manage" | "select";
   onSelect?: (media: any) => void;
-  onDeleteClick: (media: (typeof mockMedia)[0]) => void;
+  onDeleteClick: (media: MediaItem) => void;
 }
 
 function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {

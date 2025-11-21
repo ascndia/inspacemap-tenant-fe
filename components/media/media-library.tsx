@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MediaGrid } from "@/components/media/media-grid";
 import { MediaUpload } from "@/components/media/media-upload";
 import { MediaFilters } from "@/components/media/media-filters";
+import { mockMedia } from "@/lib/api";
+import type { MediaItem } from "@/types/media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -33,6 +35,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
     date: "all",
     tags: [] as string[],
   });
+  const [media, setMedia] = useState<MediaItem[]>(mockMedia);
 
   const handleFilterChange = (filterType: string, value: string | string[]) => {
     setSelectedFilters((prev) => ({
@@ -169,6 +172,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
                 viewMode={viewMode}
                 mode={mode}
                 onSelect={onSelect}
+                media={media}
               />
             </div>
           </div>
@@ -176,7 +180,12 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
 
         <TabsContent value="upload" className="mt-0 p-4">
           <div className="max-w-2xl mx-auto">
-            <MediaUpload />
+            <MediaUpload
+              onUploadSuccess={(uploadedMedia) => {
+                setMedia((prev) => [uploadedMedia, ...prev]);
+                setActiveTab("library");
+              }}
+            />
             <div className="mt-8 flex justify-center">
               <Button variant="outline" onClick={() => setActiveTab("library")}>
                 Back to Library

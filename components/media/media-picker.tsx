@@ -24,6 +24,8 @@ import {
   Grid3X3,
   List,
 } from "lucide-react";
+import { MediaUpload } from "@/components/media/media-upload";
+import type { MediaItem } from "@/types/media";
 import { cn } from "@/lib/utils";
 
 interface MediaPickerProps {
@@ -32,17 +34,7 @@ interface MediaPickerProps {
   trigger?: React.ReactNode;
   multiple?: boolean;
   acceptTypes?: string[];
-}
-
-interface MediaItem {
-  id: string;
-  name: string;
-  type: string;
-  size: string;
-  url: string;
-  thumbnail?: string;
-  tags?: string[];
-  uploadedAt?: string;
+  onUploadSuccess?: (media: MediaItem) => void;
 }
 
 export function MediaPicker({
@@ -51,16 +43,18 @@ export function MediaPicker({
   trigger,
   multiple = false,
   acceptTypes = ["image", "video"],
+  onUploadSuccess,
 }: MediaPickerProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [media, setMedia] = useState<MediaItem[]>(mockMedia);
 
   // Filter media based on search and type
   const filteredMedia = useMemo(() => {
-    return mockMedia.filter((item) => {
+    return media.filter((item) => {
       const matchesSearch = item.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
@@ -69,7 +63,7 @@ export function MediaPicker({
 
       return matchesSearch && matchesType && matchesAcceptTypes;
     });
-  }, [searchQuery, selectedType, acceptTypes]);
+  }, [searchQuery, selectedType, acceptTypes, media]);
 
   const handleSelect = (media: MediaItem) => {
     if (multiple) {
@@ -88,9 +82,7 @@ export function MediaPicker({
 
   const handleConfirmSelection = () => {
     if (multiple) {
-      const selectedMedia = mockMedia.filter((item) =>
-        selectedItems.has(item.id)
-      );
+      const selectedMedia = media.filter((item) => selectedItems.has(item.id));
       onSelect(selectedMedia);
     }
     setOpen(false);
@@ -230,16 +222,16 @@ export function MediaPicker({
             </TabsContent>
 
             <TabsContent value="upload" className="flex-1 mt-0 px-6 pb-6">
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium">Upload Media</h3>
-                <p className="text-sm text-muted-foreground mt-2 mb-4">
-                  Drag and drop files here or click to browse
-                </p>
-                <Button>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Choose Files
-                </Button>
+              <div className="max-w-md mx-auto">
+                <MediaUpload
+                  onUploadSuccess={(uploadedMedia) => {
+                    setMedia((prev) => [uploadedMedia, ...prev]);
+                    onUploadSuccess?.(uploadedMedia);
+                    // Switch back to library tab
+                    // Note: This would need to be handled differently in a real app
+                  }}
+                  accept={acceptTypes.map((type) => `${type}/*`).join(",")}
+                />
               </div>
             </TabsContent>
           </Tabs>

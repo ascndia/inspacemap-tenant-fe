@@ -275,6 +275,7 @@ export function PropertiesPanel() {
                 </SelectContent>
               </Select>
             </div>
+          </TabsContent>
           <TabsContent value="analytics" className="space-y-4 mt-0">
             {graphStats ? (
               <div className="space-y-4">
@@ -286,31 +287,55 @@ export function PropertiesPanel() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">Nodes:</span>
-                        <div className="font-medium">{graphStats.nodeCount}</div>
+                        <div className="font-medium">
+                          {graphStats.nodeCount}
+                        </div>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Connections:</span>
-                        <div className="font-medium">{graphStats.connectionCount}</div>
+                        <span className="text-muted-foreground">
+                          Connections:
+                        </span>
+                        <div className="font-medium">
+                          {graphStats.connectionCount}
+                        </div>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Isolated Nodes:</span>
-                        <div className="font-medium">{graphStats.isolatedNodes}</div>
+                        <span className="text-muted-foreground">
+                          Isolated Nodes:
+                        </span>
+                        <div className="font-medium">
+                          {graphStats.isolatedNodes}
+                        </div>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Components:</span>
-                        <div className="font-medium">{graphStats.connectedComponents}</div>
+                        <span className="text-muted-foreground">
+                          Components:
+                        </span>
+                        <div className="font-medium">
+                          {graphStats.connectedComponents}
+                        </div>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Avg Degree:</span>
-                        <div className="font-medium">{graphStats.averageDegree.toFixed(2)}</div>
+                        <span className="text-muted-foreground">
+                          Avg Degree:
+                        </span>
+                        <div className="font-medium">
+                          {graphStats.averageDegree.toFixed(2)}
+                        </div>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Max Degree:</span>
-                        <div className="font-medium">{graphStats.maxDegree}</div>
+                        <span className="text-muted-foreground">
+                          Max Degree:
+                        </span>
+                        <div className="font-medium">
+                          {graphStats.maxDegree}
+                        </div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Density:</span>
-                        <div className="font-medium">{graphStats.density.toFixed(3)}</div>
+                        <div className="font-medium">
+                          {graphStats.density.toFixed(3)}
+                        </div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Diameter:</span>
@@ -327,19 +352,28 @@ export function PropertiesPanel() {
                   <CardContent className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>With Panoramas:</span>
-                      <span className="font-medium">{graphStats.hasPanoramas}</span>
+                      <span className="font-medium">
+                        {graphStats.hasPanoramas}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>Missing Panoramas:</span>
-                      <span className="font-medium text-orange-600">{graphStats.missingPanoramas}</span>
+                      <span className="font-medium text-orange-600">
+                        {graphStats.missingPanoramas}
+                      </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                       <div
                         className="bg-blue-600 h-2 rounded-full"
                         style={{
-                          width: graphStats.nodeCount > 0
-                            ? `${(graphStats.hasPanoramas / graphStats.nodeCount) * 100}%`
-                            : '0%'
+                          width:
+                            graphStats.nodeCount > 0
+                              ? `${
+                                  (graphStats.hasPanoramas /
+                                    graphStats.nodeCount) *
+                                  100
+                                }%`
+                              : "0%",
                         }}
                       ></div>
                     </div>
@@ -365,13 +399,11 @@ export function PropertiesPanel() {
               </div>
             )}
           </TabsContent>
+        </div>
+      </Tabs>
 
       <div className="p-4 border-t bg-muted/10 space-y-2">
-        <Button
-          onClick={autoLayout}
-          className="w-full"
-          variant="secondary"
-        >
+        <Button onClick={autoLayout} className="w-full" variant="secondary">
           Auto Layout
         </Button>
         <Button

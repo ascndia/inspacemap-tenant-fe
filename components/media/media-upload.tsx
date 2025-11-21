@@ -10,21 +10,26 @@ import { uploadMedia } from "@/lib/api";
 import type { MediaItem } from "@/types/media";
 
 interface MediaUploadProps {
-  onUploadSuccess?: (media: MediaItem) => void;
+  onUploadSuccess?: (media: MediaItem[]) => void;
   accept?: string;
   maxSize?: number; // in MB
+  multiple?: boolean;
 }
 
 export function MediaUpload({
   onUploadSuccess,
   accept = "image/*,video/*",
   maxSize = 50,
+  multiple = true,
 }: MediaUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadingFile, setUploadingFile] = useState<File | null>(null);
-  const [uploadedMedia, setUploadedMedia] = useState<MediaItem | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<
+    Map<string, { file: File; progress: number }>
+  >(new Map());
+  const [uploadedMedia, setUploadedMedia] = useState<MediaItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFile = (file: File): string | null => {
@@ -44,28 +49,83 @@ export function MediaUpload({
     return null;
   };
 
-  const handleFileUpload = async (file: File) => {
-    const validationError = validateFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
+  const addFiles = (files: File[]) => {
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    files.forEach((file) => {
+      const validationError = validateFile(file);
+      if (validationError) {
+        errors.push(`${file.name}: ${validationError}`);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (errors.length > 0) {
+      setError(errors.join("\n"));
     }
 
+    if (validFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+      setError(null);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileUpload = async () => {
+    if (selectedFiles.length === 0) return;
+
+    setIsUploading(true);
     setError(null);
-    setUploadingFile(file);
-    setUploadProgress(0);
+
+    const uploadPromises = selectedFiles.map(async (file, index) => {
+      const fileId = `${file.name}-${index}`;
+      setUploadingFiles(
+        (prev) => new Map(prev.set(fileId, { file, progress: 0 }))
+      );
+
+      try {
+        const media = await uploadMedia(file, (progress) => {
+          setUploadingFiles((prev) => {
+            const newMap = new Map(prev);
+            const current = newMap.get(fileId);
+            if (current) {
+              newMap.set(fileId, { ...current, progress });
+            }
+            return newMap;
+          });
+        });
+
+        setUploadedMedia((prev) => [...prev, media]);
+        setUploadingFiles((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(fileId);
+          return newMap;
+        });
+
+        return media;
+      } catch (err) {
+        setUploadingFiles((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(fileId);
+          return newMap;
+        });
+        throw err;
+      }
+    });
 
     try {
-      const media = await uploadMedia(file, (progress) => {
-        setUploadProgress(progress);
-      });
-      setUploadedMedia(media);
-      setUploadingFile(null);
-      onUploadSuccess?.(media);
+      const uploadedItems = await Promise.all(uploadPromises);
+      onUploadSuccess?.(uploadedItems);
+      setSelectedFiles([]);
+      setIsUploading(false);
     } catch (err) {
-      setError("Upload failed. Please try again.");
-      setUploadingFile(null);
-      setUploadProgress(0);
+      setError("Some files failed to upload. Please try again.");
+      setIsUploading(false);
     }
   };
 
@@ -83,14 +143,14 @@ export function MediaUpload({
     setIsDragging(false);
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      handleFileUpload(files[0]);
+      addFiles(files);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFileUpload(files[0]);
+      addFiles(Array.from(files));
     }
   };
 
@@ -99,26 +159,37 @@ export function MediaUpload({
   };
 
   const reset = () => {
-    setUploadedMedia(null);
+    setSelectedFiles([]);
+    setUploadedMedia([]);
+    setUploadingFiles(new Map());
     setError(null);
-    setUploadProgress(0);
-    setUploadingFile(null);
+    setIsUploading(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
+  const totalProgress =
+    uploadingFiles.size > 0
+      ? Array.from(uploadingFiles.values()).reduce(
+          (sum, { progress }) => sum + progress,
+          0
+        ) / uploadingFiles.size
+      : 0;
+
   return (
-    <div className="w-full">
+    <div className="w-full space-y-4">
       <input
         ref={fileInputRef}
         type="file"
         accept={accept}
+        multiple={multiple}
         onChange={handleFileSelect}
         className="hidden"
       />
 
-      {!uploadedMedia && !uploadingFile && (
+      {/* Upload Area */}
+      {selectedFiles.length === 0 && uploadedMedia.length === 0 && (
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -139,57 +210,148 @@ export function MediaUpload({
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium">
-                Drag & drop files or{" "}
+                Drag & drop {multiple ? "files" : "a file"} or{" "}
                 <span className="text-primary cursor-pointer">browse</span>
               </p>
               <p className="text-xs text-muted-foreground">
-                Supports JPG, PNG, MP4 (max {maxSize}MB)
+                Supports JPG, PNG, MP4 (max {maxSize}MB each)
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {uploadingFile && (
-        <div className="border rounded-lg p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <FileImage className="h-5 w-5 text-muted-foreground" />
-            <span className="font-medium text-sm">{uploadingFile.name}</span>
-            <span className="text-xs text-muted-foreground ml-auto">
-              {(uploadingFile.size / (1024 * 1024)).toFixed(1)} MB
-            </span>
+      {/* Selected Files List */}
+      {selectedFiles.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium">
+              Selected Files ({selectedFiles.length})
+            </h4>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFileUpload}
+                disabled={isUploading}
+              >
+                {isUploading ? "Uploading..." : "Upload All"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={reset}>
+                Clear All
+              </Button>
+            </div>
           </div>
-          <Progress value={uploadProgress} className="h-2 mb-2" />
-          <p className="text-xs text-muted-foreground text-center">
-            {uploadProgress}% uploaded
-          </p>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {selectedFiles.map((file, index) => {
+              const fileId = `${file.name}-${index}`;
+              const uploadStatus = uploadingFiles.get(fileId);
+
+              return (
+                <div
+                  key={index}
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/20"
+                >
+                  <FileImage className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(file.size / (1024 * 1024)).toFixed(1)} MB
+                    </p>
+                    {uploadStatus && (
+                      <div className="mt-1">
+                        <Progress
+                          value={uploadStatus.progress}
+                          className="h-1"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {uploadStatus.progress}% uploaded
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {!isUploading && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Overall Progress */}
+          {isUploading && uploadingFiles.size > 0 && (
+            <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
+              <div className="flex items-center gap-3 mb-2">
+                <Upload className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium">
+                  Uploading {uploadingFiles.size} of {selectedFiles.length}{" "}
+                  files
+                </span>
+              </div>
+              <Progress value={totalProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.round(totalProgress)}% complete
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {uploadedMedia && (
-        <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-green-100 dark:bg-green-900">
-              <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-sm">{uploadedMedia.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {uploadedMedia.size}
-              </p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={reset}>
-              <X className="h-4 w-4" />
+      {/* Uploaded Files */}
+      {uploadedMedia.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium">
+            Uploaded Files ({uploadedMedia.length})
+          </h4>
+          <div className="space-y-2">
+            {uploadedMedia.map((media, index) => (
+              <div
+                key={index}
+                className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-green-100 dark:bg-green-900">
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{media.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {media.size}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-center">
+            <Button variant="outline" onClick={reset}>
+              Upload More Files
             </Button>
           </div>
         </div>
       )}
 
+      {/* Error */}
       {error && (
-        <div className="border border-red-200 rounded-lg p-4 bg-red-50 dark:bg-red-950/20 mt-4">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          <Button variant="outline" size="sm" onClick={reset} className="mt-2">
-            Try Again
+        <div className="border border-red-200 rounded-lg p-4 bg-red-50 dark:bg-red-950/20">
+          <p className="text-sm text-red-600 dark:text-red-400 whitespace-pre-line">
+            {error}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setError(null)}
+            className="mt-2"
+          >
+            Dismiss
           </Button>
         </div>
       )}

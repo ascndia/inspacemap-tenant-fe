@@ -181,8 +181,8 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
         <TabsContent value="upload" className="mt-0 p-4">
           <div className="max-w-2xl mx-auto">
             <MediaUpload
-              onUploadSuccess={(uploadedMedia) => {
-                setMedia((prev) => [uploadedMedia, ...prev]);
+              onUploadSuccess={(uploadedItems) => {
+                setMedia((prev) => [...uploadedItems, ...prev]);
                 setActiveTab("library");
               }}
             />

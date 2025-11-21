@@ -224,9 +224,9 @@ export function MediaPicker({
             <TabsContent value="upload" className="flex-1 mt-0 px-6 pb-6">
               <div className="max-w-md mx-auto">
                 <MediaUpload
-                  onUploadSuccess={(uploadedMedia) => {
-                    setMedia((prev) => [uploadedMedia, ...prev]);
-                    onUploadSuccess?.(uploadedMedia);
+                  onUploadSuccess={(uploadedItems) => {
+                    setMedia((prev) => [...uploadedItems, ...prev]);
+                    onUploadSuccess?.(uploadedItems[0]); // For single selection, pass the first item
                     // Switch back to library tab
                     // Note: This would need to be handled differently in a real app
                   }}

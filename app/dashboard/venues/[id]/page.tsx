@@ -76,7 +76,7 @@ export default async function VenueDetailPage({
 
       {/* Cover Image Section */}
       {coverImage && (
-        <Card>
+        <Card className="py-0">
           <CardContent className="p-0">
             <div className="relative h-64 w-full overflow-hidden rounded-lg">
               <Image

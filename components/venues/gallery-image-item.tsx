@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,6 +31,10 @@ interface GalleryImageItemProps {
   onMoveDown?: () => void;
   onSetCover?: () => void;
   onRemove?: () => void;
+  onDragStart?: (index: number) => void;
+  onDragOver?: (e: React.DragEvent, index: number) => void;
+  onDrop?: (e: React.DragEvent, index: number) => void;
+  isDragging?: boolean;
 }
 
 export function GalleryImageItem({
@@ -40,9 +45,54 @@ export function GalleryImageItem({
   onMoveDown,
   onSetCover,
   onRemove,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  isDragging = false,
 }: GalleryImageItemProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+    onDragStart?.(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setIsDragOver(true);
+    onDragOver?.(e, index);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    onDrop?.(e, index);
+  };
+
+  const handleDragEnd = () => {
+    setIsDragOver(false);
+  };
+
   return (
-    <div className="flex items-center gap-4 p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      onDragEnd={handleDragEnd}
+      className={cn(
+        "flex items-center gap-4 p-4 border rounded-lg bg-card hover:bg-muted/50 transition-all",
+        isDragging && "opacity-50",
+        isDragOver && "border-primary bg-primary/5"
+      )}
+    >
       {/* Drag Handle */}
       <div className="cursor-move text-muted-foreground">
         <GripVertical className="h-5 w-5" />

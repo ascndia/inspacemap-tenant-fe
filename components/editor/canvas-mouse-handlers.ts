@@ -265,9 +265,15 @@ export function createMouseHandlers(
   };
 
   const handleWheel = (event: React.WheelEvent) => {
+    // Prevent default browser zoom behavior
     event.preventDefault();
+    event.stopPropagation();
+
+    // Only handle zoom if Ctrl is not pressed (to avoid interfering with browser zoom)
+    // Actually, we want to prevent browser zoom, so we'll handle it regardless
     const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
-    onZoomChange(Math.max(0.1, Math.min(5, zoom * zoomFactor)));
+    const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
+    onZoomChange(newZoom);
   };
 
   return {

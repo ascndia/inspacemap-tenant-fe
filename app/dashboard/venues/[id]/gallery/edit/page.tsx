@@ -1,4 +1,7 @@
-import { mockVenues } from "@/lib/api";
+"use client";
+
+import { useState, useEffect } from "react";
+import { mockVenues, mockMedia } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,21 +18,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save, Upload } from "lucide-react";
+import { ArrowLeft, Save, Upload, Check } from "lucide-react";
 import Link from "next/link";
 import { GalleryImageItem } from "@/components/venues/gallery-image-item";
+import { MediaPicker } from "@/components/media/media-picker";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
-export default async function VenueGalleryEditPage({
+interface GalleryImage {
+  id: string;
+  url: string;
+  alt: string;
+  name: string;
+  size: string;
+  uploadedAt: string;
+  isCover: boolean;
+}
+
+interface GallerySettings {
+  sortOrder: string;
+  displayMode: string;
+  coverImageId: string;
+}
+
+export default function VenueGalleryEditPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
+  const router = useRouter();
+  const { id } = params;
+
   // In a real app, fetch venue by ID
   const venue = mockVenues.find((v) => v.id === id) || mockVenues[0];
 
-  // Mock gallery images data
-  const galleryImages = [
+  // Gallery state
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([
     {
       id: "1",
       url: "/placeholder-image.jpg",
@@ -66,7 +90,145 @@ export default async function VenueGalleryEditPage({
       uploadedAt: "2024-01-12",
       isCover: false,
     },
-  ];
+  ]);
+
+  const [settings, setSettings] = useState<GallerySettings>({
+    sortOrder: "manual",
+    displayMode: "grid",
+    coverImageId: "1",
+  });
+
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Calculate stats
+  const totalSize = galleryImages.reduce((sum, img) => {
+    const size = parseFloat(img.size);
+    return sum + size;
+  }, 0);
+
+  const coverImage = galleryImages.find(img => img.isCover);
+
+  // Handlers
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+
+    const newImages = [...galleryImages];
+    [newImages[index - 1], newImages[index]] = [newImages[index], newImages[index - 1]];
+    setGalleryImages(newImages);
+    setHasChanges(true);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === galleryImages.length - 1) return;
+
+    const newImages = [...galleryImages];
+    [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+    setGalleryImages(newImages);
+    setHasChanges(true);
+  };
+
+  const handleSetCover = (imageId: string) => {
+    const newImages = galleryImages.map(img => ({
+      ...img,
+      isCover: img.id === imageId,
+    }));
+    setGalleryImages(newImages);
+    setSettings(prev => ({ ...prev, coverImageId: imageId }));
+    setHasChanges(true);
+  };
+
+  const handleRemove = (imageId: string) => {
+    const newImages = galleryImages.filter(img => img.id !== imageId);
+    setGalleryImages(newImages);
+    setHasChanges(true);
+
+    // If we removed the cover image, set the first image as cover
+    const wasCover = galleryImages.find(img => img.id === imageId)?.isCover;
+    if (wasCover && newImages.length > 0) {
+      newImages[0].isCover = true;
+      setSettings(prev => ({ ...prev, coverImageId: newImages[0].id }));
+    }
+  };
+
+  const handleAddImages = (selectedMedia: any) => {
+    // Convert selected media to gallery images
+    const newImages: GalleryImage[] = Array.isArray(selectedMedia)
+      ? selectedMedia.map((media: any, index: number) => ({
+          id: `new-${Date.now()}-${index}`,
+          url: media.url || "/placeholder-image.jpg",
+          alt: media.name || "New image",
+          name: media.name || `Image ${galleryImages.length + index + 1}`,
+          size: media.size || "1.0 MB",
+          uploadedAt: new Date().toISOString().split('T')[0],
+          isCover: false,
+        }))
+      : [{
+          id: `new-${Date.now()}`,
+          url: selectedMedia.url || "/placeholder-image.jpg",
+          alt: selectedMedia.name || "New image",
+          name: selectedMedia.name || `Image ${galleryImages.length + 1}`,
+          size: selectedMedia.size || "1.0 MB",
+          uploadedAt: new Date().toISOString().split('T')[0],
+          isCover: false,
+        }];
+
+    setGalleryImages(prev => [...prev, ...newImages]);
+    setHasChanges(true);
+    toast.success(`${newImages.length} image(s) added to gallery`);
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // In a real app, save to backend
+      console.log("Saving gallery:", {
+        venueId: id,
+        images: galleryImages,
+        settings,
+      });
+
+      setHasChanges(false);
+      toast.success("Gallery saved successfully!");
+      router.push(`/dashboard/venues/${id}/gallery`);
+    } catch (error) {
+      toast.error("Failed to save gallery");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSettingChange = (key: keyof GallerySettings, value: string) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+    const newImages = [...galleryImages];
+    const [draggedItem] = newImages.splice(draggedIndex, 1);
+    newImages.splice(dropIndex, 0, draggedItem);
+
+    setGalleryImages(newImages);
+    setDraggedIndex(null);
+    setHasChanges(true);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -84,9 +246,18 @@ export default async function VenueGalleryEditPage({
             Reorder images, set cover image, and manage gallery settings
           </p>
         </div>
-        <Button>
-          <Save className="mr-2 h-4 w-4" />
-          Save Changes
+        <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
+          {isSaving ? (
+            <>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save Changes
+            </>
+          )}
         </Button>
       </div>
 
@@ -103,10 +274,17 @@ export default async function VenueGalleryEditPage({
                     used as the cover.
                   </CardDescription>
                 </div>
-                <Button>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Add Images
-                </Button>
+                <MediaPicker
+                  onSelect={handleAddImages}
+                  trigger={
+                    <Button>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Add Images
+                    </Button>
+                  }
+                  multiple={true}
+                  acceptTypes={["image"]}
+                />
               </div>
             </CardHeader>
             <CardContent>
@@ -117,6 +295,14 @@ export default async function VenueGalleryEditPage({
                     image={image}
                     index={index}
                     isFirst={index === 0}
+                    onMoveUp={() => handleMoveUp(index)}
+                    onMoveDown={() => handleMoveDown(index)}
+                    onSetCover={() => handleSetCover(image.id)}
+                    onRemove={() => handleRemove(image.id)}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    isDragging={draggedIndex === index}
                   />
                 ))}
 
@@ -143,7 +329,10 @@ export default async function VenueGalleryEditPage({
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Sort Order</label>
-                <Select defaultValue="manual">
+                <Select
+                  value={settings.sortOrder}
+                  onValueChange={(value) => handleSettingChange("sortOrder", value)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -162,7 +351,10 @@ export default async function VenueGalleryEditPage({
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Display Mode</label>
-                <Select defaultValue="grid">
+                <Select
+                  value={settings.displayMode}
+                  onValueChange={(value) => handleSettingChange("displayMode", value)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -179,7 +371,7 @@ export default async function VenueGalleryEditPage({
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">
                     <div className="w-3 h-3 bg-yellow-500 rounded-full mr-1" />
-                    Main Hall
+                    {coverImage?.name || "None"}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -200,12 +392,18 @@ export default async function VenueGalleryEditPage({
               </div>
               <div className="flex justify-between text-sm">
                 <span>Total Size:</span>
-                <span className="font-medium">9.9 MB</span>
+                <span className="font-medium">{totalSize.toFixed(1)} MB</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Last Updated:</span>
-                <span className="font-medium">Today</span>
+                <span className="font-medium">Now</span>
               </div>
+              {hasChanges && (
+                <div className="flex items-center gap-2 text-sm text-amber-600">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full" />
+                  Unsaved changes
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

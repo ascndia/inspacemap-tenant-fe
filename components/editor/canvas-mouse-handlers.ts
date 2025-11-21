@@ -1,6 +1,7 @@
 "use client";
 
 import { GraphNode } from "@/types/graph";
+import { getConnectionAtPoint } from "./canvas-drawing";
 
 export interface MouseEventHandlers {
   handleMouseDown: (event: React.MouseEvent) => void;
@@ -15,10 +16,13 @@ export interface MouseHandlerParams {
     graph: {
       nodes: GraphNode[];
       settings: { gridSize: number };
+      connections: any[];
     } | null;
     ui: {
       tool: string;
       snapToGrid: boolean;
+      isConnecting?: boolean;
+      connectingFromId?: string | null;
     };
   };
   panOffset: { x: number; y: number };
@@ -28,9 +32,21 @@ export interface MouseHandlerParams {
   onNodeUpdate: (nodeId: string, updates: any) => void;
   onPanChange: (panOffset: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
-  contextMenu: { x: number; y: number; nodeId?: string } | null;
+  onConnectionStart?: (nodeId: string) => void;
+  onConnectionComplete?: (fromNodeId: string, toNodeId: string) => void;
+  contextMenu: {
+    x: number;
+    y: number;
+    nodeId?: string;
+    connectionId?: string;
+  } | null;
   setContextMenu: (
-    menu: { x: number; y: number; nodeId?: string } | null
+    menu: {
+      x: number;
+      y: number;
+      nodeId?: string;
+      connectionId?: string;
+    } | null
   ) => void;
   isDragging: boolean;
   setIsDragging: (dragging: boolean) => void;
@@ -42,6 +58,10 @@ export interface MouseHandlerParams {
   setIsPanning: (panning: boolean) => void;
   panStart: { x: number; y: number };
   setPanStart: (start: { x: number; y: number }) => void;
+  hoveredNodeId: string | null;
+  setHoveredNodeId: (nodeId: string | null) => void;
+  mousePosition: { x: number; y: number };
+  setMousePosition: (position: { x: number; y: number }) => void;
 }
 
 export function createMouseHandlers(
@@ -57,6 +77,8 @@ export function createMouseHandlers(
     onNodeUpdate,
     onPanChange,
     onZoomChange,
+    onConnectionStart,
+    onConnectionComplete,
     contextMenu,
     setContextMenu,
     isDragging,
@@ -69,6 +91,10 @@ export function createMouseHandlers(
     setIsPanning,
     panStart,
     setPanStart,
+    hoveredNodeId,
+    setHoveredNodeId,
+    mousePosition,
+    setMousePosition,
   } = params;
 
   const handleMouseDown = (event: React.MouseEvent) => {
@@ -99,10 +125,22 @@ export function createMouseHandlers(
         return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
       });
 
+      // Check if right-clicking on a connection
+      const clickedConnection = state.graph?.connections
+        ? getConnectionAtPoint(
+            x,
+            y,
+            state.graph.connections,
+            state.graph.nodes,
+            5 / zoom
+          )
+        : null;
+
       setContextMenu({
         x: menuX,
         y: menuY,
         nodeId: clickedNode?.id,
+        connectionId: clickedConnection?.id,
       });
       return;
     }
@@ -147,6 +185,17 @@ export function createMouseHandlers(
             y: y - clickedNode.position.y,
           });
         }
+      } else if (state.ui.tool === "connect") {
+        // Handle connection creation
+        if (state.ui.isConnecting && state.ui.connectingFromId) {
+          // Complete connection
+          if (state.ui.connectingFromId !== clickedNode.id) {
+            onConnectionComplete?.(state.ui.connectingFromId, clickedNode.id);
+          }
+        } else {
+          // Start connection
+          onConnectionStart?.(clickedNode.id);
+        }
       }
     } else if (state.ui.tool === "add-node") {
       onCanvasClick(x, y);
@@ -154,6 +203,32 @@ export function createMouseHandlers(
   };
 
   const handleMouseMove = (event: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left - panOffset.x) / zoom;
+    const y = (event.clientY - rect.top - panOffset.y) / zoom;
+
+    // Update mouse position for connection preview
+    setMousePosition({ x, y });
+
+    // Detect hovered node
+    const hoveredNode = state.graph?.nodes.find((node) => {
+      const dx = node.position.x - x;
+      const dy = node.position.y - y;
+      return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
+    });
+
+    // Update hover state
+    if (hoveredNode) {
+      if (hoveredNodeId !== hoveredNode.id) {
+        setHoveredNodeId(hoveredNode.id);
+      }
+    } else if (hoveredNodeId !== null) {
+      setHoveredNodeId(null);
+    }
+
     if (isPanning) {
       const newPanOffset = {
         x: event.clientX - panStart.x,
@@ -164,13 +239,6 @@ export function createMouseHandlers(
     }
 
     if (isDragging && dragNode) {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const x = (event.clientX - rect.left - panOffset.x) / zoom;
-      const y = (event.clientY - rect.top - panOffset.y) / zoom;
-
       // Update node position through context
       const node = state.graph?.nodes.find((n) => n.id === dragNode);
       if (node) {

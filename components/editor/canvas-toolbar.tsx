@@ -11,6 +11,7 @@ import {
   ZoomOut,
   RotateCcw,
   ImageIcon,
+  Link,
 } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
 
@@ -64,6 +65,17 @@ export function CanvasToolbar({
         onClick={() => onToolChange("pan")}
       >
         <Move className="h-4 w-4" />
+      </Button>
+
+      <div className="h-6 w-px bg-border mx-2" />
+
+      <Button
+        variant={currentTool === "connect" ? "default" : "ghost"}
+        size="sm"
+        title="Connect Nodes"
+        onClick={() => onToolChange("connect")}
+      >
+        <Link className="h-4 w-4" />
       </Button>
 
       <div className="h-6 w-px bg-border mx-2" />

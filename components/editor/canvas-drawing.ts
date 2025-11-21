@@ -17,6 +17,10 @@ export interface DrawParams {
   ui: {
     showGrid: boolean;
     selectedNodeId: string | null;
+    isConnecting?: boolean;
+    connectingFromId?: string | null;
+    hoveredNodeId?: string | null;
+    mousePosition?: { x: number; y: number };
   };
   pathPreview: string[] | null;
 }
@@ -54,13 +58,32 @@ export function drawCanvas(params: DrawParams) {
   // Draw connections
   drawConnections(ctx, zoom, graph.connections, graph.nodes);
 
+  // Draw connection preview when connecting
+  if (ui.isConnecting && ui.connectingFromId && ui.mousePosition) {
+    drawConnectionPreview(
+      ctx,
+      zoom,
+      ui.connectingFromId,
+      ui.mousePosition,
+      graph.nodes
+    );
+  }
+
   // Draw path preview
   if (pathPreview && pathPreview.length > 1) {
     drawPathPreview(ctx, zoom, pathPreview, graph.nodes);
   }
 
   // Draw nodes
-  drawNodes(ctx, zoom, graph.nodes, ui.selectedNodeId);
+  drawNodes(
+    ctx,
+    zoom,
+    graph.nodes,
+    ui.selectedNodeId,
+    ui.isConnecting,
+    ui.connectingFromId,
+    ui.hoveredNodeId
+  );
 
   ctx.restore();
 }
@@ -156,6 +179,29 @@ function drawConnections(
   });
 }
 
+function drawConnectionPreview(
+  ctx: CanvasRenderingContext2D,
+  zoom: number,
+  fromNodeId: string,
+  mousePosition: { x: number; y: number },
+  nodes: GraphNode[]
+) {
+  const fromNode = nodes.find((n) => n.id === fromNodeId);
+  if (!fromNode) return;
+
+  // Draw preview connection line
+  ctx.strokeStyle = "#f59e0b"; // Orange color for preview
+  ctx.lineWidth = 2 / zoom;
+  ctx.setLineDash([5 / zoom, 5 / zoom]); // Dashed line
+
+  ctx.beginPath();
+  ctx.moveTo(fromNode.position.x, fromNode.position.y);
+  ctx.lineTo(mousePosition.x, mousePosition.y);
+  ctx.stroke();
+
+  ctx.setLineDash([]); // Reset dash
+}
+
 function drawPathPreview(
   ctx: CanvasRenderingContext2D,
   zoom: number,
@@ -181,19 +227,86 @@ function drawPathPreview(
   ctx.setLineDash([]);
 }
 
+export function getConnectionAtPoint(
+  x: number,
+  y: number,
+  connections: GraphConnection[],
+  nodes: GraphNode[],
+  tolerance: number = 5
+): GraphConnection | null {
+  for (const connection of connections) {
+    const fromNode = nodes.find((n) => n.id === connection.fromNodeId);
+    const toNode = nodes.find((n) => n.id === connection.toNodeId);
+
+    if (fromNode && toNode) {
+      // Check if point is near the line segment
+      if (
+        pointToLineDistance(x, y, fromNode.position, toNode.position) <=
+        tolerance
+      ) {
+        return connection;
+      }
+    }
+  }
+  return null;
+}
+
+function pointToLineDistance(
+  px: number,
+  py: number,
+  lineStart: { x: number; y: number },
+  lineEnd: { x: number; y: number }
+): number {
+  const dx = lineEnd.x - lineStart.x;
+  const dy = lineEnd.y - lineStart.y;
+  const length = Math.sqrt(dx * dx + dy * dy);
+
+  if (length === 0)
+    return Math.sqrt((px - lineStart.x) ** 2 + (py - lineStart.y) ** 2);
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((px - lineStart.x) * dx + (py - lineStart.y) * dy) / (length * length)
+    )
+  );
+  const closestX = lineStart.x + t * dx;
+  const closestY = lineStart.y + t * dy;
+
+  return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
+}
+
 function drawNodes(
   ctx: CanvasRenderingContext2D,
   zoom: number,
   nodes: GraphNode[],
-  selectedNodeId: string | null
+  selectedNodeId: string | null,
+  isConnecting?: boolean,
+  connectingFromId?: string | null,
+  hoveredNodeId?: string | null
 ) {
   nodes.forEach((node) => {
     const isSelected = selectedNodeId === node.id;
-    const radius = 8 / zoom;
+    const isConnectingFrom = connectingFromId === node.id;
+    const isHovered = hoveredNodeId === node.id;
+    const isValidTarget = isConnecting && connectingFromId !== node.id;
+
+    // Determine radius based on state
+    let radius = 8 / zoom;
+    if (isConnectingFrom) {
+      radius = 12 / zoom; // Enlarge connecting from node
+    } else if (isHovered && isValidTarget) {
+      radius = 10 / zoom; // Enlarge hovered target node
+    }
 
     // Node circle
     ctx.fillStyle = isSelected
       ? "#3b82f6"
+      : isConnectingFrom
+      ? "#f59e0b" // Orange for connecting from
+      : isHovered && isValidTarget
+      ? "#10b981" // Green for valid target
       : node.panoramaUrl
       ? "#22c55e"
       : "#6b7280";

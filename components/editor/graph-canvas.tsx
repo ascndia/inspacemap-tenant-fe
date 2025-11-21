@@ -20,12 +20,16 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     setSelectedNode,
     updateNode,
     deleteNode,
+    addConnection,
+    deleteConnection,
     undo,
     redo,
     canUndo,
     canRedo,
     loadFloorplan,
     setTool,
+    setConnectingStart,
+    setConnectingEnd,
   } = useGraph();
 
   const [canvasZoom, setCanvasZoom] = useState(1);
@@ -80,6 +84,28 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
       }
     },
     [state.ui.selectedNodeId, updateNode]
+  );
+
+  const handleConnectionStart = useCallback(
+    (nodeId: string) => {
+      setConnectingStart(nodeId);
+    },
+    [setConnectingStart]
+  );
+
+  const handleConnectionComplete = useCallback(
+    (fromNodeId: string, toNodeId: string) => {
+      addConnection(fromNodeId, toNodeId);
+      setConnectingEnd();
+    },
+    [addConnection, setConnectingEnd]
+  );
+
+  const handleDeleteConnection = useCallback(
+    (connectionId: string) => {
+      deleteConnection(connectionId);
+    },
+    [deleteConnection]
   );
 
   const handleFloorplanSelect = useCallback(
@@ -144,6 +170,9 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
               onPanChange={setCanvasPanOffset}
               addNode={addNode}
               removeNode={deleteNode}
+              onConnectionStart={handleConnectionStart}
+              onConnectionComplete={handleConnectionComplete}
+              onDeleteConnection={handleDeleteConnection}
               pathPreview={pathPreview}
             />
           </div>

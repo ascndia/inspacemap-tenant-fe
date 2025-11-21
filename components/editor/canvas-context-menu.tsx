@@ -6,12 +6,14 @@ interface ContextMenuProps {
   x: number;
   y: number;
   nodeId?: string;
+  connectionId?: string;
   onSelectNode?: (nodeId: string) => void;
   onToggleLock?: (nodeId: string) => void;
   onDuplicateNode?: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onAddNode?: (x: number, y: number) => void;
   onResetView?: () => void;
+  onDeleteConnection?: (connectionId: string) => void;
   isNodeLocked?: boolean;
 }
 
@@ -19,12 +21,14 @@ export function CanvasContextMenu({
   x,
   y,
   nodeId,
+  connectionId,
   onSelectNode,
   onToggleLock,
   onDuplicateNode,
   onDeleteNode,
   onAddNode,
   onResetView,
+  onDeleteConnection,
   isNodeLocked,
 }: ContextMenuProps) {
   return (
@@ -36,7 +40,18 @@ export function CanvasContextMenu({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {nodeId ? (
+      {connectionId ? (
+        <>
+          <button
+            className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm text-destructive"
+            onClick={() => {
+              onDeleteConnection?.(connectionId);
+            }}
+          >
+            Delete Connection
+          </button>
+        </>
+      ) : nodeId ? (
         <>
           <button
             className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"

@@ -45,6 +45,8 @@ type GraphAction =
       type: "SET_TOOL";
       payload: { tool: "select" | "add-node" | "connect" | "pan" | "zoom" };
     }
+  | { type: "SET_CONNECTING_START"; payload: { nodeId: string } }
+  | { type: "SET_CONNECTING_END" }
   | { type: "LOAD_GRAPH"; payload: { graph: GraphData } }
   | { type: "RESET_GRAPH" }
   | { type: "UNDO" }
@@ -345,6 +347,28 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       };
     }
 
+    case "SET_CONNECTING_START": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          isConnecting: true,
+          connectingFromId: action.payload.nodeId,
+        },
+      };
+    }
+
+    case "SET_CONNECTING_END": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          isConnecting: false,
+          connectingFromId: null,
+        },
+      };
+    }
+
     case "UPDATE_SETTINGS": {
       if (!state.graph) return state;
 
@@ -437,6 +461,8 @@ interface GraphContextType {
   setSelectedConnection: (connectionId: string | null) => void;
   updateSettings: (settings: Partial<GraphSettings>) => void;
   setTool: (tool: "select" | "add-node" | "connect" | "pan" | "zoom") => void;
+  setConnectingStart: (nodeId: string) => void;
+  setConnectingEnd: () => void;
   loadGraph: (graph: GraphData) => void;
   resetGraph: () => void;
   undo: () => void;
@@ -520,6 +546,14 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     },
     []
   );
+
+  const setConnectingStart = useCallback((nodeId: string) => {
+    dispatch({ type: "SET_CONNECTING_START", payload: { nodeId } });
+  }, []);
+
+  const setConnectingEnd = useCallback(() => {
+    dispatch({ type: "SET_CONNECTING_END" });
+  }, []);
 
   const loadGraph = useCallback((graph: GraphData) => {
     dispatch({ type: "LOAD_GRAPH", payload: { graph } });
@@ -685,6 +719,8 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     setSelectedConnection,
     updateSettings,
     setTool,
+    setConnectingStart,
+    setConnectingEnd,
     loadGraph,
     resetGraph,
     undo,

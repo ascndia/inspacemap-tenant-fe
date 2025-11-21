@@ -21,6 +21,9 @@ interface MapCanvas2DProps {
     attributes?: any
   ) => void;
   removeNode: (nodeId: string) => void;
+  onConnectionStart?: (nodeId: string) => void;
+  onConnectionComplete?: (fromNodeId: string, toNodeId: string) => void;
+  onDeleteConnection?: (connectionId: string) => void;
 }
 
 export function MapCanvas2D({
@@ -35,6 +38,9 @@ export function MapCanvas2D({
   onPanChange,
   addNode,
   removeNode,
+  onConnectionStart,
+  onConnectionComplete,
+  onDeleteConnection,
 }: MapCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { state, loadFloorplan } = useGraph();
@@ -51,7 +57,10 @@ export function MapCanvas2D({
     x: number;
     y: number;
     nodeId?: string;
+    connectionId?: string;
   } | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   // Load floorplan image when floorplan data changes
   useEffect(() => {
@@ -85,10 +94,25 @@ export function MapCanvas2D({
       zoom,
       floorplanImage,
       graph: state.graph!,
-      ui: state.ui,
+      ui: {
+        showGrid: state.ui.showGrid,
+        selectedNodeId: state.ui.selectedNodeId,
+        isConnecting: state.ui.isConnecting,
+        connectingFromId: state.ui.connectingFromId,
+        hoveredNodeId,
+        mousePosition,
+      },
       pathPreview,
     });
-  }, [state, panOffset, zoom, pathPreview, floorplanImage]);
+  }, [
+    state,
+    panOffset,
+    zoom,
+    pathPreview,
+    floorplanImage,
+    hoveredNodeId,
+    mousePosition,
+  ]);
 
   // Create mouse handlers
   const mouseHandlers = createMouseHandlers({
@@ -101,6 +125,8 @@ export function MapCanvas2D({
     onNodeUpdate,
     onPanChange,
     onZoomChange,
+    onConnectionStart,
+    onConnectionComplete,
     contextMenu,
     setContextMenu,
     isDragging,
@@ -113,6 +139,10 @@ export function MapCanvas2D({
     setIsPanning,
     panStart,
     setPanStart,
+    hoveredNodeId,
+    setHoveredNodeId,
+    mousePosition,
+    setMousePosition,
   });
 
   // Handle global click to close context menu
@@ -220,6 +250,14 @@ export function MapCanvas2D({
     setContextMenu(null);
   }, [onZoomChange, onPanChange]);
 
+  const handleDeleteConnection = useCallback(
+    (connectionId: string) => {
+      onDeleteConnection?.(connectionId);
+      setContextMenu(null);
+    },
+    [onDeleteConnection]
+  );
+
   return (
     <>
       <canvas
@@ -239,12 +277,14 @@ export function MapCanvas2D({
           x={contextMenu.x}
           y={contextMenu.y}
           nodeId={contextMenu.nodeId}
+          connectionId={contextMenu.connectionId}
           onSelectNode={handleSelectNode}
           onToggleLock={handleToggleLock}
           onDuplicateNode={handleDuplicateNode}
           onDeleteNode={handleDeleteNode}
           onAddNode={handleAddNode}
           onResetView={handleResetView}
+          onDeleteConnection={handleDeleteConnection}
           isNodeLocked={
             state.graph?.nodes.find((n) => n.id === contextMenu.nodeId)?.locked
           }

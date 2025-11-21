@@ -93,6 +93,7 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
         id: crypto.randomUUID(),
         position: action.payload.position,
         rotation: 0,
+        pitch: 0,
         heading: 0,
         fov: 75,
         connections: [],

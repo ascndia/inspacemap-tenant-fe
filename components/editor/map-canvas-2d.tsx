@@ -245,10 +245,43 @@ export function MapCanvas2D({
   );
 
   const handleResetView = useCallback(() => {
-    onZoomChange(1);
-    onPanChange({ x: 0, y: 0 });
+    if (state.graph?.floorplan && canvasRef.current) {
+      // Recenter the floorplan
+      const canvas = canvasRef.current;
+      const canvasRect = canvas.getBoundingClientRect();
+      const floorplan = state.graph.floorplan;
+
+      // Calculate floorplan center
+      const floorplanCenterX =
+        (floorplan.bounds.minX + floorplan.bounds.maxX) / 2;
+      const floorplanCenterY =
+        (floorplan.bounds.minY + floorplan.bounds.maxY) / 2;
+
+      // Calculate floorplan dimensions
+      const floorplanWidth = floorplan.bounds.maxX - floorplan.bounds.minX;
+      const floorplanHeight = floorplan.bounds.maxY - floorplan.bounds.minY;
+
+      // Calculate zoom to fit floorplan in viewport with some padding
+      const padding = 0.8;
+      const zoomX = (canvasRect.width * padding) / floorplanWidth;
+      const zoomY = (canvasRect.height * padding) / floorplanHeight;
+      const fitZoom = Math.min(zoomX, zoomY, 2);
+
+      // Calculate pan offset to center the floorplan
+      const centerX = canvasRect.width / 2;
+      const centerY = canvasRect.height / 2;
+      const panX = centerX - floorplanCenterX * fitZoom;
+      const panY = centerY - floorplanCenterY * fitZoom;
+
+      onZoomChange(Math.max(0.1, fitZoom));
+      onPanChange({ x: panX, y: panY });
+    } else {
+      // Fallback to default reset if no floorplan
+      onZoomChange(1);
+      onPanChange({ x: 0, y: 0 });
+    }
     setContextMenu(null);
-  }, [onZoomChange, onPanChange]);
+  }, [state.graph?.floorplan, onZoomChange, onPanChange]);
 
   const handleDeleteConnection = useCallback(
     (connectionId: string) => {

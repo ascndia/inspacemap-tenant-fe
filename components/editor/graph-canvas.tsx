@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useGraph } from "@/contexts/graph-context";
 import {
   ResizablePanelGroup,
@@ -34,6 +34,78 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
+
+  // Prevent browser zoom gestures and shortcuts
+  useEffect(() => {
+    const preventZoom = (e: Event) => {
+      // Prevent Ctrl+wheel zoom
+      if (e.type === "wheel" && (e as WheelEvent).ctrlKey) {
+        e.preventDefault();
+        return false;
+      }
+
+      // Prevent zoom keyboard shortcuts
+      if (e.type === "keydown") {
+        const keyEvent = e as KeyboardEvent;
+        if (
+          (keyEvent.ctrlKey || keyEvent.metaKey) &&
+          (keyEvent.key === "=" ||
+            keyEvent.key === "+" ||
+            keyEvent.key === "-" ||
+            keyEvent.key === "0" ||
+            keyEvent.key.toLowerCase() === "num+0")
+        ) {
+          e.preventDefault();
+          return false;
+        }
+      }
+
+      // Prevent touch zoom gestures
+      if (
+        e.type === "gesturestart" ||
+        e.type === "gesturechange" ||
+        e.type === "gestureend"
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    };
+
+    // Add event listeners to prevent browser zoom
+    document.addEventListener("wheel", preventZoom, { passive: false });
+    document.addEventListener("keydown", preventZoom, { passive: false });
+    document.addEventListener("gesturestart", preventZoom, { passive: false });
+    document.addEventListener("gesturechange", preventZoom, { passive: false });
+    document.addEventListener("gestureend", preventZoom, { passive: false });
+
+    // Prevent zoom on touch devices
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    });
+    document.addEventListener("touchmove", handleTouchMove, { passive: false });
+
+    return () => {
+      document.removeEventListener("wheel", preventZoom);
+      document.removeEventListener("keydown", preventZoom);
+      document.removeEventListener("gesturestart", preventZoom);
+      document.removeEventListener("gesturechange", preventZoom);
+      document.removeEventListener("gestureend", preventZoom);
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, []);
 
   const handleToolChange = (tool: string) => {
     setTool(tool as "select" | "add-node" | "connect" | "pan" | "zoom");
@@ -158,7 +230,13 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
           />
 
           {/* Canvas */}
-          <div className="flex-1 bg-muted/10 overflow-hidden relative">
+          <div
+            className="flex-1 bg-muted/10 overflow-hidden relative canvas-container"
+            style={{
+              touchAction: "none", // Prevent touch zoom on mobile
+              userSelect: "none", // Prevent text selection
+            }}
+          >
             <MapCanvas2D
               onNodeSelect={handleNodeSelect}
               onCanvasClick={handleCanvasClick}

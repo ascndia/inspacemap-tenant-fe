@@ -108,14 +108,17 @@ export default function VenueGalleryEditPage({
     return sum + size;
   }, 0);
 
-  const coverImage = galleryImages.find(img => img.isCover);
+  const coverImage = galleryImages.find((img) => img.isCover);
 
   // Handlers
   const handleMoveUp = (index: number) => {
     if (index === 0) return;
 
     const newImages = [...galleryImages];
-    [newImages[index - 1], newImages[index]] = [newImages[index], newImages[index - 1]];
+    [newImages[index - 1], newImages[index]] = [
+      newImages[index],
+      newImages[index - 1],
+    ];
     setGalleryImages(newImages);
     setHasChanges(true);
   };
@@ -124,31 +127,34 @@ export default function VenueGalleryEditPage({
     if (index === galleryImages.length - 1) return;
 
     const newImages = [...galleryImages];
-    [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+    [newImages[index], newImages[index + 1]] = [
+      newImages[index + 1],
+      newImages[index],
+    ];
     setGalleryImages(newImages);
     setHasChanges(true);
   };
 
   const handleSetCover = (imageId: string) => {
-    const newImages = galleryImages.map(img => ({
+    const newImages = galleryImages.map((img) => ({
       ...img,
       isCover: img.id === imageId,
     }));
     setGalleryImages(newImages);
-    setSettings(prev => ({ ...prev, coverImageId: imageId }));
+    setSettings((prev) => ({ ...prev, coverImageId: imageId }));
     setHasChanges(true);
   };
 
   const handleRemove = (imageId: string) => {
-    const newImages = galleryImages.filter(img => img.id !== imageId);
+    const newImages = galleryImages.filter((img) => img.id !== imageId);
     setGalleryImages(newImages);
     setHasChanges(true);
 
     // If we removed the cover image, set the first image as cover
-    const wasCover = galleryImages.find(img => img.id === imageId)?.isCover;
+    const wasCover = galleryImages.find((img) => img.id === imageId)?.isCover;
     if (wasCover && newImages.length > 0) {
       newImages[0].isCover = true;
-      setSettings(prev => ({ ...prev, coverImageId: newImages[0].id }));
+      setSettings((prev) => ({ ...prev, coverImageId: newImages[0].id }));
     }
   };
 
@@ -161,20 +167,22 @@ export default function VenueGalleryEditPage({
           alt: media.name || "New image",
           name: media.name || `Image ${galleryImages.length + index + 1}`,
           size: media.size || "1.0 MB",
-          uploadedAt: new Date().toISOString().split('T')[0],
+          uploadedAt: new Date().toISOString().split("T")[0],
           isCover: false,
         }))
-      : [{
-          id: `new-${Date.now()}`,
-          url: selectedMedia.url || "/placeholder-image.jpg",
-          alt: selectedMedia.name || "New image",
-          name: selectedMedia.name || `Image ${galleryImages.length + 1}`,
-          size: selectedMedia.size || "1.0 MB",
-          uploadedAt: new Date().toISOString().split('T')[0],
-          isCover: false,
-        }];
+      : [
+          {
+            id: `new-${Date.now()}`,
+            url: selectedMedia.url || "/placeholder-image.jpg",
+            alt: selectedMedia.name || "New image",
+            name: selectedMedia.name || `Image ${galleryImages.length + 1}`,
+            size: selectedMedia.size || "1.0 MB",
+            uploadedAt: new Date().toISOString().split("T")[0],
+            isCover: false,
+          },
+        ];
 
-    setGalleryImages(prev => [...prev, ...newImages]);
+    setGalleryImages((prev) => [...prev, ...newImages]);
     setHasChanges(true);
     toast.success(`${newImages.length} image(s) added to gallery`);
   };
@@ -184,7 +192,7 @@ export default function VenueGalleryEditPage({
 
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // In a real app, save to backend
       console.log("Saving gallery:", {
@@ -204,7 +212,7 @@ export default function VenueGalleryEditPage({
   };
 
   const handleSettingChange = (key: keyof GallerySettings, value: string) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
@@ -331,7 +339,9 @@ export default function VenueGalleryEditPage({
                 <label className="text-sm font-medium">Sort Order</label>
                 <Select
                   value={settings.sortOrder}
-                  onValueChange={(value) => handleSettingChange("sortOrder", value)}
+                  onValueChange={(value) =>
+                    handleSettingChange("sortOrder", value)
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -353,7 +363,9 @@ export default function VenueGalleryEditPage({
                 <label className="text-sm font-medium">Display Mode</label>
                 <Select
                   value={settings.displayMode}
-                  onValueChange={(value) => handleSettingChange("displayMode", value)}
+                  onValueChange={(value) =>
+                    handleSettingChange("displayMode", value)
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />

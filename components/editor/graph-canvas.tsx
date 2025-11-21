@@ -14,6 +14,11 @@ import {
   Link,
   Unlink,
 } from "lucide-react";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 // 2D Canvas Component for Map Editing
 function MapCanvas2D({
@@ -511,24 +516,34 @@ function MapCanvas2D({
 function PanoramaViewer({
   selectedNode,
   onRotationChange,
+  onPitchChange,
 }: {
   selectedNode: any;
   onRotationChange: (rotation: number) => void;
+  onPitchChange: (pitch: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rotation, setRotation] = useState(0);
+  const [rotation, setRotation] = useState(0); // yaw (horizontal)
+  const [pitch, setPitch] = useState(0); // pitch (vertical)
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartY, setDragStartY] = useState(0);
   const [dragStartRotation, setDragStartRotation] = useState(0);
+  const [dragStartPitch, setDragStartPitch] = useState(0);
 
   // Load panorama image
   useEffect(() => {
     if (selectedNode?.panoramaUrl) {
       const img = new Image();
-      img.crossOrigin = "anonymous";
+      // Remove crossOrigin for local images
       img.onload = () => {
+        console.log("Image loaded successfully:", selectedNode.panoramaUrl);
         setImage(img);
+      };
+      img.onerror = (error) => {
+        console.error("Failed to load image:", selectedNode.panoramaUrl, error);
+        setImage(null);
       };
       img.src = selectedNode.panoramaUrl;
     } else {
@@ -536,7 +551,7 @@ function PanoramaViewer({
     }
   }, [selectedNode]);
 
-  // Draw equirectangular panorama
+  // Draw equirectangular 360° panorama with proper spherical projection
   const drawPanorama = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !image) return;
@@ -551,73 +566,128 @@ function PanoramaViewer({
     ctx.clearRect(0, 0, width, height);
 
     if (!image) {
-      // Draw placeholder
+      // Draw placeholder with error message
       ctx.fillStyle = "#f0f0f0";
       ctx.fillRect(0, 0, width, height);
       ctx.fillStyle = "#666";
-      ctx.font = "16px Arial";
+      ctx.font = "14px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("No panorama image", width / 2, height / 2);
+      ctx.fillText("Loading panorama...", width / 2, height / 2 - 10);
+      ctx.font = "12px Arial";
+      ctx.fillText(
+        selectedNode.panoramaUrl || "No URL",
+        width / 2,
+        height / 2 + 10
+      );
       return;
     }
 
-    // Draw equirectangular view with rotation
+    // For equirectangular 360° panorama (assume 2:1 aspect ratio)
     const imageWidth = image.width;
     const imageHeight = image.height;
 
-    // Calculate visible portion based on rotation
-    const rotationRad = (rotation * Math.PI) / 180;
-    const fov = 90; // Field of view in degrees
-    const fovRad = (fov * Math.PI) / 180;
+    // Convert rotation to radians (yaw and pitch)
+    const yaw = (rotation * Math.PI) / 180;
+    const cameraPitch = (pitch * Math.PI) / 180;
 
-    // For simplicity, we'll just draw a portion of the equirectangular image
-    const startX = ((rotation / 360) * imageWidth + imageWidth) % imageWidth;
-    const drawWidth = (fov / 360) * imageWidth;
+    // Field of view in radians (90° horizontal)
+    const fov = (90 * Math.PI) / 180;
+    const aspectRatio = width / height;
 
-    ctx.drawImage(
-      image,
-      startX,
-      0,
-      drawWidth,
-      imageHeight,
-      0,
-      0,
-      width,
-      height
-    );
+    // For each pixel in the output canvas, calculate the corresponding
+    // position on the equirectangular image using ray casting (like GLSL shader)
+    const imageData = ctx.createImageData(width, height);
+    const data = imageData.data;
 
-    // If we need to wrap around
-    if (startX + drawWidth > imageWidth) {
-      ctx.drawImage(
-        image,
-        0,
-        0,
-        startX + drawWidth - imageWidth,
-        imageHeight,
-        width - ((startX + drawWidth - imageWidth) / drawWidth) * width,
-        0,
-        ((startX + drawWidth - imageWidth) / drawWidth) * width,
-        height
-      );
+    // Get source image data for sampling
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    if (!tempCtx) return;
+
+    tempCanvas.width = imageWidth;
+    tempCanvas.height = imageHeight;
+    tempCtx.drawImage(image, 0, 0);
+    const sourceData = tempCtx.getImageData(0, 0, imageWidth, imageHeight).data;
+
+    // Pre-compute rotation matrices for yaw and pitch
+    const cosYaw = Math.cos(yaw);
+    const sinYaw = Math.sin(yaw);
+    const cosPitch = Math.cos(cameraPitch);
+    const sinPitch = Math.sin(cameraPitch);
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Convert screen coordinates to normalized device coordinates (-1 to 1)
+        const ndcX = (x / width) * 2 - 1;
+        const ndcY = (y / height) * 2 - 1;
+
+        // Aspect ratio correction
+        const aspect = width / height;
+
+        // Create ray from camera (like GLSL shader)
+        // Z is forward (-1.0), apply FOV scaling
+        // Use diagonal-based FOV to maintain scale invariance
+        const diagonal = Math.sqrt(width * width + height * height);
+        const referenceDiagonal = Math.sqrt(400 * 400 + 300 * 300); // Reference canvas diagonal
+        const fovScale = Math.tan(fov / 2) * (referenceDiagonal / diagonal); // Inverse scaling
+        let rayX = ndcX * aspect * fovScale;
+        let rayY = -ndcY * fovScale; // Flip Y because canvas Y increases downward
+        let rayZ = -1.0;
+
+        // Normalize ray
+        const rayLength = Math.sqrt(rayX * rayX + rayY * rayY + rayZ * rayZ);
+        rayX /= rayLength;
+        rayY /= rayLength;
+        rayZ /= rayLength;
+
+        // Apply pitch rotation (rotate around X axis)
+        const tempY = rayY * cosPitch - rayZ * sinPitch;
+        const tempZ = rayY * sinPitch + rayZ * cosPitch;
+        rayY = tempY;
+        rayZ = tempZ;
+
+        // Apply yaw rotation (rotate around Y axis)
+        const tempX = rayX * cosYaw + rayZ * sinYaw;
+        const tempZ2 = -rayX * sinYaw + rayZ * cosYaw;
+        rayX = tempX;
+        rayZ = tempZ2;
+
+        // Convert Cartesian to Spherical coordinates (like GLSL)
+        const phi = Math.atan2(rayZ, rayX); // Use atan2 for full 360° range
+        const theta = Math.acos(Math.max(-1, Math.min(1, rayY))); // Clamp to avoid NaN
+
+        // Map to equirectangular UV coordinates
+        const u = (phi + Math.PI) / (2 * Math.PI); // 0 to 1
+        const v = theta / Math.PI; // 0 to 1
+
+        // Convert to pixel coordinates
+        const sourceX = Math.floor(u * imageWidth) % imageWidth;
+        const sourceY = Math.floor(v * imageHeight);
+
+        // Handle negative coordinates (wrap around for seamless 360°)
+        const finalSourceX = sourceX < 0 ? sourceX + imageWidth : sourceX;
+
+        // Ensure sourceY is within bounds
+        const clampedSourceY = Math.max(0, Math.min(imageHeight - 1, sourceY));
+
+        // Get pixel color from source image
+        const sourceIndex = (clampedSourceY * imageWidth + finalSourceX) * 4;
+        const targetIndex = (y * width + x) * 4;
+
+        data[targetIndex] = sourceData[sourceIndex]; // R
+        data[targetIndex + 1] = sourceData[sourceIndex + 1]; // G
+        data[targetIndex + 2] = sourceData[sourceIndex + 2]; // B
+        data[targetIndex + 3] = sourceData[sourceIndex + 3]; // A
+      }
     }
 
-    // Draw rotation indicator
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(width / 2, height / 2 - 20);
-    ctx.lineTo(width / 2, height / 2 + 20);
-    ctx.stroke();
-
-    ctx.fillStyle = "#fff";
-    ctx.font = "12px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(`${rotation}°`, width / 2, height / 2 + 35);
-  }, [image, rotation]);
+    ctx.putImageData(imageData, 0, 0);
+  }, [image, rotation, pitch, selectedNode]);
 
   useEffect(() => {
     if (selectedNode) {
       setRotation(selectedNode.rotation || 0);
+      setPitch(selectedNode.pitch || 0);
     }
   }, [selectedNode]);
 
@@ -629,9 +699,11 @@ function PanoramaViewer({
     (event: React.MouseEvent) => {
       setIsDragging(true);
       setDragStartX(event.clientX);
+      setDragStartY(event.clientY);
       setDragStartRotation(rotation);
+      setDragStartPitch(pitch);
     },
-    [rotation]
+    [rotation, pitch]
   );
 
   const handleMouseMove = useCallback(
@@ -639,14 +711,33 @@ function PanoramaViewer({
       if (!isDragging) return;
 
       const deltaX = event.clientX - dragStartX;
+      const deltaY = event.clientY - dragStartY;
       const sensitivity = 0.5; // Adjust sensitivity as needed
+
+      // Horizontal drag for yaw (left/right rotation)
       const newRotation =
         (dragStartRotation - deltaX * sensitivity + 360) % 360;
 
+      // Vertical drag for pitch (up/down rotation), clamp to prevent flipping
+      const newPitch = Math.max(
+        -85,
+        Math.min(85, dragStartPitch + deltaY * sensitivity)
+      );
+
       setRotation(newRotation);
+      setPitch(newPitch);
       onRotationChange(newRotation);
+      onPitchChange(newPitch);
     },
-    [isDragging, dragStartX, dragStartRotation, onRotationChange]
+    [
+      isDragging,
+      dragStartX,
+      dragStartY,
+      dragStartRotation,
+      dragStartPitch,
+      onRotationChange,
+      onPitchChange,
+    ]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -676,39 +767,8 @@ function PanoramaViewer({
 
       {/* Controls */}
       {selectedNode && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Rotation: {rotation}°</label>
-            <input
-              type="range"
-              min="0"
-              max="360"
-              value={rotation}
-              onChange={(e) => handleRotationChange(Number(e.target.value))}
-              className="w-full"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleRotationChange((rotation - 45 + 360) % 360)}
-            >
-              ← 45°
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleRotationChange((rotation + 45) % 360)}
-            >
-              45° →
-            </Button>
-          </div>
-
-          <div className="text-xs text-muted-foreground">
-            Adjust rotation to align "North" with the top of the map
-          </div>
+        <div className="text-xs text-muted-foreground text-center">
+          Drag horizontally to rotate view • Drag vertically to look up/down
         </div>
       )}
 
@@ -772,6 +832,15 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     [setSelectedNode]
   );
 
+  const handlePitchChange = useCallback(
+    (pitch: number) => {
+      if (state.ui.selectedNodeId) {
+        updateNode(state.ui.selectedNodeId, { pitch });
+      }
+    },
+    [state.ui.selectedNodeId, updateNode]
+  );
+
   const handleRotationChange = useCallback(
     (rotation: number) => {
       if (state.ui.selectedNodeId) {
@@ -786,118 +855,125 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
   );
 
   return (
-    <div className="flex h-full gap-4">
-      {/* Main Canvas Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Toolbar */}
-        <div className="flex items-center gap-2 p-2 bg-background border-b">
-          <Button
-            variant={state.ui.tool === "select" ? "default" : "ghost"}
-            size="sm"
-            title="Select"
-            onClick={() => handleToolChange("select")}
-          >
-            <MousePointer2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={state.ui.tool === "add-node" ? "default" : "ghost"}
-            size="sm"
-            title="Add Node"
-            onClick={() => handleToolChange("add-node")}
-          >
-            <PlusCircle className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={state.ui.tool === "pan" ? "default" : "ghost"}
-            size="sm"
-            title="Pan"
-            onClick={() => handleToolChange("pan")}
-          >
-            <Move className="h-4 w-4" />
-          </Button>
+    <ResizablePanelGroup direction="horizontal" className="h-full">
+      {/* Canvas Panel */}
+      <ResizablePanel defaultSize={75} minSize={50}>
+        <div className="flex flex-col h-full">
+          {/* Toolbar */}
+          <div className="flex items-center gap-2 p-2 bg-background border-b">
+            <Button
+              variant={state.ui.tool === "select" ? "default" : "ghost"}
+              size="sm"
+              title="Select"
+              onClick={() => handleToolChange("select")}
+            >
+              <MousePointer2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={state.ui.tool === "add-node" ? "default" : "ghost"}
+              size="sm"
+              title="Add Node"
+              onClick={() => handleToolChange("add-node")}
+            >
+              <PlusCircle className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={state.ui.tool === "pan" ? "default" : "ghost"}
+              size="sm"
+              title="Pan"
+              onClick={() => handleToolChange("pan")}
+            >
+              <Move className="h-4 w-4" />
+            </Button>
 
-          <div className="h-6 w-px bg-border mx-2" />
+            <div className="h-6 w-px bg-border mx-2" />
 
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Zoom In"
-            onClick={handleZoomIn}
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Zoom Out"
-            onClick={handleZoomOut}
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            title="Reset View"
-            onClick={handleResetView}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Zoom In"
+              onClick={handleZoomIn}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Zoom Out"
+              onClick={handleZoomOut}
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Reset View"
+              onClick={handleResetView}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
 
-          <div className="h-6 w-px bg-border mx-2" />
+            <div className="h-6 w-px bg-border mx-2" />
 
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!canUndo}
-            onClick={undo}
-            title="Undo"
-          >
-            ↶
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!canRedo}
-            onClick={redo}
-            title="Redo"
-          >
-            ↷
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!canUndo}
+              onClick={undo}
+              title="Undo"
+            >
+              ↶
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!canRedo}
+              onClick={redo}
+              title="Redo"
+            >
+              ↷
+            </Button>
+          </div>
+
+          {/* Canvas */}
+          <div className="flex-1 bg-muted/10 overflow-hidden">
+            <MapCanvas2D
+              onNodeSelect={handleNodeSelect}
+              onCanvasClick={handleCanvasClick}
+              onNodeUpdate={updateNode}
+              onToolChange={handleToolChange}
+              zoom={canvasZoom}
+              panOffset={canvasPanOffset}
+              onZoomChange={setCanvasZoom}
+              onPanChange={setCanvasPanOffset}
+              addNode={addNode}
+              removeNode={deleteNode}
+              pathPreview={pathPreview}
+            />
+          </div>
+
+          {/* Status Bar */}
+          <div className="px-4 py-2 bg-background border-t text-xs text-muted-foreground">
+            {state.graph?.nodes.length || 0} Nodes •{" "}
+            {state.graph?.connections.length || 0} Connections • Tool:{" "}
+            {state.ui.tool}
+          </div>
         </div>
+      </ResizablePanel>
 
-        {/* Canvas */}
-        <div className="flex-1 bg-muted/10 overflow-hidden">
-          <MapCanvas2D
-            onNodeSelect={handleNodeSelect}
-            onCanvasClick={handleCanvasClick}
-            onNodeUpdate={updateNode}
-            onToolChange={handleToolChange}
-            zoom={canvasZoom}
-            panOffset={canvasPanOffset}
-            onZoomChange={setCanvasZoom}
-            onPanChange={setCanvasPanOffset}
-            addNode={addNode}
-            removeNode={deleteNode}
-            pathPreview={pathPreview}
-          />
-        </div>
-
-        {/* Status Bar */}
-        <div className="px-4 py-2 bg-background border-t text-xs text-muted-foreground">
-          {state.graph?.nodes.length || 0} Nodes •{" "}
-          {state.graph?.connections.length || 0} Connections • Tool:{" "}
-          {state.ui.tool}
-        </div>
-      </div>
+      <ResizableHandle withHandle />
 
       {/* Panorama Viewer Panel */}
-      <div className="w-80 bg-background border-l p-4">
-        <h3 className="font-semibold mb-4">Panorama Viewer</h3>
-        <PanoramaViewer
-          selectedNode={selectedNode}
-          onRotationChange={handleRotationChange}
-        />
-      </div>
-    </div>
+      <ResizablePanel defaultSize={25} minSize={20}>
+        <div className="h-full bg-background border-l p-4">
+          <h3 className="font-semibold mb-4">Panorama Viewer</h3>
+          <PanoramaViewer
+            selectedNode={selectedNode}
+            onRotationChange={handleRotationChange}
+            onPitchChange={handlePitchChange}
+          />
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }

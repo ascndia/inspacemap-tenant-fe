@@ -11,13 +11,23 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
-import { Upload, Save, Play, Route, Zap, BarChart3 } from "lucide-react";
+import {
+  Upload,
+  Save,
+  Play,
+  Route,
+  Zap,
+  BarChart3,
+  Settings,
+  Eye,
+} from "lucide-react";
 import { useGraph } from "@/contexts/graph-context";
 
 function GraphEditorContent() {
   const { state, validateGraph, autoLayout, findPath, getGraphStats } =
     useGraph();
   const [showPanoramaPreview, setShowPanoramaPreview] = useState(false);
+  const [showPropertiesPanel, setShowPropertiesPanel] = useState(true);
   const [pathPreview, setPathPreview] = useState<string[] | null>(null);
   const [pathStartNode, setPathStartNode] = useState<string | null>(null);
 
@@ -100,7 +110,16 @@ function GraphEditorContent() {
             size="sm"
             onClick={() => setShowPanoramaPreview(!showPanoramaPreview)}
           >
+            <Eye className="h-4 w-4 mr-2" />
             Panorama Preview
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPropertiesPanel(!showPropertiesPanel)}
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Properties Panel
           </Button>
           <Button size="sm" onClick={handleSave}>
             <Save className="h-4 w-4 mr-2" />
@@ -113,7 +132,10 @@ function GraphEditorContent() {
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
           {/* Canvas Panel */}
-          <ResizablePanel defaultSize={75} minSize={50}>
+          <ResizablePanel
+            defaultSize={showPropertiesPanel ? 75 : 100}
+            minSize={50}
+          >
             <div className="h-full relative">
               <GraphCanvas pathPreview={pathPreview} />
               {showPanoramaPreview && (
@@ -124,12 +146,16 @@ function GraphEditorContent() {
             </div>
           </ResizablePanel>
 
-          <ResizableHandle withHandle />
+          {showPropertiesPanel && (
+            <>
+              <ResizableHandle withHandle />
 
-          {/* Properties Panel */}
-          <ResizablePanel defaultSize={25} minSize={20}>
-            <PropertiesPanel />
-          </ResizablePanel>
+              {/* Properties Panel */}
+              <ResizablePanel defaultSize={25} minSize={20}>
+                <PropertiesPanel />
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
     </div>

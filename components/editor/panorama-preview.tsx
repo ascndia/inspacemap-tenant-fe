@@ -2,19 +2,13 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useGraph } from "@/contexts/graph-context";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import { RotateCcw, Play, Pause } from "lucide-react";
 
 export function PanoramaPreview() {
-  const { selectedNode, updateNode } = useGraph();
+  const { selectedNode } = useGraph();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [rotation, setRotation] = useState(0);
-  const [heading, setHeading] = useState(0);
   const [fov, setFov] = useState(75);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const animationRef = useRef<number | null>(null);
 
   // Load panorama image
   useEffect(() => {
@@ -34,7 +28,6 @@ export function PanoramaPreview() {
   useEffect(() => {
     if (selectedNode) {
       setRotation(selectedNode.rotation || 0);
-      setHeading(selectedNode.heading || 0);
       setFov(selectedNode.fov || 75);
     }
   }, [selectedNode]);
@@ -125,64 +118,10 @@ export function PanoramaPreview() {
     ctx.stroke();
   }, [image, rotation, fov]);
 
-  // Animation loop for auto-rotation
-  useEffect(() => {
-    if (isPlaying) {
-      const animate = () => {
-        setRotation((prev) => (prev + 0.5) % 360);
-        animationRef.current = requestAnimationFrame(animate);
-      };
-      animationRef.current = requestAnimationFrame(animate);
-    } else {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isPlaying]);
-
   // Redraw when parameters change
   useEffect(() => {
     drawPanorama();
   }, [drawPanorama]);
-
-  const handleRotationChange = (value: number[]) => {
-    const newRotation = value[0];
-    setRotation(newRotation);
-    if (selectedNode) {
-      updateNode(selectedNode.id, { rotation: newRotation });
-    }
-  };
-
-  const handleHeadingChange = (value: number[]) => {
-    const newHeading = value[0];
-    setHeading(newHeading);
-    if (selectedNode) {
-      updateNode(selectedNode.id, { heading: newHeading });
-    }
-  };
-
-  const handleFovChange = (value: number[]) => {
-    const newFov = value[0];
-    setFov(newFov);
-    if (selectedNode) {
-      updateNode(selectedNode.id, { fov: newFov });
-    }
-  };
-
-  const handleReset = () => {
-    setRotation(0);
-    setHeading(0);
-    setFov(75);
-    if (selectedNode) {
-      updateNode(selectedNode.id, { rotation: 0, heading: 0, fov: 75 });
-    }
-  };
 
   if (!selectedNode?.panoramaUrl) {
     return (
@@ -195,79 +134,13 @@ export function PanoramaPreview() {
   return (
     <div className="h-full flex flex-col">
       {/* 2D Panorama Viewer */}
-      <div className="flex-1 relative bg-black rounded-t-lg overflow-hidden">
+      <div className="flex-1 relative bg-black rounded-lg overflow-hidden">
         <canvas
           ref={canvasRef}
           width={400}
           height={240}
           className="w-full h-full object-cover"
         />
-
-        {/* Overlay Controls */}
-        <div className="absolute top-2 right-2 flex gap-1">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setIsPlaying(!isPlaying)}
-          >
-            {isPlaying ? (
-              <Pause className="h-3 w-3" />
-            ) : (
-              <Play className="h-3 w-3" />
-            )}
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleReset}>
-            <RotateCcw className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="p-4 space-y-4 bg-background border-t">
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span>Rotation</span>
-            <span>{rotation}°</span>
-          </div>
-          <Slider
-            value={[rotation]}
-            onValueChange={handleRotationChange}
-            min={0}
-            max={360}
-            step={1}
-            className="w-full"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span>Heading</span>
-            <span>{heading}°</span>
-          </div>
-          <Slider
-            value={[heading]}
-            onValueChange={handleHeadingChange}
-            min={0}
-            max={360}
-            step={1}
-            className="w-full"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span>FOV</span>
-            <span>{fov}°</span>
-          </div>
-          <Slider
-            value={[fov]}
-            onValueChange={handleFovChange}
-            min={30}
-            max={120}
-            step={1}
-            className="w-full"
-          />
-        </div>
       </div>
     </div>
   );

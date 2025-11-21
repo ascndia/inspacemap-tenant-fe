@@ -10,6 +10,7 @@ export interface GraphNode {
   id: string;
   position: Vector3; // Position on the floorplan (x, y, z)
   rotation: number; // Panorama rotation offset (0-360°)
+  pitch: number; // Panorama pitch offset (-90° to +90°)
   heading: number; // Viewing direction (0-360°)
   fov: number; // Field of view (default 75°)
   connections: string[]; // Array of connected node IDs
@@ -118,6 +119,7 @@ export interface GraphStats {
 
 export interface PanoramaView {
   rotation: number;
+  pitch: number;
   heading: number;
   fov: number;
   position: Vector3;
@@ -146,6 +148,7 @@ export interface GraphCreator {
 export interface PanoramaPreview {
   loadPanorama(imageUrl: string): Promise<void>;
   setRotation(rotation: number): void;
+  setPitch(pitch: number): void;
   setHeading(heading: number): void;
   setFov(fov: number): void;
   getCurrentView(): PanoramaView;

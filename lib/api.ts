@@ -11,6 +11,16 @@ export const mockOrganizations = [
     email: "contact@acme.com",
     phone: "+1 (555) 123-4567",
     address: "123 Desert Road, Arizona, USA",
+    // New schema fields
+    slug: "acme-corp",
+    logoURL: "/placeholder-logo.png",
+    website: "https://acme.com",
+    isActive: true,
+    settings: {
+      theme: "light",
+      notifications: true,
+      language: "en",
+    },
   },
   {
     id: "2",
@@ -18,6 +28,11 @@ export const mockOrganizations = [
     type: "company",
     members: [1, 2, 3, 4, 5],
     status: "active",
+    slug: "global-retail",
+    logoURL: "/placeholder-logo.png",
+    website: "https://globalretail.com",
+    isActive: true,
+    settings: {},
   },
 ];
 
@@ -27,6 +42,7 @@ export const mockVenues = [
     name: "Grand Plaza Mall",
     address: "123 Market St, San Francisco, CA",
     status: "published",
+    coverImageId: "1",
     floors: [
       {
         id: "f1",
@@ -51,6 +67,7 @@ export const mockVenues = [
     name: "Tech Hub Office",
     address: "456 Innovation Dr, San Jose, CA",
     status: "draft",
+    coverImageId: "4",
     floors: [
       {
         id: "f3",
@@ -66,6 +83,7 @@ export const mockVenues = [
     name: "City Center Hotel",
     address: "789 Downtown Ave, Los Angeles, CA",
     status: "published",
+    coverImageId: "5",
     floors: [],
     location: { lat: 34.0522, lng: -118.2437 },
   },

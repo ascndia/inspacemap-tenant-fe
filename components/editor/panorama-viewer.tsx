@@ -1,25 +1,44 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 // Panorama Viewer Component
 export default function PanoramaViewer({
   selectedNode,
   onRotationChange,
   onPitchChange,
+  rotationSpeed = 0.5,
 }: {
   selectedNode: any;
   onRotationChange: (rotation: number) => void;
   onPitchChange: (pitch: number) => void;
+  rotationSpeed?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rotation, setRotation] = useState(0); // yaw (horizontal)
   const [pitch, setPitch] = useState(0); // pitch (vertical)
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartY, setDragStartY] = useState(0);
-  const [dragStartRotation, setDragStartRotation] = useState(0);
-  const [dragStartPitch, setDragStartPitch] = useState(0);
+
+  // Use refs for drag state to avoid unnecessary re-renders
+  const dragStateRef = useRef({
+    startX: 0,
+    startY: 0,
+    startRotation: 0,
+    startPitch: 0,
+  });
+
+  // Use refs for current rotation/pitch values (for real-time rendering)
+  const currentRotationRef = useRef(rotation);
+  const currentPitchRef = useRef(pitch);
+
+  // Flag to prevent rendering during drag end transition
+  const isDragEndingRef = useRef(false);
+
+  // Animation frame ref for throttling
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Cached image data to avoid re-processing
+  const imageDataCache = useRef<ImageData | null>(null);
 
   // Load panorama image
   useEffect(() => {
@@ -40,148 +59,169 @@ export default function PanoramaViewer({
     }
   }, [selectedNode]);
 
-  // Draw equirectangular 360° panorama with proper spherical projection
-  const drawPanorama = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !image) return;
+  // Helper function to calculate rotation matrices
+  const getRotationMatrices = useCallback(
+    (yaw: number, cameraPitch: number) => {
+      const yawRad = (yaw * Math.PI) / 180;
+      const pitchRad = (cameraPitch * Math.PI) / 180;
+      return {
+        cosYaw: Math.cos(yawRad),
+        sinYaw: Math.sin(yawRad),
+        cosPitch: Math.cos(pitchRad),
+        sinPitch: Math.sin(pitchRad),
+      };
+    },
+    []
+  );
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+  // Memoize rotation matrices to avoid recalculation
+  const rotationMatrices = useMemo(() => {
+    return getRotationMatrices(rotation, pitch);
+  }, [rotation, pitch, getRotationMatrices]);
 
-    const width = canvas.width;
-    const height = canvas.height;
+  // Memoize processed image data to avoid re-processing on resize
+  const processedImageData = useMemo(() => {
+    if (!image) return null;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-
-    if (!image) {
-      // Draw placeholder with error message
-      ctx.fillStyle = "#f0f0f0";
-      ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = "#666";
-      ctx.font = "14px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("Loading panorama...", width / 2, height / 2 - 10);
-      ctx.font = "12px Arial";
-      ctx.fillText(
-        selectedNode.panoramaUrl || "No URL",
-        width / 2,
-        height / 2 + 10
-      );
-      return;
-    }
-
-    // For equirectangular 360° panorama (assume 2:1 aspect ratio)
-    const imageWidth = image.width;
-    const imageHeight = image.height;
-
-    // Convert rotation to radians (yaw and pitch)
-    const yaw = (rotation * Math.PI) / 180;
-    const cameraPitch = (pitch * Math.PI) / 180;
-
-    // Field of view in radians (90° horizontal)
-    const fov = (90 * Math.PI) / 180;
-    const aspectRatio = width / height;
-
-    // For each pixel in the output canvas, calculate the corresponding
-    // position on the equirectangular image using ray casting (like GLSL shader)
-    const imageData = ctx.createImageData(width, height);
-    const data = imageData.data;
-
-    // Get source image data for sampling
     const tempCanvas = document.createElement("canvas");
     const tempCtx = tempCanvas.getContext("2d");
-    if (!tempCtx) return;
+    if (!tempCtx) return null;
 
-    tempCanvas.width = imageWidth;
-    tempCanvas.height = imageHeight;
+    tempCanvas.width = image.width;
+    tempCanvas.height = image.height;
     tempCtx.drawImage(image, 0, 0);
-    const sourceData = tempCtx.getImageData(0, 0, imageWidth, imageHeight).data;
+    return tempCtx.getImageData(0, 0, image.width, image.height);
+  }, [image]);
 
-    // Pre-compute rotation matrices for yaw and pitch
-    const cosYaw = Math.cos(yaw);
-    const sinYaw = Math.sin(yaw);
-    const cosPitch = Math.cos(cameraPitch);
-    const sinPitch = Math.sin(cameraPitch);
+  // Draw equirectangular 360° panorama with proper spherical projection
+  const drawPanorama = useCallback(
+    (
+      currentRotation = currentRotationRef.current,
+      currentPitch = currentPitchRef.current
+    ) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !processedImageData) return;
 
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        // Convert screen coordinates to normalized device coordinates (-1 to 1)
-        const ndcX = (x / width) * 2 - 1;
-        const ndcY = (y / height) * 2 - 1;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-        // Aspect ratio correction
-        const aspect = width / height;
+      const width = canvas.width;
+      const height = canvas.height;
 
-        // Create ray from camera (like GLSL shader)
-        // Z is forward (-1.0), apply FOV scaling
-        // Keep FOV constant regardless of canvas size for proportional display
-        const fovScale = Math.tan(fov / 2);
-        let rayX = ndcX * aspect * fovScale;
-        let rayY = -ndcY * fovScale; // Flip Y because canvas Y increases downward
-        let rayZ = -1.0;
+      // Clear canvas
+      ctx.clearRect(0, 0, width, height);
 
-        // Normalize ray
-        const rayLength = Math.sqrt(rayX * rayX + rayY * rayY + rayZ * rayZ);
-        rayX /= rayLength;
-        rayY /= rayLength;
-        rayZ /= rayLength;
+      // For equirectangular 360° panorama (assume 2:1 aspect ratio)
+      const imageWidth = processedImageData.width;
+      const imageHeight = processedImageData.height;
+      const sourceData = processedImageData.data;
 
-        // Apply pitch rotation (rotate around X axis)
-        const tempY = rayY * cosPitch - rayZ * sinPitch;
-        const tempZ = rayY * sinPitch + rayZ * cosPitch;
-        rayY = tempY;
-        rayZ = tempZ;
+      // Field of view in radians (90° horizontal)
+      const fov = (90 * Math.PI) / 180;
+      const aspectRatio = width / height;
 
-        // Apply yaw rotation (rotate around Y axis)
-        const tempX = rayX * cosYaw + rayZ * sinYaw;
-        const tempZ2 = -rayX * sinYaw + rayZ * cosYaw;
-        rayX = tempX;
-        rayZ = tempZ2;
+      // For each pixel in the output canvas, calculate the corresponding
+      // position on the equirectangular image using ray casting (like GLSL shader)
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
 
-        // Convert Cartesian to Spherical coordinates (like GLSL)
-        const phi = Math.atan2(rayZ, rayX); // Use atan2 for full 360° range
-        const theta = Math.acos(Math.max(-1, Math.min(1, rayY))); // Clamp to avoid NaN
+      // Use rotation matrices for current rotation/pitch values
+      const { cosYaw, sinYaw, cosPitch, sinPitch } = getRotationMatrices(
+        currentRotation,
+        currentPitch
+      );
 
-        // Map to equirectangular UV coordinates
-        const u = (phi + Math.PI) / (2 * Math.PI); // 0 to 1
-        const v = theta / Math.PI; // 0 to 1
+      // Pre-compute FOV scaling
+      const fovScale = Math.tan(fov / 2);
+      const aspect = width / height;
 
-        // Convert to pixel coordinates
-        const sourceX = Math.floor(u * imageWidth) % imageWidth;
-        const sourceY = Math.floor(v * imageHeight);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          // Convert screen coordinates to normalized device coordinates (-1 to 1)
+          const ndcX = (x / width) * 2 - 1;
+          const ndcY = (y / height) * 2 - 1;
 
-        // Handle negative coordinates (wrap around for seamless 360°)
-        const finalSourceX = sourceX < 0 ? sourceX + imageWidth : sourceX;
+          // Create ray from camera (like GLSL shader)
+          // Z is forward (-1.0), apply FOV scaling
+          let rayX = ndcX * aspect * fovScale;
+          let rayY = -ndcY * fovScale; // Flip Y because canvas Y increases downward
+          let rayZ = -1.0;
 
-        // Ensure sourceY is within bounds
-        const clampedSourceY = Math.max(0, Math.min(imageHeight - 1, sourceY));
+          // Normalize ray
+          const rayLength = Math.sqrt(rayX * rayX + rayY * rayY + rayZ * rayZ);
+          rayX /= rayLength;
+          rayY /= rayLength;
+          rayZ /= rayLength;
 
-        // Get pixel color from source image
-        const sourceIndex = (clampedSourceY * imageWidth + finalSourceX) * 4;
-        const targetIndex = (y * width + x) * 4;
+          // Apply pitch rotation (rotate around X axis)
+          const tempY = rayY * cosPitch - rayZ * sinPitch;
+          const tempZ = rayY * sinPitch + rayZ * cosPitch;
+          rayY = tempY;
+          rayZ = tempZ;
 
-        data[targetIndex] = sourceData[sourceIndex]; // R
-        data[targetIndex + 1] = sourceData[sourceIndex + 1]; // G
-        data[targetIndex + 2] = sourceData[sourceIndex + 2]; // B
-        data[targetIndex + 3] = sourceData[sourceIndex + 3]; // A
+          // Apply yaw rotation (rotate around Y axis)
+          const tempX = rayX * cosYaw + rayZ * sinYaw;
+          const tempZ2 = -rayX * sinYaw + rayZ * cosYaw;
+          rayX = tempX;
+          rayZ = tempZ2;
+
+          // Convert Cartesian to Spherical coordinates (like GLSL)
+          const phi = Math.atan2(rayZ, rayX); // Use atan2 for full 360° range
+          const theta = Math.acos(Math.max(-1, Math.min(1, rayY))); // Clamp to avoid NaN
+
+          // Map to equirectangular UV coordinates
+          const u = (phi + Math.PI) / (2 * Math.PI); // 0 to 1
+          const v = theta / Math.PI; // 0 to 1
+
+          // Convert to pixel coordinates
+          const sourceX = Math.floor(u * imageWidth) % imageWidth;
+          const sourceY = Math.floor(v * imageHeight);
+
+          // Handle negative coordinates (wrap around for seamless 360°)
+          const finalSourceX = sourceX < 0 ? sourceX + imageWidth : sourceX;
+
+          // Ensure sourceY is within bounds
+          const clampedSourceY = Math.max(
+            0,
+            Math.min(imageHeight - 1, sourceY)
+          );
+
+          // Get pixel color from source image
+          const sourceIndex = (clampedSourceY * imageWidth + finalSourceX) * 4;
+          const targetIndex = (y * width + x) * 4;
+
+          data[targetIndex] = sourceData[sourceIndex]; // R
+          data[targetIndex + 1] = sourceData[sourceIndex + 1]; // G
+          data[targetIndex + 2] = sourceData[sourceIndex + 2]; // B
+          data[targetIndex + 3] = sourceData[sourceIndex + 3]; // A
+        }
       }
-    }
 
-    ctx.putImageData(imageData, 0, 0);
-  }, [image, rotation, pitch, selectedNode]);
+      ctx.putImageData(imageData, 0, 0);
+    },
+    [processedImageData, getRotationMatrices]
+  );
 
   useEffect(() => {
     if (selectedNode) {
-      setRotation(selectedNode.rotation || 0);
-      setPitch(selectedNode.pitch || 0);
+      const newRotation = selectedNode.rotation || 0;
+      const newPitch = selectedNode.pitch || 0;
+      setRotation(newRotation);
+      setPitch(newPitch);
+      // Sync refs with state
+      currentRotationRef.current = newRotation;
+      currentPitchRef.current = newPitch;
+      // Draw with new values
+      drawPanorama(newRotation, newPitch);
     }
-  }, [selectedNode]);
+  }, [selectedNode, drawPanorama]);
 
   // Resize canvas to match container while maintaining aspect ratio
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    let resizeTimeout: NodeJS.Timeout;
 
     const resizeCanvas = () => {
       const container = canvas.parentElement;
@@ -191,12 +231,19 @@ export default function PanoramaViewer({
       const containerWidth = containerRect.width;
       const containerHeight = containerRect.height;
 
-      // Set canvas size to match container
-      canvas.width = containerWidth;
-      canvas.height = containerHeight;
-
-      // Trigger redraw immediately
-      drawPanorama();
+      // Only resize if dimensions actually changed
+      if (
+        canvas.width !== containerWidth ||
+        canvas.height !== containerHeight
+      ) {
+        canvas.width = containerWidth;
+        canvas.height = containerHeight;
+        // Trigger redraw with debouncing
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          drawPanorama();
+        }, 16); // ~60fps
+      }
     };
 
     // Use ResizeObserver for more accurate container size changes
@@ -214,16 +261,28 @@ export default function PanoramaViewer({
 
     return () => {
       resizeObserver.disconnect();
+      clearTimeout(resizeTimeout);
     };
   }, [drawPanorama]);
+
+  // Cleanup animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   const handleMouseDown = useCallback(
     (event: React.MouseEvent) => {
       setIsDragging(true);
-      setDragStartX(event.clientX);
-      setDragStartY(event.clientY);
-      setDragStartRotation(rotation);
-      setDragStartPitch(pitch);
+      dragStateRef.current = {
+        startX: event.clientX,
+        startY: event.clientY,
+        startRotation: rotation,
+        startPitch: pitch,
+      };
     },
     [rotation, pitch]
   );
@@ -232,39 +291,50 @@ export default function PanoramaViewer({
     (event: React.MouseEvent) => {
       if (!isDragging) return;
 
-      const deltaX = event.clientX - dragStartX;
-      const deltaY = event.clientY - dragStartY;
-      const sensitivity = 0.5; // Adjust sensitivity as needed
+      // Cancel previous animation frame
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
 
-      // Horizontal drag for yaw (left/right rotation) - INVERTED
-      const newRotation =
-        (dragStartRotation + deltaX * sensitivity + 360) % 360;
+      // Throttle updates using requestAnimationFrame
+      animationFrameRef.current = requestAnimationFrame(() => {
+        const deltaX = event.clientX - dragStateRef.current.startX;
+        const deltaY = event.clientY - dragStateRef.current.startY;
+        const sensitivity = 0.5;
 
-      // Vertical drag for pitch (up/down rotation) - INVERTED, clamp to prevent flipping
-      const newPitch = Math.max(
-        -85,
-        Math.min(85, dragStartPitch + deltaY * sensitivity)
-      );
+        // Calculate new rotation values (don't update state yet)
+        const newRotation =
+          (dragStateRef.current.startRotation + deltaX * rotationSpeed + 360) %
+          360;
+        const newPitch = Math.max(
+          -85,
+          Math.min(85, dragStateRef.current.startPitch + deltaY * rotationSpeed)
+        );
 
-      setRotation(newRotation);
-      setPitch(newPitch);
-      onRotationChange(newRotation);
-      onPitchChange(newPitch);
+        // Update refs for immediate rendering
+        currentRotationRef.current = newRotation;
+        currentPitchRef.current = newPitch;
+
+        // Draw immediately with new values (no state dependency)
+        drawPanorama(newRotation, newPitch);
+      });
     },
-    [
-      isDragging,
-      dragStartX,
-      dragStartY,
-      dragStartRotation,
-      dragStartPitch,
-      onRotationChange,
-      onPitchChange,
-    ]
+    [isDragging]
   );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-  }, []);
+    // Cancel any pending animation frame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    // Don't set state here - refs are already updated during drag
+    // Just notify parent components of final values
+    onRotationChange(currentRotationRef.current);
+    onPitchChange(currentPitchRef.current);
+  }, [onRotationChange, onPitchChange]);
 
   const handleRotationChange = (newRotation: number) => {
     setRotation(newRotation);

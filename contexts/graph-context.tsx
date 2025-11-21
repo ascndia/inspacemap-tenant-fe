@@ -41,6 +41,10 @@ type GraphAction =
       payload: { connectionId: string | null };
     }
   | { type: "UPDATE_SETTINGS"; payload: { settings: Partial<GraphSettings> } }
+  | {
+      type: "SET_TOOL";
+      payload: { tool: "select" | "add-node" | "connect" | "pan" | "zoom" };
+    }
   | { type: "LOAD_GRAPH"; payload: { graph: GraphData } }
   | { type: "RESET_GRAPH" }
   | { type: "UNDO" }
@@ -330,13 +334,12 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       };
     }
 
-    case "SET_SELECTED_CONNECTION": {
+    case "SET_TOOL": {
       return {
         ...state,
         ui: {
           ...state.ui,
-          selectedConnectionId: action.payload.connectionId,
-          selectedNodeId: null, // Clear node selection
+          tool: action.payload.tool,
         },
       };
     }
@@ -349,6 +352,9 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
         settings: { ...state.graph.settings, ...action.payload.settings },
         updatedAt: new Date(),
       };
+
+      // TODO: Remove this log after debugging
+      console.log("Updated settings:", newGraph.settings);
 
       return {
         ...state,
@@ -429,6 +435,7 @@ interface GraphContextType {
   setSelectedNode: (nodeId: string | null) => void;
   setSelectedConnection: (connectionId: string | null) => void;
   updateSettings: (settings: Partial<GraphSettings>) => void;
+  setTool: (tool: "select" | "add-node" | "connect" | "pan" | "zoom") => void;
   loadGraph: (graph: GraphData) => void;
   resetGraph: () => void;
   undo: () => void;
@@ -505,6 +512,13 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
   const updateSettings = useCallback((settings: Partial<GraphSettings>) => {
     dispatch({ type: "UPDATE_SETTINGS", payload: { settings } });
   }, []);
+
+  const setTool = useCallback(
+    (tool: "select" | "add-node" | "connect" | "pan" | "zoom") => {
+      dispatch({ type: "SET_TOOL", payload: { tool } });
+    },
+    []
+  );
 
   const loadGraph = useCallback((graph: GraphData) => {
     dispatch({ type: "LOAD_GRAPH", payload: { graph } });
@@ -669,6 +683,7 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     setSelectedNode,
     setSelectedConnection,
     updateSettings,
+    setTool,
     loadGraph,
     resetGraph,
     undo,

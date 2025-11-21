@@ -16,6 +16,7 @@ export interface GraphNode {
   connections: string[]; // Array of connected node IDs
   panoramaUrl?: string; // Associated 360° image URL
   label?: string; // Optional display label
+  locked?: boolean; // Whether the node is locked (cannot be moved)
   metadata?: Record<string, any>; // Additional custom data
   createdAt: Date;
   updatedAt: Date;

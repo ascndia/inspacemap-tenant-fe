@@ -13,12 +13,16 @@ import {
   Hand,
   Link,
   Unlink,
+  Lock,
+  Unlock,
+  ImageIcon,
 } from "lucide-react";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+import { MediaPicker } from "@/components/media/media-picker";
 import PanoramaViewer from "./panorama-viewer";
 
 // 2D Canvas Component for Map Editing
@@ -51,7 +55,10 @@ function MapCanvas2D({
   removeNode: (nodeId: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { state } = useGraph();
+  const { state, loadFloorplan } = useGraph();
+  const [floorplanImage, setFloorplanImage] = useState<HTMLImageElement | null>(
+    null
+  );
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragNode, setDragNode] = useState<string | null>(null);
@@ -63,6 +70,23 @@ function MapCanvas2D({
     y: number;
     nodeId?: string;
   } | null>(null);
+
+  // Load floorplan image when floorplan data changes
+  useEffect(() => {
+    if (state.graph?.floorplan?.fileUrl) {
+      const img = new Image();
+      img.onload = () => {
+        setFloorplanImage(img);
+      };
+      img.onerror = () => {
+        console.error("Failed to load floorplan image");
+        setFloorplanImage(null);
+      };
+      img.src = state.graph.floorplan.fileUrl;
+    } else {
+      setFloorplanImage(null);
+    }
+  }, [state.graph?.floorplan?.fileUrl]);
 
   // Draw function
   const draw = useCallback(() => {
@@ -83,12 +107,27 @@ function MapCanvas2D({
     ctx.scale(zoom, zoom);
 
     // Draw floorplan background if available
-    if (state.graph?.floorplan) {
-      // Placeholder for floorplan rendering
+    if (floorplanImage && state.graph?.floorplan) {
+      const floorplan = state.graph.floorplan;
+      const scale = floorplan.scale || 1;
+      const imgWidth = floorplanImage.width * scale;
+      const imgHeight = floorplanImage.height * scale;
+
+      // Center the floorplan
+      const offsetX = -imgWidth / 2;
+      const offsetY = -imgHeight / 2;
+
+      ctx.drawImage(floorplanImage, offsetX, offsetY, imgWidth, imgHeight);
+    } else if (state.graph?.floorplan) {
+      // Placeholder when image is loading
       ctx.fillStyle = "#f0f0f0";
       ctx.fillRect(-500, -500, 1000, 1000);
       ctx.strokeStyle = "#ccc";
       ctx.strokeRect(-500, -500, 1000, 1000);
+      ctx.fillStyle = "#666";
+      ctx.font = "14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Loading floorplan...", 0, 0);
     }
 
     // Draw grid
@@ -195,6 +234,20 @@ function MapCanvas2D({
       ctx.lineWidth = 2 / zoom;
       ctx.stroke();
 
+      // Lock indicator for locked nodes
+      if (node.locked) {
+        ctx.fillStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.arc(
+          node.position.x + radius * 0.7,
+          node.position.y - radius * 0.7,
+          3 / zoom,
+          0,
+          2 * Math.PI
+        );
+        ctx.fill();
+      }
+
       // Node label
       ctx.fillStyle = "#000";
       ctx.font = `${12 / zoom}px Arial`;
@@ -207,7 +260,7 @@ function MapCanvas2D({
     });
 
     ctx.restore();
-  }, [state, panOffset, zoom, pathPreview]);
+  }, [state, panOffset, zoom, pathPreview, floorplanImage]);
 
   // Handle mouse events
   const handleMouseDown = useCallback(
@@ -278,12 +331,15 @@ function MapCanvas2D({
       if (clickedNode) {
         if (state.ui.tool === "select") {
           onNodeSelect(clickedNode.id);
-          setIsDragging(true);
-          setDragNode(clickedNode.id);
-          setDragStart({
-            x: x - clickedNode.position.x,
-            y: y - clickedNode.position.y,
-          });
+          // Only allow dragging if node is not locked
+          if (!clickedNode.locked) {
+            setIsDragging(true);
+            setDragNode(clickedNode.id);
+            setDragStart({
+              x: x - clickedNode.position.x,
+              y: y - clickedNode.position.y,
+            });
+          }
         }
       } else if (state.ui.tool === "add-node") {
         onCanvasClick(x, y);
@@ -446,6 +502,31 @@ function MapCanvas2D({
               <button
                 className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
                 onClick={() => {
+                  const node = state.graph?.nodes.find(
+                    (n) => n.id === contextMenu.nodeId
+                  );
+                  if (node) {
+                    onNodeUpdate(contextMenu.nodeId!, { locked: !node.locked });
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                {state.graph?.nodes.find((n) => n.id === contextMenu.nodeId)
+                  ?.locked ? (
+                  <>
+                    <Unlock className="mr-2 h-3 w-3" />
+                    Unlock Node
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-2 h-3 w-3" />
+                    Lock Node
+                  </>
+                )}
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+                onClick={() => {
                   // Duplicate node
                   const node = state.graph?.nodes.find(
                     (n) => n.id === contextMenu.nodeId
@@ -459,6 +540,7 @@ function MapCanvas2D({
                         y: node.position.y + 50,
                         z: node.position.z,
                       },
+                      locked: false, // New node is not locked
                     };
                     addNode(newNode.position, newNode);
                   }
@@ -526,13 +608,15 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     redo,
     canUndo,
     canRedo,
+    loadFloorplan,
+    setTool,
   } = useGraph();
 
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
 
   const handleToolChange = (tool: string) => {
-    updateSettings({ tool } as any);
+    setTool(tool as "select" | "add-node" | "connect" | "pan" | "zoom");
   };
 
   const handleZoomIn = useCallback(() => {
@@ -582,6 +666,33 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     [state.ui.selectedNodeId, updateNode]
   );
 
+  const handleFloorplanSelect = useCallback(
+    (media: any) => {
+      if (state.graph) {
+        const floorplan = {
+          id: `floorplan_${Date.now()}`,
+          venueId: state.graph.venueId,
+          floorId: state.graph.floorId,
+          name: media.name || "Floorplan",
+          fileUrl: media.url,
+          scale: 1, // Default scale
+          bounds: {
+            width: 1000, // Default bounds, could be calculated from image
+            height: 1000,
+            minX: -500,
+            minY: -500,
+            maxX: 500,
+            maxY: 500,
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        loadFloorplan(floorplan);
+      }
+    },
+    [state.graph, loadFloorplan]
+  );
+
   const selectedNode = state.graph?.nodes.find(
     (n) => n.id === state.ui.selectedNodeId
   );
@@ -617,6 +728,18 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
             >
               <Move className="h-4 w-4" />
             </Button>
+
+            <div className="h-6 w-px bg-border mx-2" />
+
+            <MediaPicker
+              onSelect={handleFloorplanSelect}
+              trigger={
+                <Button variant="ghost" size="sm" title="Load Floorplan">
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+              }
+              acceptTypes={["image"]}
+            />
 
             <div className="h-6 w-px bg-border mx-2" />
 

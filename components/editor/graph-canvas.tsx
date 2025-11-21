@@ -20,10 +20,29 @@ function MapCanvas2D({
   onNodeSelect,
   onCanvasClick,
   pathPreview,
+  onNodeUpdate,
+  onToolChange,
+  zoom,
+  panOffset,
+  onZoomChange,
+  onPanChange,
+  addNode,
+  removeNode,
 }: {
   onNodeSelect: (nodeId: string) => void;
   onCanvasClick: (x: number, y: number) => void;
   pathPreview: string[] | null;
+  onNodeUpdate: (nodeId: string, updates: any) => void;
+  onToolChange: (tool: string) => void;
+  zoom: number;
+  panOffset: { x: number; y: number };
+  onZoomChange: (zoom: number) => void;
+  onPanChange: (panOffset: { x: number; y: number }) => void;
+  addNode: (
+    position: { x: number; y: number; z: number },
+    attributes?: any
+  ) => void;
+  removeNode: (nodeId: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { state } = useGraph();
@@ -31,10 +50,13 @@ function MapCanvas2D({
   const [isDragging, setIsDragging] = useState(false);
   const [dragNode, setDragNode] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId?: string;
+  } | null>(null);
 
   // Draw function
   const draw = useCallback(() => {
@@ -184,6 +206,46 @@ function MapCanvas2D({
   // Handle mouse events
   const handleMouseDown = useCallback(
     (event: React.MouseEvent) => {
+      // Handle right-click context menu
+      if (event.button === 2) {
+        event.preventDefault();
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        // Get canvas container position
+        const canvasContainer = canvas.parentElement;
+        if (!canvasContainer) return;
+
+        const containerRect = canvasContainer.getBoundingClientRect();
+
+        // Calculate position relative to canvas container
+        const menuX = event.clientX - containerRect.left;
+        const menuY = event.clientY - containerRect.top;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = (event.clientX - rect.left - panOffset.x) / zoom;
+        const y = (event.clientY - rect.top - panOffset.y) / zoom;
+
+        // Check if right-clicking on a node
+        const clickedNode = state.graph?.nodes.find((node) => {
+          const dx = node.position.x - x;
+          const dy = node.position.y - y;
+          return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
+        });
+
+        setContextMenu({
+          x: menuX,
+          y: menuY,
+          nodeId: clickedNode?.id,
+        });
+        return;
+      }
+
+      // Close context menu if clicking elsewhere
+      if (contextMenu) {
+        setContextMenu(null);
+      }
+
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -221,16 +283,17 @@ function MapCanvas2D({
         onCanvasClick(x, y);
       }
     },
-    [state, panOffset, zoom, onNodeSelect, onCanvasClick]
+    [state, panOffset, zoom, onNodeSelect, onCanvasClick, contextMenu]
   );
 
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       if (isPanning) {
-        setPanOffset({
+        const newPanOffset = {
           x: event.clientX - panStart.x,
           y: event.clientY - panStart.y,
-        });
+        };
+        onPanChange(newPanOffset);
         return;
       }
 
@@ -242,7 +305,7 @@ function MapCanvas2D({
         const x = (event.clientX - rect.left - panOffset.x) / zoom;
         const y = (event.clientY - rect.top - panOffset.y) / zoom;
 
-        // Update node position (this will be handled by context)
+        // Update node position through context
         const node = state.graph?.nodes.find((n) => n.id === dragNode);
         if (node) {
           // Snap to grid if enabled
@@ -255,8 +318,8 @@ function MapCanvas2D({
             newY = Math.round(newY / gridSize) * gridSize;
           }
 
-          // Update node position through context
-          // This will be implemented in the parent component
+          // Update node position
+          onNodeUpdate(dragNode, { position: { x: newX, y: newY } });
         }
       }
     },
@@ -269,6 +332,7 @@ function MapCanvas2D({
       panStart,
       dragStart,
       state,
+      onNodeUpdate,
     ]
   );
 
@@ -276,19 +340,52 @@ function MapCanvas2D({
     setIsDragging(false);
     setDragNode(null);
     setIsPanning(false);
+    // Don't close context menu here - let it stay open until user clicks outside or selects an option
   }, []);
+
+  const handleZoomIn = useCallback(() => {
+    onZoomChange(Math.min(5, zoom * 1.2));
+  }, [zoom, onZoomChange]);
+
+  const handleZoomOut = useCallback(() => {
+    onZoomChange(Math.max(0.1, zoom / 1.2));
+  }, [zoom, onZoomChange]);
+
+  const handleResetView = useCallback(() => {
+    onZoomChange(1);
+    onPanChange({ x: 0, y: 0 });
+  }, [onZoomChange, onPanChange]);
 
   // Handle zoom
-  const handleWheel = useCallback((event: React.WheelEvent) => {
-    event.preventDefault();
-    const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.max(0.1, Math.min(5, prev * zoomFactor)));
-  }, []);
+  const handleWheel = useCallback(
+    (event: React.WheelEvent) => {
+      event.preventDefault();
+      const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
+      onZoomChange(Math.max(0.1, Math.min(5, zoom * zoomFactor)));
+    },
+    [zoom, onZoomChange]
+  );
 
-  // Redraw when dependencies change
+  // Handle global click to close context menu
   useEffect(() => {
-    draw();
-  }, [draw]);
+    const handleGlobalClick = (event: MouseEvent) => {
+      if (contextMenu) {
+        const target = event.target as HTMLElement;
+        // Close context menu if clicking outside of it
+        if (!target.closest(".context-menu")) {
+          setContextMenu(null);
+        }
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener("mousedown", handleGlobalClick);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalClick);
+    };
+  }, [contextMenu]);
 
   // Resize canvas
   useEffect(() => {
@@ -307,15 +404,106 @@ function MapCanvas2D({
   }, [draw]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-full cursor-crosshair"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onWheel={handleWheel}
-      style={{ cursor: state.ui.tool === "pan" ? "grab" : "crosshair" }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full cursor-crosshair"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
+        onContextMenu={(e) => e.preventDefault()} // Prevent default context menu
+        style={{ cursor: state.ui.tool === "pan" ? "grab" : "crosshair" }}
+      />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="context-menu absolute bg-background border rounded-md shadow-lg py-1 z-50 min-w-48"
+          style={{
+            left: Math.min(contextMenu.x, window.innerWidth - 200), // Prevent overflow
+            top: Math.min(contextMenu.y, window.innerHeight - 150),
+          }}
+          onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside menu
+        >
+          {contextMenu.nodeId ? (
+            <>
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+                onClick={() => {
+                  onNodeSelect(contextMenu.nodeId!);
+                  setContextMenu(null);
+                }}
+              >
+                Select Node
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+                onClick={() => {
+                  // Duplicate node
+                  const node = state.graph?.nodes.find(
+                    (n) => n.id === contextMenu.nodeId
+                  );
+                  if (node) {
+                    const newNode = {
+                      ...node,
+                      id: `node_${Date.now()}`,
+                      position: {
+                        x: node.position.x + 50,
+                        y: node.position.y + 50,
+                        z: node.position.z,
+                      },
+                    };
+                    addNode(newNode.position, newNode);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                Duplicate Node
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm text-destructive"
+                onClick={() => {
+                  removeNode(contextMenu.nodeId!);
+                  setContextMenu(null);
+                }}
+              >
+                Delete Node
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+                onClick={() => {
+                  // Convert screen coordinates to world coordinates
+                  const canvas = canvasRef.current;
+                  if (canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    const worldX = (contextMenu.x - panOffset.x) / zoom;
+                    const worldY = (contextMenu.y - panOffset.y) / zoom;
+                    onCanvasClick(worldX, worldY);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                Add Node Here
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+                onClick={() => {
+                  onZoomChange(1);
+                  onPanChange({ x: 0, y: 0 });
+                  setContextMenu(null);
+                }}
+              >
+                Reset View
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -330,6 +518,9 @@ function PanoramaViewer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rotation, setRotation] = useState(0);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartRotation, setDragStartRotation] = useState(0);
 
   // Load panorama image
   useEffect(() => {
@@ -434,6 +625,34 @@ function PanoramaViewer({
     drawPanorama();
   }, [drawPanorama]);
 
+  const handleMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      setIsDragging(true);
+      setDragStartX(event.clientX);
+      setDragStartRotation(rotation);
+    },
+    [rotation]
+  );
+
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (!isDragging) return;
+
+      const deltaX = event.clientX - dragStartX;
+      const sensitivity = 0.5; // Adjust sensitivity as needed
+      const newRotation =
+        (dragStartRotation - deltaX * sensitivity + 360) % 360;
+
+      setRotation(newRotation);
+      onRotationChange(newRotation);
+    },
+    [isDragging, dragStartX, dragStartRotation, onRotationChange]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
   const handleRotationChange = (newRotation: number) => {
     setRotation(newRotation);
     onRotationChange(newRotation);
@@ -445,9 +664,13 @@ function PanoramaViewer({
       <div className="flex-1 bg-black rounded-lg overflow-hidden mb-4">
         <canvas
           ref={canvasRef}
-          className="w-full h-full"
+          className="w-full h-full cursor-grab active:cursor-grabbing"
           width={400}
           height={300}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp} // Stop dragging if mouse leaves canvas
         />
       </div>
 
@@ -506,15 +729,32 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     addNode,
     setSelectedNode,
     updateNode,
+    deleteNode,
     undo,
     redo,
     canUndo,
     canRedo,
   } = useGraph();
 
+  const [canvasZoom, setCanvasZoom] = useState(1);
+  const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
+
   const handleToolChange = (tool: string) => {
     updateSettings({ tool } as any);
   };
+
+  const handleZoomIn = useCallback(() => {
+    setCanvasZoom((prev) => Math.min(5, prev * 1.2));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setCanvasZoom((prev) => Math.max(0.1, prev / 1.2));
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    setCanvasZoom(1);
+    setCanvasPanOffset({ x: 0, y: 0 });
+  }, []);
 
   const handleCanvasClick = useCallback(
     (x: number, y: number) => {
@@ -578,13 +818,28 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
           <div className="h-6 w-px bg-border mx-2" />
 
-          <Button variant="ghost" size="sm" title="Zoom In">
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Zoom In"
+            onClick={handleZoomIn}
+          >
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" title="Zoom Out">
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Zoom Out"
+            onClick={handleZoomOut}
+          >
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" title="Reset View">
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Reset View"
+            onClick={handleResetView}
+          >
             <RotateCcw className="h-4 w-4" />
           </Button>
 
@@ -615,6 +870,14 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
           <MapCanvas2D
             onNodeSelect={handleNodeSelect}
             onCanvasClick={handleCanvasClick}
+            onNodeUpdate={updateNode}
+            onToolChange={handleToolChange}
+            zoom={canvasZoom}
+            panOffset={canvasPanOffset}
+            onZoomChange={setCanvasZoom}
+            onPanChange={setCanvasPanOffset}
+            addNode={addNode}
+            removeNode={deleteNode}
             pathPreview={pathPreview}
           />
         </div>

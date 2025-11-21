@@ -62,15 +62,22 @@ export function PanoramaPreview() {
     // Calculate FOV-based cropping
     const fovRatio = fov / 360; // FOV as fraction of full 360°
     const visibleWidth = imageWidth * fovRatio;
-    const startX = (rotationOffset - visibleWidth / 2 + imageWidth) % imageWidth;
+    const startX =
+      (rotationOffset - visibleWidth / 2 + imageWidth) % imageWidth;
 
     // Draw the visible portion
     if (startX + visibleWidth <= imageWidth) {
       // Single draw
       ctx.drawImage(
         image,
-        startX, 0, visibleWidth, imageHeight,
-        0, 0, width, height
+        startX,
+        0,
+        visibleWidth,
+        imageHeight,
+        0,
+        0,
+        width,
+        height
       );
     } else {
       // Wrap around (two draws needed)
@@ -79,14 +86,26 @@ export function PanoramaPreview() {
 
       ctx.drawImage(
         image,
-        startX, 0, firstWidth, imageHeight,
-        0, 0, (firstWidth / visibleWidth) * width, height
+        startX,
+        0,
+        firstWidth,
+        imageHeight,
+        0,
+        0,
+        (firstWidth / visibleWidth) * width,
+        height
       );
 
       ctx.drawImage(
         image,
-        0, 0, secondWidth, imageHeight,
-        (firstWidth / visibleWidth) * width, 0, (secondWidth / visibleWidth) * width, height
+        0,
+        0,
+        secondWidth,
+        imageHeight,
+        (firstWidth / visibleWidth) * width,
+        0,
+        (secondWidth / visibleWidth) * width,
+        height
       );
     }
 
@@ -110,7 +129,7 @@ export function PanoramaPreview() {
   useEffect(() => {
     if (isPlaying) {
       const animate = () => {
-        setRotation(prev => (prev + 0.5) % 360);
+        setRotation((prev) => (prev + 0.5) % 360);
         animationRef.current = requestAnimationFrame(animate);
       };
       animationRef.current = requestAnimationFrame(animate);

@@ -1,3 +1,5 @@
+import axios from "axios";
+
 export const mockOrganizations = [
   {
     id: "1",
@@ -17,7 +19,7 @@ export const mockOrganizations = [
     members: [1, 2, 3, 4, 5],
     status: "active",
   },
-]
+];
 
 export const mockVenues = [
   {
@@ -67,7 +69,7 @@ export const mockVenues = [
     floors: [],
     location: { lat: 34.0522, lng: -118.2437 },
   },
-]
+];
 
 export const mockMedia = [
   {
@@ -105,13 +107,34 @@ export const mockMedia = [
     size: "5.6 MB",
     url: "/placeholder.svg",
   },
-]
+];
 
 export const mockMembers = [
-  { id: 1, name: "John Doe", email: "john@acme.com", role: "Admin", status: "Active", lastActive: "2 mins ago" },
-  { id: 2, name: "Jane Smith", email: "jane@acme.com", role: "Editor", status: "Active", lastActive: "1 hour ago" },
-  { id: 3, name: "Bob Johnson", email: "bob@acme.com", role: "Viewer", status: "Invited", lastActive: "-" },
-]
+  {
+    id: 1,
+    name: "John Doe",
+    email: "john@acme.com",
+    role: "Admin",
+    status: "Active",
+    lastActive: "2 mins ago",
+  },
+  {
+    id: 2,
+    name: "Jane Smith",
+    email: "jane@acme.com",
+    role: "Editor",
+    status: "Active",
+    lastActive: "1 hour ago",
+  },
+  {
+    id: 3,
+    name: "Bob Johnson",
+    email: "bob@acme.com",
+    role: "Viewer",
+    status: "Invited",
+    lastActive: "-",
+  },
+];
 
 export const mockAuditLogs = [
   {
@@ -154,4 +177,32 @@ export const mockAuditLogs = [
     date: "2023-10-23 16:20",
     ip: "192.168.1.2",
   },
-]
+];
+
+// Buat instance Axios
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Interceptor untuk menyisipkan Token & Tenant ID otomatis
+api.interceptors.request.use((config) => {
+  // Ambil dari LocalStorage atau NextAuth Session
+  const token = localStorage.getItem("access_token");
+  const activeOrgID = localStorage.getItem("active_org_id");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Header wajib untuk Multi-tenant backend kita
+  if (activeOrgID) {
+    config.headers["X-Tenant-ID"] = activeOrgID;
+  }
+
+  return config;
+});
+
+export default api;

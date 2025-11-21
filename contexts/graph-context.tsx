@@ -1,0 +1,703 @@
+"use client";
+
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  ReactNode,
+} from "react";
+import {
+  GraphNode,
+  GraphConnection,
+  GraphData,
+  GraphSettings,
+  Vector3,
+  ValidationResult,
+  GraphUIState,
+  GraphStats,
+} from "@/types/graph";
+
+// Action Types
+type GraphAction =
+  | {
+      type: "ADD_NODE";
+      payload: { position: Vector3; attributes?: Partial<GraphNode> };
+    }
+  | {
+      type: "UPDATE_NODE";
+      payload: { nodeId: string; updates: Partial<GraphNode> };
+    }
+  | { type: "DELETE_NODE"; payload: { nodeId: string } }
+  | {
+      type: "ADD_CONNECTION";
+      payload: { fromNodeId: string; toNodeId: string };
+    }
+  | { type: "DELETE_CONNECTION"; payload: { connectionId: string } }
+  | { type: "LOAD_FLOORPLAN"; payload: { floorplan: any } }
+  | { type: "SET_SELECTED_NODE"; payload: { nodeId: string | null } }
+  | {
+      type: "SET_SELECTED_CONNECTION";
+      payload: { connectionId: string | null };
+    }
+  | { type: "UPDATE_SETTINGS"; payload: { settings: Partial<GraphSettings> } }
+  | { type: "LOAD_GRAPH"; payload: { graph: GraphData } }
+  | { type: "RESET_GRAPH" }
+  | { type: "UNDO" }
+  | { type: "REDO" };
+
+// State Interface
+interface GraphState {
+  graph: GraphData | null;
+  ui: GraphUIState;
+  history: GraphData[];
+  historyIndex: number;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Initial State
+const initialState: GraphState = {
+  graph: null,
+  ui: {
+    selectedNodeId: null,
+    selectedConnectionId: null,
+    hoveredNodeId: null,
+    hoveredConnectionId: null,
+    isConnecting: false,
+    connectingFromId: null,
+    tool: "select",
+    zoom: 1,
+    panOffset: { x: 0, y: 0, z: 0 },
+    showProperties: true,
+    showGrid: true,
+    snapToGrid: true,
+  },
+  history: [],
+  historyIndex: -1,
+  isLoading: false,
+  error: null,
+};
+
+// Reducer
+function graphReducer(state: GraphState, action: GraphAction): GraphState {
+  switch (action.type) {
+    case "ADD_NODE": {
+      if (!state.graph) return state;
+
+      const newNode: GraphNode = {
+        id: crypto.randomUUID(),
+        position: action.payload.position,
+        rotation: 0,
+        heading: 0,
+        fov: 75,
+        connections: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...action.payload.attributes,
+      };
+
+      const newGraph = {
+        ...state.graph,
+        nodes: [...state.graph.nodes, newNode],
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
+    case "UPDATE_NODE": {
+      if (!state.graph) return state;
+
+      const updatedNodes = state.graph.nodes.map((node) =>
+        node.id === action.payload.nodeId
+          ? { ...node, ...action.payload.updates, updatedAt: new Date() }
+          : node
+      );
+
+      const newGraph = {
+        ...state.graph,
+        nodes: updatedNodes,
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
+    case "DELETE_NODE": {
+      if (!state.graph) return state;
+
+      const nodeToDelete = state.graph.nodes.find(
+        (n) => n.id === action.payload.nodeId
+      );
+      if (!nodeToDelete) return state;
+
+      // Remove connections to this node
+      const updatedConnections = state.graph.connections.filter(
+        (conn) =>
+          conn.fromNodeId !== action.payload.nodeId &&
+          conn.toNodeId !== action.payload.nodeId
+      );
+
+      // Remove node from other nodes' connections
+      const updatedNodes = state.graph.nodes
+        .filter((node) => node.id !== action.payload.nodeId)
+        .map((node) => ({
+          ...node,
+          connections: node.connections.filter(
+            (id) => id !== action.payload.nodeId
+          ),
+        }));
+
+      const newGraph = {
+        ...state.graph,
+        nodes: updatedNodes,
+        connections: updatedConnections,
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        ui: {
+          ...state.ui,
+          selectedNodeId:
+            state.ui.selectedNodeId === action.payload.nodeId
+              ? null
+              : state.ui.selectedNodeId,
+        },
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
+    case "ADD_CONNECTION": {
+      if (!state.graph) return state;
+
+      const fromNode = state.graph.nodes.find(
+        (n) => n.id === action.payload.fromNodeId
+      );
+      const toNode = state.graph.nodes.find(
+        (n) => n.id === action.payload.toNodeId
+      );
+
+      if (!fromNode || !toNode) return state;
+
+      // Check if connection already exists
+      const existingConnection = state.graph.connections.find(
+        (conn) =>
+          (conn.fromNodeId === action.payload.fromNodeId &&
+            conn.toNodeId === action.payload.toNodeId) ||
+          (conn.fromNodeId === action.payload.toNodeId &&
+            conn.toNodeId === action.payload.fromNodeId &&
+            conn.bidirectional)
+      );
+
+      if (existingConnection) return state;
+
+      const distance = Math.sqrt(
+        Math.pow(toNode.position.x - fromNode.position.x, 2) +
+          Math.pow(toNode.position.y - fromNode.position.y, 2)
+      );
+
+      const newConnection: GraphConnection = {
+        id: crypto.randomUUID(),
+        fromNodeId: action.payload.fromNodeId,
+        toNodeId: action.payload.toNodeId,
+        distance,
+        bidirectional: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Update node connections
+      const updatedNodes = state.graph.nodes.map((node) => {
+        if (node.id === action.payload.fromNodeId) {
+          return {
+            ...node,
+            connections: [...node.connections, action.payload.toNodeId],
+          };
+        }
+        if (node.id === action.payload.toNodeId) {
+          return {
+            ...node,
+            connections: [...node.connections, action.payload.fromNodeId],
+          };
+        }
+        return node;
+      });
+
+      const newGraph = {
+        ...state.graph,
+        nodes: updatedNodes,
+        connections: [...state.graph.connections, newConnection],
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
+    case "DELETE_CONNECTION": {
+      if (!state.graph) return state;
+
+      const connectionToDelete = state.graph.connections.find(
+        (c) => c.id === action.payload.connectionId
+      );
+      if (!connectionToDelete) return state;
+
+      // Remove connection from nodes
+      const updatedNodes = state.graph.nodes.map((node) => {
+        if (
+          node.id === connectionToDelete.fromNodeId ||
+          node.id === connectionToDelete.toNodeId
+        ) {
+          return {
+            ...node,
+            connections: node.connections.filter(
+              (id) =>
+                id !== connectionToDelete.fromNodeId &&
+                id !== connectionToDelete.toNodeId
+            ),
+          };
+        }
+        return node;
+      });
+
+      const newGraph = {
+        ...state.graph,
+        nodes: updatedNodes,
+        connections: state.graph.connections.filter(
+          (c) => c.id !== action.payload.connectionId
+        ),
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        ui: {
+          ...state.ui,
+          selectedConnectionId:
+            state.ui.selectedConnectionId === action.payload.connectionId
+              ? null
+              : state.ui.selectedConnectionId,
+        },
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
+    case "LOAD_FLOORPLAN": {
+      if (!state.graph) return state;
+
+      const newGraph = {
+        ...state.graph,
+        floorplan: action.payload.floorplan,
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
+    case "SET_SELECTED_NODE": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          selectedNodeId: action.payload.nodeId,
+          selectedConnectionId: null, // Clear connection selection
+        },
+      };
+    }
+
+    case "SET_SELECTED_CONNECTION": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          selectedConnectionId: action.payload.connectionId,
+          selectedNodeId: null, // Clear node selection
+        },
+      };
+    }
+
+    case "UPDATE_SETTINGS": {
+      if (!state.graph) return state;
+
+      const newGraph = {
+        ...state.graph,
+        settings: { ...state.graph.settings, ...action.payload.settings },
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        ui: {
+          ...state.ui,
+          showGrid: action.payload.settings.showGrid ?? state.ui.showGrid,
+          snapToGrid: action.payload.settings.snapToGrid ?? state.ui.snapToGrid,
+        },
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
+    case "LOAD_GRAPH": {
+      return {
+        ...state,
+        graph: action.payload.graph,
+        history: [action.payload.graph],
+        historyIndex: 0,
+        ui: { ...initialState.ui }, // Reset UI state
+      };
+    }
+
+    case "RESET_GRAPH": {
+      return {
+        ...initialState,
+        graph: state.graph
+          ? {
+              ...state.graph,
+              nodes: [],
+              connections: [],
+              updatedAt: new Date(),
+            }
+          : null,
+      };
+    }
+
+    case "UNDO": {
+      if (state.historyIndex > 0) {
+        return {
+          ...state,
+          graph: state.history[state.historyIndex - 1],
+          historyIndex: state.historyIndex - 1,
+        };
+      }
+      return state;
+    }
+
+    case "REDO": {
+      if (state.historyIndex < state.history.length - 1) {
+        return {
+          ...state,
+          graph: state.history[state.historyIndex + 1],
+          historyIndex: state.historyIndex + 1,
+        };
+      }
+      return state;
+    }
+
+    default:
+      return state;
+  }
+}
+
+// Context
+interface GraphContextType {
+  state: GraphState;
+  dispatch: React.Dispatch<GraphAction>;
+
+  // Helper functions
+  addNode: (position: Vector3, attributes?: Partial<GraphNode>) => void;
+  updateNode: (nodeId: string, updates: Partial<GraphNode>) => void;
+  deleteNode: (nodeId: string) => void;
+  addConnection: (fromNodeId: string, toNodeId: string) => void;
+  deleteConnection: (connectionId: string) => void;
+  loadFloorplan: (floorplan: any) => void;
+  setSelectedNode: (nodeId: string | null) => void;
+  setSelectedConnection: (connectionId: string | null) => void;
+  updateSettings: (settings: Partial<GraphSettings>) => void;
+  loadGraph: (graph: GraphData) => void;
+  resetGraph: () => void;
+  undo: () => void;
+  redo: () => void;
+
+  // Advanced features
+  autoLayout: () => void;
+  findPath: (startNodeId: string, endNodeId: string) => GraphNode[] | null;
+  getGraphStats: () => GraphStats | null;
+
+  // Computed values
+  selectedNode: GraphNode | null;
+  selectedConnection: GraphConnection | null;
+  canUndo: boolean;
+  canRedo: boolean;
+  validateGraph: () => ValidationResult;
+}
+
+const GraphContext = createContext<GraphContextType | undefined>(undefined);
+
+// Provider Component
+interface GraphProviderProps {
+  children: ReactNode;
+  initialGraph?: GraphData;
+}
+
+export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
+  const [state, dispatch] = useReducer(graphReducer, {
+    ...initialState,
+    graph: initialGraph || null,
+    history: initialGraph ? [initialGraph] : [],
+    historyIndex: initialGraph ? 0 : -1,
+  });
+
+  // Helper functions
+  const addNode = useCallback(
+    (position: Vector3, attributes?: Partial<GraphNode>) => {
+      dispatch({ type: "ADD_NODE", payload: { position, attributes } });
+    },
+    []
+  );
+
+  const updateNode = useCallback(
+    (nodeId: string, updates: Partial<GraphNode>) => {
+      dispatch({ type: "UPDATE_NODE", payload: { nodeId, updates } });
+    },
+    []
+  );
+
+  const deleteNode = useCallback((nodeId: string) => {
+    dispatch({ type: "DELETE_NODE", payload: { nodeId } });
+  }, []);
+
+  const addConnection = useCallback((fromNodeId: string, toNodeId: string) => {
+    dispatch({ type: "ADD_CONNECTION", payload: { fromNodeId, toNodeId } });
+  }, []);
+
+  const deleteConnection = useCallback((connectionId: string) => {
+    dispatch({ type: "DELETE_CONNECTION", payload: { connectionId } });
+  }, []);
+
+  const loadFloorplan = useCallback((floorplan: any) => {
+    dispatch({ type: "LOAD_FLOORPLAN", payload: { floorplan } });
+  }, []);
+
+  const setSelectedNode = useCallback((nodeId: string | null) => {
+    dispatch({ type: "SET_SELECTED_NODE", payload: { nodeId } });
+  }, []);
+
+  const setSelectedConnection = useCallback((connectionId: string | null) => {
+    dispatch({ type: "SET_SELECTED_CONNECTION", payload: { connectionId } });
+  }, []);
+
+  const updateSettings = useCallback((settings: Partial<GraphSettings>) => {
+    dispatch({ type: "UPDATE_SETTINGS", payload: { settings } });
+  }, []);
+
+  const loadGraph = useCallback((graph: GraphData) => {
+    dispatch({ type: "LOAD_GRAPH", payload: { graph } });
+  }, []);
+
+  const resetGraph = useCallback(() => {
+    dispatch({ type: "RESET_GRAPH" });
+  }, []);
+
+  const undo = useCallback(() => {
+    dispatch({ type: "UNDO" });
+  }, []);
+
+  const redo = useCallback(() => {
+    dispatch({ type: "REDO" });
+  }, []);
+
+  const validateGraph = useCallback((): ValidationResult => {
+    if (!state.graph) {
+      return { isValid: false, errors: ["No graph loaded"], warnings: [] };
+    }
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Check for isolated nodes
+    const isolatedNodes = state.graph.nodes.filter(
+      (node) => node.connections.length === 0
+    );
+    if (isolatedNodes.length > 0) {
+      warnings.push(
+        `${isolatedNodes.length} nodes are not connected to the graph`
+      );
+    }
+
+    // Check for nodes without panoramas
+    const nodesWithoutPanoramas = state.graph.nodes.filter(
+      (node) => !node.panoramaUrl
+    );
+    if (nodesWithoutPanoramas.length > 0) {
+      warnings.push(
+        `${nodesWithoutPanoramas.length} nodes do not have associated panoramas`
+      );
+    }
+
+    // Check for unreachable areas (simplified check)
+    const connectedNodes = new Set<string>();
+    const queue = state.graph.nodes.filter(
+      (node) => node.connections.length > 0
+    );
+
+    if (queue.length > 0) {
+      connectedNodes.add(queue[0].id);
+      let index = 0;
+
+      while (index < queue.length) {
+        const currentNode = queue[index];
+        currentNode.connections.forEach((connectedId) => {
+          if (!connectedNodes.has(connectedId)) {
+            connectedNodes.add(connectedId);
+            const connectedNode = state.graph!.nodes.find(
+              (n) => n.id === connectedId
+            );
+            if (connectedNode) queue.push(connectedNode);
+          }
+        });
+        index++;
+      }
+
+      const unreachableNodes = state.graph.nodes.filter(
+        (node) => !connectedNodes.has(node.id)
+      );
+      if (unreachableNodes.length > 0) {
+        errors.push(
+          `${unreachableNodes.length} nodes are unreachable from the main graph`
+        );
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+    };
+  }, [state.graph]);
+
+  // Computed values
+  const selectedNode =
+    state.graph?.nodes.find((n) => n.id === state.ui.selectedNodeId) || null;
+  const selectedConnection =
+    state.graph?.connections.find(
+      (c) => c.id === state.ui.selectedConnectionId
+    ) || null;
+  const canUndo = state.historyIndex > 0;
+  const canRedo = state.historyIndex < state.history.length - 1;
+
+  // Advanced features
+  const autoLayout = useCallback(() => {
+    if (!state.graph) return;
+
+    const {
+      GraphAlgorithms,
+    } = require("@/lib/engine/algorithms/graph-algorithms");
+    const newPositions = GraphAlgorithms.autoLayout(
+      state.graph.nodes,
+      state.graph.connections
+    );
+
+    const updatedNodes = state.graph.nodes.map((node) => ({
+      ...node,
+      position: newPositions.get(node.id) || node.position,
+      updatedAt: new Date(),
+    }));
+
+    const newGraph = {
+      ...state.graph,
+      nodes: updatedNodes,
+      updatedAt: new Date(),
+    };
+
+    dispatch({ type: "LOAD_GRAPH", payload: { graph: newGraph } });
+  }, [state.graph]);
+
+  const findPath = useCallback(
+    (startNodeId: string, endNodeId: string) => {
+      if (!state.graph) return null;
+
+      const {
+        GraphAlgorithms,
+      } = require("@/lib/engine/algorithms/graph-algorithms");
+      return GraphAlgorithms.findPath(
+        startNodeId,
+        endNodeId,
+        state.graph.nodes,
+        state.graph.connections
+      );
+    },
+    [state.graph]
+  );
+
+  const getGraphStats = useCallback(() => {
+    if (!state.graph) return null;
+
+    const {
+      GraphAlgorithms,
+    } = require("@/lib/engine/algorithms/graph-algorithms");
+    return GraphAlgorithms.getGraphStats(
+      state.graph.nodes,
+      state.graph.connections
+    );
+  }, [state.graph]);
+
+  const contextValue: GraphContextType = {
+    state,
+    dispatch,
+    addNode,
+    updateNode,
+    deleteNode,
+    addConnection,
+    deleteConnection,
+    loadFloorplan,
+    setSelectedNode,
+    setSelectedConnection,
+    updateSettings,
+    loadGraph,
+    resetGraph,
+    undo,
+    redo,
+    autoLayout,
+    findPath,
+    getGraphStats,
+    selectedNode,
+    selectedConnection,
+    canUndo,
+    canRedo,
+    validateGraph,
+  };
+
+  return (
+    <GraphContext.Provider value={contextValue}>
+      {children}
+    </GraphContext.Provider>
+  );
+}
+
+// Hook to use the context
+export function useGraph(): GraphContextType {
+  const context = useContext(GraphContext);
+  if (context === undefined) {
+    throw new Error("useGraph must be used within a GraphProvider");
+  }
+  return context;
+}
+
+// Export types for convenience
+export type { GraphAction, GraphState };

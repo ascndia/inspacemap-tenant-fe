@@ -5,6 +5,10 @@ import type {
   CreateVenueRequest,
   CreateVenueResponse,
   VenueDetailResponse,
+  AddGalleryItemsRequest,
+  UpdateGalleryItemRequest,
+  ReorderGalleryRequest,
+  GalleryResponse,
 } from "../../types/venue";
 
 export interface VenueListParams {
@@ -136,6 +140,155 @@ export const venueService = {
       return {
         success: false,
         error: error.message || "Failed to fetch venue details",
+      };
+    }
+  },
+
+  /**
+   * Add gallery items to venue
+   */
+  addGalleryItems: async (
+    venueId: string,
+    data: AddGalleryItemsRequest
+  ): Promise<GalleryResponse> => {
+    try {
+      console.log("Adding gallery items to venue:", venueId, data);
+      const response = await api.post(`/venues/${venueId}/gallery`, data);
+      console.log("Add gallery items response:", response.data);
+
+      if (response.data?.success) {
+        return response.data;
+      } else {
+        console.warn("Add gallery items response unexpected:", response.data);
+        return {
+          success: false,
+          error: "Invalid response structure",
+        };
+      }
+    } catch (error: any) {
+      console.warn("Add gallery items failed:", error);
+      console.warn("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      return {
+        success: false,
+        error: error.message || "Failed to add gallery items",
+      };
+    }
+  },
+
+  /**
+   * Update gallery item
+   */
+  updateGalleryItem: async (
+    venueId: string,
+    mediaId: string,
+    data: UpdateGalleryItemRequest
+  ): Promise<GalleryResponse> => {
+    try {
+      console.log("Updating gallery item:", venueId, mediaId, data);
+      const response = await api.patch(
+        `/venues/${venueId}/gallery/${mediaId}`,
+        data
+      );
+      console.log("Update gallery item response:", response.data);
+
+      if (response.data?.success) {
+        return response.data;
+      } else {
+        console.warn("Update gallery item response unexpected:", response.data);
+        return {
+          success: false,
+          error: "Invalid response structure",
+        };
+      }
+    } catch (error: any) {
+      console.warn("Update gallery item failed:", error);
+      console.warn("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      return {
+        success: false,
+        error: error.message || "Failed to update gallery item",
+      };
+    }
+  },
+
+  /**
+   * Reorder gallery items
+   */
+  reorderGallery: async (
+    venueId: string,
+    data: ReorderGalleryRequest
+  ): Promise<GalleryResponse> => {
+    try {
+      console.log("Reordering gallery for venue:", venueId, data);
+      const response = await api.put(
+        `/venues/${venueId}/gallery/reorder`,
+        data
+      );
+      console.log("Reorder gallery response:", response.data);
+
+      if (response.data?.success) {
+        return response.data;
+      } else {
+        console.warn("Reorder gallery response unexpected:", response.data);
+        return {
+          success: false,
+          error: "Invalid response structure",
+        };
+      }
+    } catch (error: any) {
+      console.warn("Reorder gallery failed:", error);
+      console.warn("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      return {
+        success: false,
+        error: error.message || "Failed to reorder gallery",
+      };
+    }
+  },
+
+  /**
+   * Remove gallery item
+   */
+  removeGalleryItem: async (
+    venueId: string,
+    mediaId: string
+  ): Promise<GalleryResponse> => {
+    try {
+      console.log("Removing gallery item:", venueId, mediaId);
+      const response = await api.delete(
+        `/venues/${venueId}/gallery/${mediaId}`
+      );
+      console.log("Remove gallery item response:", response.data);
+
+      if (response.data?.success) {
+        return response.data;
+      } else {
+        console.warn("Remove gallery item response unexpected:", response.data);
+        return {
+          success: false,
+          error: "Invalid response structure",
+        };
+      }
+    } catch (error: any) {
+      console.warn("Remove gallery item failed:", error);
+      console.warn("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      return {
+        success: false,
+        error: error.message || "Failed to remove gallery item",
       };
     }
   },

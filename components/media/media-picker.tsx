@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ import {
 import { MediaUpload } from "@/components/media/media-upload";
 import type { MediaItem } from "@/types/media";
 import { cn } from "@/lib/utils";
+import { mediaService } from "@/lib/services/media-service";
 
 interface MediaPickerProps {
   onSelect: (media: any) => void;
@@ -50,7 +51,31 @@ export function MediaPicker({
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [media, setMedia] = useState<MediaItem[]>(mockMedia);
+  const [media, setMedia] = useState<MediaItem[]>(mockMedia.data);
+  const [loading, setLoading] = useState(false);
+
+  // Load media when dialog opens
+  useEffect(() => {
+    if (open && media.length === mockMedia.data.length) {
+      // Only load if we haven't loaded real data yet (still using mock data)
+      loadMedia();
+    }
+  }, [open]);
+
+  const loadMedia = async () => {
+    try {
+      setLoading(true);
+      const response = await mediaService.getMedia();
+      if (response.data) {
+        setMedia(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to load media:", error);
+      // Keep mock data as fallback
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter media based on search and type
   const filteredMedia = useMemo(() => {
@@ -58,8 +83,13 @@ export function MediaPicker({
       const matchesSearch = item.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
-      const matchesType = selectedType === "all" || item.type === selectedType;
-      const matchesAcceptTypes = acceptTypes.includes(item.type);
+      
+      // Map file_type to display type
+      const itemType = item.file_type.startsWith("image/") ? "image" : 
+                      item.file_type.startsWith("video/") ? "video" : "other";
+      
+      const matchesType = selectedType === "all" || itemType === selectedType;
+      const matchesAcceptTypes = acceptTypes.includes(itemType);
 
       return matchesSearch && matchesType && matchesAcceptTypes;
     });
@@ -182,7 +212,14 @@ export function MediaPicker({
 
             <TabsContent value="library" className="flex-1 mt-0 px-6 pb-6">
               <ScrollArea className="h-full">
-                {filteredMedia.length === 0 ? (
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+                    <p className="text-sm text-muted-foreground">
+                      Loading media...
+                    </p>
+                  </div>
+                ) : filteredMedia.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium text-muted-foreground">
@@ -276,6 +313,19 @@ function MediaItemCard({
   onSelect,
   viewMode,
 }: MediaItemCardProps) {
+  // Determine display type from file_type
+  const displayType = item.file_type.startsWith("image/") ? "image" : 
+                     item.file_type.startsWith("video/") ? "video" : "other";
+  
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
   if (viewMode === "list") {
     return (
       <div
@@ -286,7 +336,7 @@ function MediaItemCard({
         onClick={onSelect}
       >
         <div className="w-12 h-12 bg-muted rounded flex items-center justify-center shrink-0">
-          {item.type === "video" ? (
+          {displayType === "video" ? (
             <Video className="h-5 w-5 text-muted-foreground" />
           ) : (
             <ImageIcon className="h-5 w-5 text-muted-foreground" />
@@ -295,9 +345,9 @@ function MediaItemCard({
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{item.name}</p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{item.size}</span>
+            <span>{formatFileSize(item.file_size)}</span>
             <Badge variant="outline" className="text-xs">
-              {item.type}
+              {displayType}
             </Badge>
           </div>
         </div>
@@ -321,7 +371,7 @@ function MediaItemCard({
       <div className="aspect-square bg-muted relative">
         {/* Media Preview */}
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-          {item.type === "video" ? (
+          {displayType === "video" ? (
             <Video className="h-8 w-8" />
           ) : (
             <ImageIcon className="h-8 w-8" />
@@ -348,9 +398,9 @@ function MediaItemCard({
           {item.name}
         </p>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{item.size}</span>
+          <span>{formatFileSize(item.file_size)}</span>
           <Badge variant="outline" className="text-[10px] h-4 px-1">
-            {item.type}
+            {displayType}
           </Badge>
         </div>
       </div>

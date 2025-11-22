@@ -57,6 +57,27 @@ export interface VenueGalleryItem {
   is_featured?: boolean;
 }
 
+export interface AddGalleryItemsRequest {
+  items: VenueGalleryItem[];
+}
+
+export interface UpdateGalleryItemRequest {
+  caption?: string;
+  sort_order?: number;
+  is_visible?: boolean;
+  is_featured?: boolean;
+}
+
+export interface ReorderGalleryRequest {
+  media_asset_ids: string[];
+}
+
+export interface GalleryResponse {
+  success: boolean;
+  data?: string;
+  error?: string;
+}
+
 export interface CreateVenueRequest {
   name: string;
   slug: string;

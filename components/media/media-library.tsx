@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MediaGrid } from "@/components/media/media-grid";
 import { MediaUpload } from "@/components/media/media-upload";
 import { MediaFilters } from "@/components/media/media-filters";
-import { mockMedia } from "@/lib/api";
+import { mediaService } from "@/lib/services/media-service";
 import type { MediaItem } from "@/types/media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,35 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
     date: "all",
     tags: [] as string[],
   });
-  const [media, setMedia] = useState<MediaItem[]>(mockMedia);
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load media on component mount
+  useEffect(() => {
+    const loadMedia = async () => {
+      try {
+        setLoading(true);
+        const response = await mediaService.getMedia();
+        setMedia(response.data);
+      } catch (err: any) {
+        setError(err.message || "Failed to load media");
+        console.error("Failed to load media:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMedia();
+  }, []);
+
+  const handleUploadSuccess = (uploadedItems: MediaItem[]) => {
+    setMedia((prev) => [...uploadedItems, ...prev]);
+  };
+
+  const handleDeleteSuccess = (deletedMediaId: string) => {
+    setMedia((prev) => prev.filter((item) => item.id !== deletedMediaId));
+  };
 
   const handleFilterChange = (filterType: string, value: string | string[]) => {
     setSelectedFilters((prev) => ({
@@ -165,15 +193,42 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
 
             {/* Media Grid/List */}
             <div className="flex-1 p-4">
-              <MediaGrid
-                searchQuery={searchQuery}
-                filters={selectedFilters}
-                sortBy={sortBy}
-                viewMode={viewMode}
-                mode={mode}
-                onSelect={onSelect}
-                media={media}
-              />
+              {loading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading media...</p>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center">
+                    <p className="text-destructive mb-2">
+                      Failed to load media
+                    </p>
+                    <p className="text-sm text-muted-foreground">{error}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.location.reload()}
+                      className="mt-4"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <MediaGrid
+                  searchQuery={searchQuery}
+                  filters={selectedFilters}
+                  sortBy={sortBy}
+                  viewMode={viewMode}
+                  mode={mode}
+                  onSelect={onSelect}
+                  media={media}
+                  onDeleteSuccess={handleDeleteSuccess}
+                />
+              )}
             </div>
           </div>
         </TabsContent>

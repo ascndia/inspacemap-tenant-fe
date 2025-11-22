@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { mockMedia } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
+import { mediaService } from "@/lib/services/media-service";
+import type { MediaItem } from "@/types/media";
 import { Button } from "@/components/ui/button";
 import {
   Play,
@@ -40,8 +40,9 @@ interface MediaGridProps {
   sortBy?: string;
   viewMode?: "grid" | "list";
   mode?: "manage" | "select";
-  onSelect?: (media: any) => void;
+  onSelect?: (media: MediaItem) => void;
   media?: MediaItem[];
+  onDeleteSuccess?: (deletedMediaId: string) => void;
 }
 
 export function MediaGrid({
@@ -52,6 +53,7 @@ export function MediaGrid({
   mode = "manage",
   onSelect,
   media = mockMedia,
+  onDeleteSuccess,
 }: MediaGridProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mediaToDelete, setMediaToDelete] = useState<MediaItem | null>(null);
@@ -63,9 +65,7 @@ export function MediaGrid({
 
   const handleDeleteConfirm = () => {
     if (mediaToDelete) {
-      // In real app, this would call an API to delete the media
-      console.log("Deleting media:", mediaToDelete.id);
-      // For now, just close the dialog
+      onDeleteSuccess?.(mediaToDelete.id);
       setDeleteDialogOpen(false);
       setMediaToDelete(null);
     }
@@ -77,50 +77,46 @@ export function MediaGrid({
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        if (!item.name.toLowerCase().includes(query)) {
+        if (
+          !item.file_name.toLowerCase().includes(query) &&
+          !item.name.toLowerCase().includes(query)
+        ) {
           return false;
         }
       }
 
-      // Type filter
-      if (filters.type !== "all" && item.type !== filters.type) {
+      // Type/Category filter
+      if (filters.type !== "all" && item.category !== filters.type) {
         return false;
       }
 
-      // Date filter (simplified - in real app would check actual dates)
+      // Date filter
       if (filters.date !== "all") {
-        // Mock date filtering logic
-        const itemIndex = media.indexOf(item);
-        const daysOld = itemIndex * 10; // Mock age calculation
+        const itemDate = new Date(item.uploaded_at);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - itemDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
         switch (filters.date) {
           case "7days":
-            if (daysOld > 7) return false;
+            if (diffDays > 7) return false;
             break;
           case "30days":
-            if (daysOld > 30) return false;
+            if (diffDays > 30) return false;
             break;
           case "90days":
-            if (daysOld > 90) return false;
+            if (diffDays > 90) return false;
             break;
           case "year":
-            if (daysOld > 365) return false;
+            if (diffDays > 365) return false;
             break;
         }
       }
 
-      // Tags filter (simplified - in real app would check actual tags)
-      if (filters.tags.length > 0) {
-        // Mock tag filtering - assume some items have certain tags
-        const mockTags =
-          item.id === "1"
-            ? ["#venue", "#interior"]
-            : item.id === "2"
-            ? ["#interior"]
-            : item.id === "3"
-            ? ["#360", "#panorama"]
-            : ["#exterior"];
+      // Tags filter
+      if (filters.tags.length > 0 && item.tags) {
         const hasMatchingTag = filters.tags.some((tag) =>
-          mockTags.includes(tag)
+          item.tags?.includes(tag)
         );
         if (!hasMatchingTag) return false;
       }
@@ -132,17 +128,20 @@ export function MediaGrid({
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "oldest":
-          return media.indexOf(a) - media.indexOf(b);
+          return (
+            new Date(a.uploaded_at).getTime() -
+            new Date(b.uploaded_at).getTime()
+          );
         case "name":
-          return a.name.localeCompare(b.name);
+          return a.file_name.localeCompare(b.file_name);
         case "size":
-          // Simple size comparison (parse MB)
-          const aSize = parseFloat(a.size);
-          const bSize = parseFloat(b.size);
-          return bSize - aSize;
+          return b.file_size - a.file_size;
         case "newest":
         default:
-          return media.indexOf(b) - media.indexOf(a);
+          return (
+            new Date(b.uploaded_at).getTime() -
+            new Date(a.uploaded_at).getTime()
+          );
       }
     });
 
@@ -176,19 +175,23 @@ export function MediaGrid({
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{item.name}</p>
+                  <p className="font-medium truncate">{item.file_name}</p>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>{item.size}</span>
+                    <span>
+                      {(item.file_size / (1024 * 1024)).toFixed(1)} MB
+                    </span>
                     <span>•</span>
-                    <span>{item.type}</span>
+                    <span>{item.category}</span>
                     <span>•</span>
-                    <span>2 days ago</span>
+                    <span>
+                      {new Date(item.uploaded_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">
-                    {item.type}
+                    {item.category}
                   </Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -265,7 +268,7 @@ export function MediaGrid({
 interface MediaItemProps {
   item: MediaItem;
   mode: "manage" | "select";
-  onSelect?: (media: any) => void;
+  onSelect?: (media: MediaItem) => void;
   onDeleteClick: (media: MediaItem) => void;
 }
 
@@ -274,14 +277,22 @@ function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
     <Dialog>
       <div className="group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all">
         <div className="aspect-square bg-muted relative">
-          {/* Placeholder for actual image */}
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-muted">
-            {item.type === "video" ? (
-              <Play className="h-8 w-8" />
-            ) : (
-              <Maximize2 className="h-8 w-8" />
-            )}
-          </div>
+          {item.thumbnail_url || item.url ? (
+            <img
+              src={item.thumbnail_url || item.url}
+              alt={item.file_name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-muted">
+              {item.file_type.startsWith("video/") ? (
+                <Play className="h-8 w-8" />
+              ) : (
+                <Maximize2 className="h-8 w-8" />
+              )}
+            </div>
+          )}
 
           {/* Selection overlay for select mode */}
           {mode === "select" && (
@@ -342,14 +353,14 @@ function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
 
         <div className="p-3">
           <div className="flex items-center justify-between mb-1">
-            <p className="font-medium text-sm truncate" title={item.name}>
-              {item.name}
+            <p className="font-medium text-sm truncate" title={item.file_name}>
+              {item.file_name}
             </p>
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{item.size}</span>
+            <span>{(item.file_size / (1024 * 1024)).toFixed(1)} MB</span>
             <Badge variant="outline" className="text-[10px] h-4 px-1">
-              {item.type}
+              {item.category}
             </Badge>
           </div>
         </div>
@@ -357,36 +368,66 @@ function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
 
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{item.name}</DialogTitle>
+          <DialogTitle>{item.file_name}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4">
-          <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-            {/* Preview Placeholder */}
-            <p className="text-muted-foreground">Preview not available</p>
+          <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+            {item.url ? (
+              item.file_type.startsWith("video/") ? (
+                <video
+                  src={item.url}
+                  controls
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <img
+                  src={item.url}
+                  alt={item.file_name}
+                  className="w-full h-full object-cover"
+                />
+              )
+            ) : (
+              <p className="text-muted-foreground">Preview not available</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Type</p>
-              <p className="font-medium capitalize">{item.type}</p>
+              <p className="font-medium capitalize">{item.category}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Size</p>
-              <p className="font-medium">{item.size}</p>
+              <p className="font-medium">
+                {(item.file_size / (1024 * 1024)).toFixed(1)} MB
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground">Uploaded</p>
-              <p className="font-medium">2 days ago</p>
+              <p className="font-medium">
+                {new Date(item.uploaded_at).toLocaleDateString()}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground">Dimensions</p>
-              <p className="font-medium">1920x1080</p>
+              <p className="font-medium">
+                {item.width && item.height
+                  ? `${item.width}x${item.height}`
+                  : "N/A"}
+              </p>
             </div>
           </div>
           <div>
             <p className="text-muted-foreground text-sm mb-2">Tags</p>
-            <div className="flex gap-2">
-              <Badge variant="secondary">#venue</Badge>
-              <Badge variant="secondary">#interior</Badge>
+            <div className="flex gap-2 flex-wrap">
+              {item.tags && item.tags.length > 0 ? (
+                item.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary">
+                    {tag}
+                  </Badge>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No tags</p>
+              )}
             </div>
           </div>
         </div>

@@ -210,7 +210,8 @@ export const mockAuditLogs = [
 
 // Buat instance Axios
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  baseURL:
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8081/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -233,6 +234,24 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+// Response interceptor for token refresh/error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("access_token");
+      // Redirect to login if not already there
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.includes("/login")
+      ) {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
 

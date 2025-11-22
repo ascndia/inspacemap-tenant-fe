@@ -413,18 +413,6 @@ export const getGraphData = async (venueId: string): Promise<any> => {
   return response.data;
 };
 
-export const saveGraphData = async (
-  revisionId: string,
-  floorId: string,
-  graphData: any
-): Promise<any> => {
-  const response = await api.put(
-    `/editor/revisions/${revisionId}/floors/${floorId}/graph`,
-    graphData
-  );
-  return response.data;
-};
-
 export const createGraphNode = async (
   revisionId: string,
   floorId: string,
@@ -450,6 +438,28 @@ export const updateGraphNode = async (
   return response.data;
 };
 
+export const updateNodePosition = async (
+  nodeId: string,
+  x: number,
+  y: number
+): Promise<any> => {
+  const response = await api.put(`/editor/nodes/${nodeId}/position`, {
+    x,
+    y,
+  });
+  return response.data;
+};
+
+export const calibrateNode = async (
+  nodeId: string,
+  rotationOffset: number
+): Promise<any> => {
+  const response = await api.put(`/editor/nodes/${nodeId}/calibration`, {
+    rotation_offset: rotationOffset,
+  });
+  return response.data;
+};
+
 export const deleteGraphNode = async (
   revisionId: string,
   floorId: string,
@@ -469,14 +479,12 @@ export const createGraphConnection = async (
 };
 
 export const deleteGraphConnection = async (
-  revisionId: string,
-  floorId: string,
-  connectionId: string
+  fromNodeId: string,
+  toNodeId: string
 ): Promise<any> => {
-  // For now, we'll use the connection ID as the endpoint
-  // The guide shows using from_node_id and to_node_id as query params
-  // but we need to parse the connectionId or store the node IDs
-  const response = await api.delete(`/editor/connections/${connectionId}`);
+  const response = await api.delete(`/editor/connections`, {
+    params: { from_node_id: fromNodeId, to_node_id: toNodeId },
+  });
   return response.data;
 };
 

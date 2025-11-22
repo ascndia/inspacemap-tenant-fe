@@ -6,6 +6,7 @@ import type {
   GraphNode,
   GraphConnection,
   Vector3,
+  Floorplan,
 } from "@/types/graph";
 
 export class GraphService {
@@ -34,6 +35,32 @@ export class GraphService {
       if (!floorData) {
         // Floor not found, return empty graph
         return this.createEmptyGraph();
+      }
+
+      // Create floorplan object from floor data
+      let floorplan: Floorplan | undefined;
+      if (floorData.map_image_url) {
+        floorplan = {
+          id: `floorplan-${this.floorId}`,
+          venueId: this.venueId,
+          floorId: this.floorId,
+          name: floorData.name || `Floor ${floorData.level_index}`,
+          fileUrl: floorData.map_image_url.replace(
+            "localhost:9000",
+            "localhost:9002"
+          ), // Apply port fix for development
+          scale: 1, // Use consistent scale for all floorplans
+          bounds: {
+            width: floorData.map_width || 1000,
+            height: floorData.map_height || 1000,
+            minX: -(floorData.map_width || 1000) / 2,
+            minY: -(floorData.map_height || 1000) / 2,
+            maxX: (floorData.map_width || 1000) / 2,
+            maxY: (floorData.map_height || 1000) / 2,
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
       }
 
       // Transform API response to GraphData format
@@ -87,6 +114,7 @@ export class GraphService {
         name: floorData.level_name || `Floor ${this.floorId}`,
         nodes,
         connections,
+        floorplan, // Include floorplan data
         panoramas: [],
         settings: {
           gridSize: 20,
@@ -116,17 +144,13 @@ export class GraphService {
    * Save graph data to the backend
    */
   async saveGraph(graphData: GraphData): Promise<GraphData> {
-    try {
-      const savedData = await GraphRevisionService.saveGraphData(
-        this.revisionId,
-        this.floorId,
-        graphData
-      );
-      return savedData;
-    } catch (error) {
-      console.error("Failed to save graph:", error);
-      throw error;
-    }
+    // According to the API guide, there's no bulk save operation
+    // Graph data is saved through individual node/connection operations
+    // This method is kept for compatibility but doesn't perform any API calls
+    console.log(
+      "Graph data is saved through individual operations, not bulk save"
+    );
+    return graphData;
   }
 
   /**
@@ -137,24 +161,37 @@ export class GraphService {
     attributes?: Partial<GraphNode>
   ): Promise<GraphNode> {
     try {
-      const nodeData = {
-        position,
-        rotation: 0,
-        pitch: 0,
-        heading: 0,
-        fov: 75,
-        connections: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...attributes,
+      // Format data according to API guide
+      const apiNodeData = {
+        floor_id: this.floorId,
+        x: position.x,
+        y: position.y,
+        panorama_asset_id: attributes?.panoramaUrl
+          ? "placeholder-media-id"
+          : undefined, // TODO: Map panorama URL to asset ID
+        label: attributes?.label || `Node ${position.x},${position.y}`,
       };
 
       const createdNode = await GraphRevisionService.createNode(
         this.revisionId,
         this.floorId,
-        nodeData
+        apiNodeData
       );
-      return createdNode;
+
+      // Return the created node in our internal format
+      return {
+        id: createdNode.id || crypto.randomUUID(),
+        position,
+        rotation: attributes?.rotation || 0,
+        pitch: attributes?.pitch || 0,
+        heading: attributes?.heading || 0,
+        fov: attributes?.fov || 75,
+        connections: [],
+        panoramaUrl: attributes?.panoramaUrl,
+        label: attributes?.label || `Node ${position.x},${position.y}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
     } catch (error) {
       console.error("Failed to create node:", error);
       // Fallback: create node locally
@@ -218,12 +255,10 @@ export class GraphService {
     toNodeId: string
   ): Promise<GraphConnection> {
     try {
+      // Format data according to API guide
       const connectionData = {
-        fromNodeId,
-        toNodeId,
-        bidirectional: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        from_node_id: fromNodeId,
+        to_node_id: toNodeId,
       };
 
       const createdConnection = await GraphRevisionService.createConnection(
@@ -231,7 +266,17 @@ export class GraphService {
         this.floorId,
         connectionData
       );
-      return createdConnection;
+
+      // Return the created connection in our internal format
+      return {
+        id: createdConnection.id || crypto.randomUUID(),
+        fromNodeId,
+        toNodeId,
+        distance: 0, // Will be calculated by the graph context
+        bidirectional: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
     } catch (error) {
       console.error("Failed to create connection:", error);
       // Fallback: create connection locally
@@ -251,16 +296,11 @@ export class GraphService {
    * Delete a connection
    */
   async deleteConnection(connectionId: string): Promise<void> {
-    try {
-      await GraphRevisionService.deleteConnection(
-        this.revisionId,
-        this.floorId,
-        connectionId
-      );
-    } catch (error) {
-      console.error("Failed to delete connection:", error);
-      throw error;
-    }
+    // This method is now handled directly in the graph context
+    // since it needs access to the graph state to find node IDs
+    throw new Error(
+      "deleteConnection should be called from graph context, not service"
+    );
   }
 
   /**

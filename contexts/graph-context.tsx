@@ -37,7 +37,7 @@ type GraphAction =
       payload: { fromNodeId: string; toNodeId: string };
     }
   | { type: "DELETE_CONNECTION"; payload: { connectionId: string } }
-  | { type: "LOAD_FLOORPLAN"; payload: { floorplan: any } }
+  | { type: "UPDATE_FLOORPLAN_BOUNDS"; payload: { bounds: any } }
   | { type: "SET_SELECTED_NODE"; payload: { nodeId: string | null } }
   | {
       type: "SET_SELECTED_CONNECTION";
@@ -318,20 +318,22 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       };
     }
 
-    case "LOAD_FLOORPLAN": {
-      if (!state.graph) return state;
+    case "UPDATE_FLOORPLAN_BOUNDS": {
+      if (!state.graph?.floorplan) return state;
 
       const newGraph = {
         ...state.graph,
-        floorplan: action.payload.floorplan,
+        floorplan: {
+          ...state.graph.floorplan,
+          bounds: action.payload.bounds,
+        },
         updatedAt: new Date(),
       };
 
       return {
         ...state,
         graph: newGraph,
-        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
-        historyIndex: state.historyIndex + 1,
+        // Don't add to history for bounds updates
       };
     }
 
@@ -501,6 +503,7 @@ interface GraphContextType {
   addConnection: (fromNodeId: string, toNodeId: string) => void;
   deleteConnection: (connectionId: string) => void;
   loadFloorplan: (floorplan: any) => void;
+  updateFloorplanBounds: (bounds: any) => void;
   setSelectedNode: (nodeId: string | null) => void;
   setSelectedConnection: (connectionId: string | null) => void;
   updateSettings: (settings: Partial<GraphSettings>) => void;
@@ -600,6 +603,7 @@ export function GraphProvider({
       try {
         dispatch({ type: "SET_LOADING", payload: { loading: true } });
         const graphData = await graphServiceRef.current!.loadGraph();
+
         dispatch({ type: "LOAD_GRAPH", payload: { graph: graphData } });
       } catch (error) {
         console.error("Failed to load graph data:", error);
@@ -741,25 +745,41 @@ export function GraphProvider({
     [state.graph?.nodes]
   );
 
-  const deleteConnection = useCallback(async (connectionId: string) => {
-    try {
-      if (graphServiceRef.current) {
-        // Use backend API
-        await graphServiceRef.current.deleteConnection(connectionId);
-      }
+  const deleteConnection = useCallback(
+    async (connectionId: string) => {
+      try {
+        if (graphServiceRef.current && state.graph) {
+          // Find the connection to get node IDs
+          const connection = state.graph.connections.find(
+            (c) => c.id === connectionId
+          );
+          if (connection) {
+            // Use backend API with node IDs
+            await GraphRevisionService.deleteConnection(
+              connection.fromNodeId,
+              connection.toNodeId
+            );
+          }
+        }
 
-      dispatch({ type: "DELETE_CONNECTION", payload: { connectionId } });
-    } catch (error) {
-      console.error("Failed to delete connection:", error);
-      dispatch({
-        type: "SET_ERROR",
-        payload: { error: "Failed to delete connection" },
-      });
-    }
-  }, []);
+        dispatch({ type: "DELETE_CONNECTION", payload: { connectionId } });
+      } catch (error) {
+        console.error("Failed to delete connection:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to delete connection" },
+        });
+      }
+    },
+    [state.graph?.connections]
+  );
 
   const loadFloorplan = useCallback((floorplan: any) => {
     dispatch({ type: "LOAD_FLOORPLAN", payload: { floorplan } });
+  }, []);
+
+  const updateFloorplanBounds = useCallback((bounds: any) => {
+    dispatch({ type: "UPDATE_FLOORPLAN_BOUNDS", payload: { bounds } });
   }, []);
 
   const setSelectedNode = useCallback((nodeId: string | null) => {
@@ -977,6 +997,7 @@ export function GraphProvider({
     addConnection,
     deleteConnection,
     loadFloorplan,
+    updateFloorplanBounds,
     setSelectedNode,
     setSelectedConnection,
     updateSettings,

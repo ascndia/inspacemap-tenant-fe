@@ -6,9 +6,10 @@ import {
   getRevisionDetail,
   deleteRevision,
   getGraphData,
-  saveGraphData,
   createGraphNode,
   updateGraphNode,
+  updateNodePosition,
+  calibrateNode,
   deleteGraphNode,
   createGraphConnection,
   deleteGraphConnection,
@@ -135,23 +136,6 @@ export class GraphRevisionService {
   }
 
   /**
-   * Save graph data for a specific floor in a revision
-   */
-  static async saveGraphData(
-    revisionId: string,
-    floorId: string,
-    graphData: any
-  ): Promise<any> {
-    try {
-      const response = await saveGraphData(revisionId, floorId, graphData);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to save graph data:", error);
-      throw new Error("Failed to save graph data");
-    }
-  }
-
-  /**
    * Create a new node in the graph
    */
   static async createNode(
@@ -178,13 +162,37 @@ export class GraphRevisionService {
     nodeData: any
   ): Promise<any> {
     try {
-      const response = await updateGraphNode(
-        revisionId,
-        floorId,
-        nodeId,
-        nodeData
-      );
-      return response.data;
+      // Check what type of update this is
+      if (
+        nodeData.position &&
+        Object.keys(nodeData).length === 2 &&
+        nodeData.updatedAt
+      ) {
+        // Position update
+        const response = await updateNodePosition(
+          nodeId,
+          nodeData.position.x,
+          nodeData.position.y
+        );
+        return response.data;
+      } else if (
+        nodeData.rotation !== undefined &&
+        Object.keys(nodeData).length === 2 &&
+        nodeData.updatedAt
+      ) {
+        // Calibration update
+        const response = await calibrateNode(nodeId, nodeData.rotation);
+        return response.data;
+      } else {
+        // General update - use the generic endpoint
+        const response = await updateGraphNode(
+          revisionId,
+          floorId,
+          nodeId,
+          nodeData
+        );
+        return response.data;
+      }
     } catch (error) {
       console.error("Failed to update node:", error);
       throw new Error("Failed to update node");
@@ -233,16 +241,11 @@ export class GraphRevisionService {
    * Delete a connection from the graph
    */
   static async deleteConnection(
-    revisionId: string,
-    floorId: string,
-    connectionId: string
+    fromNodeId: string,
+    toNodeId: string
   ): Promise<any> {
     try {
-      const response = await deleteGraphConnection(
-        revisionId,
-        floorId,
-        connectionId
-      );
+      const response = await deleteGraphConnection(fromNodeId, toNodeId);
       return response.data;
     } catch (error) {
       console.error("Failed to delete connection:", error);

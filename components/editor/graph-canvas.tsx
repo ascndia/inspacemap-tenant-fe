@@ -211,9 +211,9 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
           floorId: state.graph.floorId,
           name: media.name || "Floorplan",
           fileUrl: media.url,
-          scale: 1,
+          scale: 1, // Use consistent scale
           bounds: {
-            width: 1000,
+            width: 1000, // Default size, will be adjusted when image loads
             height: 1000,
             minX: -500,
             minY: -500,

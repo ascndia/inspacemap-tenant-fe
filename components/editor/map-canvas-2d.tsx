@@ -43,7 +43,8 @@ export function MapCanvas2D({
   onDeleteConnection,
 }: MapCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { state, loadFloorplan, setPanoramaNode } = useGraph();
+  const { state, loadFloorplan, updateFloorplanBounds, setPanoramaNode } =
+    useGraph();
   const [floorplanImage, setFloorplanImage] = useState<HTMLImageElement | null>(
     null
   );
@@ -69,6 +70,41 @@ export function MapCanvas2D({
       const img = new Image();
       img.onload = () => {
         setFloorplanImage(img);
+
+        // Update floorplan bounds based on actual image dimensions
+        if (state.graph?.floorplan) {
+          const aspectRatio = img.width / img.height;
+          const maxDimension = Math.max(img.width, img.height);
+          const scaleFactor = 1000 / maxDimension; // Normalize to reasonable size
+
+          const displayWidth = img.width * scaleFactor;
+          const displayHeight = img.height * scaleFactor;
+
+          // Update floorplan bounds in the graph state
+          const updatedFloorplan = {
+            ...state.graph.floorplan,
+            bounds: {
+              width: displayWidth,
+              height: displayHeight,
+              minX: -displayWidth / 2,
+              minY: -displayHeight / 2,
+              maxX: displayWidth / 2,
+              maxY: displayHeight / 2,
+            },
+          };
+
+          // Dispatch action to update floorplan bounds
+          if (updateFloorplanBounds) {
+            updateFloorplanBounds({
+              width: displayWidth,
+              height: displayHeight,
+              minX: -displayWidth / 2,
+              minY: -displayHeight / 2,
+              maxX: displayWidth / 2,
+              maxY: displayHeight / 2,
+            });
+          }
+        }
       };
       img.onerror = () => {
         console.error("Failed to load floorplan image");
@@ -78,7 +114,7 @@ export function MapCanvas2D({
     } else {
       setFloorplanImage(null);
     }
-  }, [state.graph?.floorplan?.fileUrl]);
+  }, [state.graph?.floorplan?.fileUrl, updateFloorplanBounds]);
 
   // Draw function
   const draw = useCallback(() => {

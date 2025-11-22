@@ -1,5 +1,13 @@
 import axios from "axios";
 import type { MediaItem, MediaListResponse } from "@/types/media";
+import type {
+  GraphRevision,
+  GraphRevisionDetail,
+  CreateDraftRevisionResponse,
+  ListRevisionsResponse,
+  GetRevisionDetailResponse,
+  DeleteRevisionResponse,
+} from "@/types/graph";
 
 export const mockOrganizations = [
   {
@@ -322,16 +330,21 @@ export const uploadMedia = async (
   // Simulate API response
   const media: MediaItem = {
     id: Date.now().toString(),
+    asset_id: `asset-${Date.now()}`,
     name: file.name,
-    type: file.type.startsWith("image/")
-      ? "image"
+    file_name: file.name,
+    file_type: file.type,
+    file_size: file.size,
+    category: file.type.startsWith("image/")
+      ? "panorama"
       : file.type.startsWith("video/")
-      ? "video"
+      ? "panorama"
       : "panorama",
-    size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
     url: URL.createObjectURL(file), // In real app, this would be the uploaded URL
-    uploadedAt: new Date().toISOString(),
-    uploadedBy: "Current User", // In real app, get from auth
+    thumbnail_url: URL.createObjectURL(file),
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: "Current User", // In real app, get from auth
+    organization_id: "org-1",
   };
 
   return media;
@@ -359,5 +372,37 @@ export const uploadMedia = async (
 
 export const getMedia = async (): Promise<MediaItem[]> => {
   const response = await api.get("/media");
+  return response.data;
+};
+
+// Graph Revision API functions
+export const createDraftRevision = async (
+  venueId: string,
+  note?: string
+): Promise<CreateDraftRevisionResponse> => {
+  const response = await api.post(`/editor/${venueId}/revisions/draft`, {
+    note,
+  });
+  return response.data;
+};
+
+export const listRevisions = async (
+  venueId: string
+): Promise<ListRevisionsResponse> => {
+  const response = await api.get(`/editor/${venueId}/revisions`);
+  return response.data;
+};
+
+export const getRevisionDetail = async (
+  revisionId: string
+): Promise<GetRevisionDetailResponse> => {
+  const response = await api.get(`/editor/revisions/${revisionId}`);
+  return response.data;
+};
+
+export const deleteRevision = async (
+  revisionId: string
+): Promise<DeleteRevisionResponse> => {
+  const response = await api.delete(`/editor/revisions/${revisionId}`);
   return response.data;
 };

@@ -263,3 +263,59 @@ export interface Area {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Graph Revision Types (for API integration)
+export interface GraphRevision {
+  id: string;
+  venue_id: string;
+  status: "draft" | "published" | "archived";
+  note?: string;
+  created_at: string;
+  created_by: string;
+  updated_at?: string;
+  floors?: GraphRevisionFloor[];
+}
+
+export interface GraphRevisionFloor {
+  id: string;
+  name: string;
+  level_index: number;
+  map_image_url?: string;
+  map_width?: number;
+  map_height?: number;
+  pixels_per_meter?: number;
+  is_active: boolean;
+  nodes_count: number;
+  areas_count: number;
+}
+
+export interface GraphRevisionDetail extends GraphRevision {
+  floors: GraphRevisionFloor[];
+}
+
+export interface CreateDraftRevisionRequest {
+  venue_id: string;
+  note?: string;
+}
+
+export interface CreateDraftRevisionResponse {
+  success: boolean;
+  data: {
+    id: string;
+  };
+}
+
+export interface ListRevisionsResponse {
+  success: boolean;
+  data: GraphRevision[];
+}
+
+export interface GetRevisionDetailResponse {
+  success: boolean;
+  data: GraphRevisionDetail;
+}
+
+export interface DeleteRevisionResponse {
+  success: boolean;
+  data: string;
+}

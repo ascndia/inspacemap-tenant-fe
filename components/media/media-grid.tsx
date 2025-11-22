@@ -75,12 +75,17 @@ export function MediaGrid({
   // Filter and sort media
   const filteredAndSortedMedia = useMemo(() => {
     let filtered = media.filter((item) => {
+      // Skip invalid items
+      if (!item || !item.id || !item.file_name || !item.file_type) {
+        return false;
+      }
+
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         if (
           !item.file_name.toLowerCase().includes(query) &&
-          !item.name.toLowerCase().includes(query)
+          !item.name?.toLowerCase().includes(query)
         ) {
           return false;
         }
@@ -168,7 +173,7 @@ export function MediaGrid({
                 {mode === "select" && <Checkbox className="shrink-0" />}
 
                 <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center shrink-0">
-                  {item.file_type.startsWith("video/") ? (
+                  {item.file_type && item.file_type.startsWith("video/") ? (
                     <Play className="h-6 w-6" />
                   ) : (
                     <Maximize2 className="h-6 w-6" />
@@ -287,7 +292,7 @@ function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-muted">
-              {item.file_type.startsWith("video/") ? (
+              {item.file_type && item.file_type.startsWith("video/") ? (
                 <Play className="h-8 w-8" />
               ) : (
                 <Maximize2 className="h-8 w-8" />
@@ -374,7 +379,7 @@ function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
         <div className="grid gap-4">
           <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden">
             {item.url ? (
-              item.file_type.startsWith("video/") ? (
+              item.file_type && item.file_type.startsWith("video/") ? (
                 <video
                   src={item.url}
                   controls
@@ -421,8 +426,8 @@ function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
             <p className="text-muted-foreground text-sm mb-2">Tags</p>
             <div className="flex gap-2 flex-wrap">
               {item.tags && item.tags.length > 0 ? (
-                item.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
+                item.tags.map((tag, index) => (
+                  <Badge key={`${tag}-${index}`} variant="secondary">
                     {tag}
                   </Badge>
                 ))

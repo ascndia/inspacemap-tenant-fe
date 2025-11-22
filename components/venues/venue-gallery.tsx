@@ -54,18 +54,20 @@ export function VenueGallery({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draggedItem, setDraggedItem] = useState<VenueGalleryItem | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [mediaDetails, setMediaDetails] = useState<Map<string, MediaItem>>(new Map());
+  const [mediaDetails, setMediaDetails] = useState<Map<string, MediaItem>>(
+    new Map()
+  );
 
   // Fetch media details for gallery items
   useEffect(() => {
     const fetchMediaDetails = async () => {
       if (galleryItems.length === 0) return;
 
-      const mediaIds = galleryItems.map(item => item.media_asset_id);
+      const mediaIds = galleryItems.map((item) => item.media_asset_id);
       const newMediaDetails = new Map(mediaDetails);
 
       // Only fetch media that we don't already have
-      const missingMediaIds = mediaIds.filter(id => !newMediaDetails.has(id));
+      const missingMediaIds = mediaIds.filter((id) => !newMediaDetails.has(id));
 
       if (missingMediaIds.length === 0) return;
 
@@ -73,7 +75,7 @@ export function VenueGallery({
         // For now, we'll fetch all media and filter. In a real app, you might want to fetch by IDs
         const response = await mediaService.getMedia();
         if (response.data) {
-          response.data.forEach(media => {
+          response.data.forEach((media) => {
             if (missingMediaIds.includes(media.id)) {
               newMediaDetails.set(media.id, media);
             }
@@ -335,7 +337,8 @@ function GalleryItemCard({
   isSubmitting,
 }: GalleryItemCardProps) {
   // Use actual image URL if available, otherwise placeholder
-  const imageUrl = mediaItem?.thumbnail_url || mediaItem?.url || "/placeholder.svg";
+  const imageUrl =
+    mediaItem?.thumbnail_url || mediaItem?.url || "/placeholder.svg";
 
   return (
     <Card className="overflow-hidden group relative cursor-move">
@@ -350,7 +353,7 @@ function GalleryItemCard({
             (e.target as HTMLImageElement).src = "/placeholder.svg";
           }}
         />
-        
+
         {/* Status badges */}
         <div className="absolute top-2 left-2 flex gap-1">
           {item.is_featured && (
@@ -365,12 +368,12 @@ function GalleryItemCard({
             </Badge>
           )}
         </div>
-        
+
         {/* Drag handle */}
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <GripVertical className="h-4 w-4 text-muted-foreground bg-background/80 rounded p-0.5" />
         </div>
-        
+
         {/* Overlay */}
         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           <DropdownMenu>

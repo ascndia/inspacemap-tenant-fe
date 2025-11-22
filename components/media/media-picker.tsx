@@ -83,11 +83,14 @@ export function MediaPicker({
       const matchesSearch = item.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
-      
+
       // Map file_type to display type
-      const itemType = item.file_type.startsWith("image/") ? "image" : 
-                      item.file_type.startsWith("video/") ? "video" : "other";
-      
+      const itemType = item.file_type.startsWith("image/")
+        ? "image"
+        : item.file_type.startsWith("video/")
+        ? "video"
+        : "other";
+
       const matchesType = selectedType === "all" || itemType === selectedType;
       const matchesAcceptTypes = acceptTypes.includes(itemType);
 
@@ -314,16 +317,19 @@ function MediaItemCard({
   viewMode,
 }: MediaItemCardProps) {
   // Determine display type from file_type
-  const displayType = item.file_type.startsWith("image/") ? "image" : 
-                     item.file_type.startsWith("video/") ? "video" : "other";
-  
+  const displayType = item.file_type.startsWith("image/")
+    ? "image"
+    : item.file_type.startsWith("video/")
+    ? "video"
+    : "other";
+
   // Format file size
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
   if (viewMode === "list") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { GraphEditor } from "@/components/editor/graph-editor";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,10 +22,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { mockVenues } from "@/lib/api";
+import { CreateFloorDialog } from "@/components/editor/create-floor-dialog";
 import { GraphRevisionService } from "@/lib/services/graph-revision-service";
 import { GraphRevisionDetail } from "@/types/graph";
-import { use } from "react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface RevisionEditorPageProps {
   params: Promise<{
@@ -39,11 +39,14 @@ export default function RevisionEditorPage({
 }: RevisionEditorPageProps) {
   const { id, revisionId } = use(params);
 
+  const { toast } = useToast();
+
   const [revision, setRevision] = useState<GraphRevisionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [floorId, setFloorId] = useState("floor1");
+  const [floorId, setFloorId] = useState<string>("");
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [showCreateFloorDialog, setShowCreateFloorDialog] = useState(false);
 
   // Load revision data
   useEffect(() => {
@@ -55,6 +58,13 @@ export default function RevisionEditorPage({
           revisionId
         );
         setRevision(revisionData);
+
+        // Set active floor to the first floor if available
+        if (revisionData.floors && revisionData.floors.length > 0) {
+          setFloorId(revisionData.floors[0].id);
+        } else {
+          setFloorId("");
+        }
       } catch (err) {
         console.error("Failed to load revision:", err);
         setError("Failed to load revision");
@@ -98,10 +108,17 @@ export default function RevisionEditorPage({
     try {
       // The graph context will handle saving to the backend
       // We can also save revision metadata if needed
-      toast.success("Revision saved successfully");
+      toast({
+        title: "Success",
+        description: "Revision saved successfully",
+      });
     } catch (err) {
       console.error("Failed to save revision:", err);
-      toast.error("Failed to save revision");
+      toast({
+        title: "Error",
+        description: "Failed to save revision",
+        variant: "destructive",
+      });
     }
   };
 
@@ -109,16 +126,42 @@ export default function RevisionEditorPage({
     if (!revision) return;
 
     try {
-      await GraphRevisionService.publishRevision(revision.id);
-      toast.success("Revision published successfully");
-      // Reload revision data
+      await GraphRevisionService.publishRevision(revisionId);
+      toast({
+        title: "Success",
+        description: "Revision published successfully",
+      });
+      // Reload revision to update status
       const updatedRevision = await GraphRevisionService.getRevisionDetail(
         revisionId
       );
       setRevision(updatedRevision);
     } catch (err) {
       console.error("Failed to publish revision:", err);
-      toast.error("Failed to publish revision");
+      toast({
+        title: "Error",
+        description: "Failed to publish revision",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFloorCreated = async () => {
+    // Reload revision data to get updated floors
+    try {
+      const updatedRevision = await GraphRevisionService.getRevisionDetail(
+        revisionId
+      );
+      setRevision(updatedRevision);
+
+      // Set the newly created floor as active
+      if (updatedRevision.floors && updatedRevision.floors.length > 0) {
+        const newFloor =
+          updatedRevision.floors[updatedRevision.floors.length - 1];
+        setFloorId(newFloor.id);
+      }
+    } catch (error) {
+      console.error("Failed to reload revision:", error);
     }
   };
 
@@ -248,18 +291,36 @@ export default function RevisionEditorPage({
             {getStatusBadge()}
           </div>
           <div className="flex items-center gap-2">
-            <Select value={floorId} onValueChange={setFloorId}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Select floor" />
-              </SelectTrigger>
-              <SelectContent>
-                {venue.floors.map((floor, index) => (
-                  <SelectItem key={floor.id} value={floor.id}>
-                    Floor {index + 1}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {revision?.floors && revision.floors.length > 0 ? (
+              <Select value={floorId} onValueChange={setFloorId}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Select floor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {revision.floors.map((floor) => (
+                    <SelectItem key={floor.id} value={floor.id}>
+                      {floor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateFloorDialog(true)}
+              >
+                Create First Floor
+              </Button>
+            )}
+            {revision?.floors && revision.floors.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCreateFloorDialog(true)}
+              >
+                + Add Floor
+              </Button>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -292,13 +353,53 @@ export default function RevisionEditorPage({
 
       {/* Editor Workspace */}
       <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-background">
-        <GraphEditor
-          venueId={id}
-          floorId={floorId}
-          initialGraph={initialGraph}
-          revisionId={revisionId}
-        />
+        {revision?.floors && revision.floors.length > 0 && floorId ? (
+          <GraphEditor
+            venueId={id}
+            floorId={floorId}
+            initialGraph={initialGraph}
+            revisionId={revisionId}
+          />
+        ) : (
+          <div className="flex flex-col h-full items-center justify-center p-8 text-center">
+            <div className="max-w-md space-y-4">
+              <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-muted-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">No Floors Yet</h3>
+                <p className="text-muted-foreground">
+                  Start building your navigation graph by creating your first
+                  floor.
+                </p>
+              </div>
+              <Button onClick={() => setShowCreateFloorDialog(true)}>
+                Create First Floor
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Create Floor Dialog */}
+      <CreateFloorDialog
+        open={showCreateFloorDialog}
+        onOpenChange={setShowCreateFloorDialog}
+        venueId={id}
+        onFloorCreated={handleFloorCreated}
+      />
     </div>
   );
 }

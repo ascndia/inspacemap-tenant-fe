@@ -488,3 +488,13 @@ export const deleteGraphConnection = async (
   );
   return response.data;
 };
+
+export const createFloor = async (
+  venueId: string,
+  floorData: any
+): Promise<any> => {
+  const response = await api.post(`/editor/floors`, floorData, {
+    params: { venue_id: venueId },
+  });
+  return response.data;
+};

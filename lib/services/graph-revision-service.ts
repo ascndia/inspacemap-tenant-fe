@@ -12,6 +12,7 @@ import {
   deleteGraphNode,
   createGraphConnection,
   deleteGraphConnection,
+  createFloor,
 } from "@/lib/api";
 import type {
   GraphRevision,
@@ -264,6 +265,29 @@ export class GraphRevisionService {
     } catch (error) {
       console.error("Failed to delete connection:", error);
       throw new Error("Failed to delete connection");
+    }
+  }
+
+  /**
+   * Create a new floor in a venue revision
+   */
+  static async createFloor(
+    venueId: string,
+    floorData: {
+      name: string;
+      level_index: number;
+      map_image_id?: string;
+      pixels_per_meter?: number;
+      map_width?: number;
+      map_height?: number;
+    }
+  ): Promise<any> {
+    try {
+      const response = await createFloor(venueId, floorData);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to create floor:", error);
+      throw new Error("Failed to create floor");
     }
   }
 }

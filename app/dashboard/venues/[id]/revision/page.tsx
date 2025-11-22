@@ -1,6 +1,5 @@
 "use client";
 
-import { mockVenues } from "@/lib/api";
 import { GraphRevisionService } from "@/lib/services/graph-revision-service";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +36,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { EditRevisionModal } from "@/components/revisions/edit-revision-modal";
+import { DeleteRevisionConfirmModal } from "@/components/revisions/delete-revision-confirm-modal";
+import { venueService } from "@/lib/services/venue-service";
 
 interface VenueRevisionsPageProps {
   params: Promise<{ id: string }>;
@@ -46,6 +47,7 @@ export default function VenueRevisionsPage({
   params,
 }: VenueRevisionsPageProps) {
   const [venueId, setVenueId] = useState<string>("");
+  const [venueSlug, setVenueSlug] = useState<string>("");
   const [revisions, setRevisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,12 +55,28 @@ export default function VenueRevisionsPage({
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedRevision, setSelectedRevision] = useState<any>(null);
   const [hasDraftRevision, setHasDraftRevision] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [revisionToDelete, setRevisionToDelete] = useState<any>(null);
+  const [deletingRevision, setDeletingRevision] = useState(false);
   const router = useRouter();
 
   // Resolve params
   useEffect(() => {
-    params.then(({ id }) => {
+    params.then(async ({ id }) => {
       setVenueId(id);
+
+      // Fetch venue details to get the slug
+      try {
+        const venueResponse = await venueService.getVenueById(id);
+        if (venueResponse.success && venueResponse.data) {
+          setVenueSlug(venueResponse.data.slug);
+        }
+      } catch (err) {
+        console.error("Failed to fetch venue details:", err);
+        // Fallback to using ID as slug if fetch fails
+        setVenueSlug(id);
+      }
+
       loadRevisions(id);
     });
   }, [params]);
@@ -68,36 +86,18 @@ export default function VenueRevisionsPage({
       setLoading(true);
       setError(null);
       const data = await GraphRevisionService.getRevisions(id);
-      setRevisions(data);
+      // Ensure data is an array (handle null responses from API)
+      const revisionsData = Array.isArray(data) ? data : [];
+      setRevisions(revisionsData);
 
       // Check if there's already a draft revision
-      const hasDraft = data.some((rev: any) => rev.status === "draft");
+      const hasDraft = revisionsData.some((rev: any) => rev.status === "draft");
       setHasDraftRevision(hasDraft);
     } catch (err) {
       console.error("Failed to load revisions:", err);
       setError("Failed to load revisions");
-      // Fallback to mock data
-      setRevisions([
-        {
-          id: "rev-1",
-          venue_id: id,
-          status: "published",
-          note: "Current live version with all floors mapped",
-          created_at: new Date("2024-01-15").toISOString(),
-          created_by: "John Doe",
-          updated_at: new Date("2024-01-20").toISOString(),
-        },
-        {
-          id: "rev-2",
-          venue_id: id,
-          status: "draft",
-          note: "Working on new floor additions and updates",
-          created_at: new Date("2024-01-18").toISOString(),
-          created_by: "Jane Smith",
-          updated_at: new Date("2024-01-22").toISOString(),
-        },
-      ]);
-      setHasDraftRevision(true); // Mock data has a draft
+      setRevisions([]); // Set empty array instead of mock data
+      setHasDraftRevision(false);
     } finally {
       setLoading(false);
     }
@@ -165,14 +165,57 @@ export default function VenueRevisionsPage({
     }
   };
 
-  const handleDeleteRevision = async (revisionId: string) => {
+  const handleDeleteRevision = (revision: any) => {
+    setRevisionToDelete(revision);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDeleteRevision = async () => {
+    if (!revisionToDelete) return;
+
     try {
-      await GraphRevisionService.deleteRevision(revisionId);
+      setDeletingRevision(true);
+      await GraphRevisionService.deleteRevision(revisionToDelete.id);
       toast.success("Revision deleted successfully");
       loadRevisions(venueId);
-    } catch (err) {
+      setDeleteModalOpen(false);
+      setRevisionToDelete(null);
+    } catch (err: any) {
       console.error("Failed to delete revision:", err);
-      toast.error("Failed to delete revision");
+
+      // Handle specific error cases
+      if (err.response?.status === 400) {
+        const errorData = err.response?.data;
+        const errorMessage =
+          typeof errorData === "string"
+            ? errorData
+            : errorData?.message || "Bad request";
+
+        if (
+          errorMessage.toLowerCase().includes("only draft") &&
+          errorMessage.toLowerCase().includes("deleted")
+        ) {
+          toast.error("Only draft revisions can be deleted", {
+            description: "Published or archived revisions cannot be deleted.",
+            duration: 5000,
+          });
+          return;
+        }
+
+        toast.error(`Cannot delete revision: ${errorMessage}`);
+      } else if (err.response?.status === 404) {
+        toast.error("Revision not found", {
+          description: "The revision may have already been deleted.",
+          duration: 4000,
+        });
+        loadRevisions(venueId); // Refresh the list
+        setDeleteModalOpen(false);
+        setRevisionToDelete(null);
+      } else {
+        toast.error("Failed to delete revision. Please try again.");
+      }
+    } finally {
+      setDeletingRevision(false);
     }
   };
 
@@ -183,13 +226,14 @@ export default function VenueRevisionsPage({
 
   const handleUpdateRevision = (updatedRevision: any) => {
     // Update the revision in the local state
+    // The service returns the GraphRevision object directly
     setRevisions((prev) =>
       prev.map((rev) => (rev.id === updatedRevision.id ? updatedRevision : rev))
     );
   };
 
-  // Get venue data (keeping mock for now)
-  const venue = mockVenues.find((v) => v.id === venueId) || mockVenues[0];
+  // Get venue data (using venueId as name for now - can be enhanced with venue API later)
+  const venueName = `Venue ${venueId}`;
 
   // Transform API data to match UI expectations
   const transformedRevisions = revisions.map((rev, index) => ({
@@ -209,11 +253,13 @@ export default function VenueRevisionsPage({
     updatedAt: rev.updated_at
       ? new Date(rev.updated_at)
       : new Date(rev.created_at),
-    floorCount: venue?.floors.length || 0,
+    floorCount: rev.floors?.length || 0, // Use real floor count from revision data
     nodeCount:
-      rev.status === "published" ? 45 : rev.status === "draft" ? 52 : 32,
-    connectionCount:
-      rev.status === "published" ? 38 : rev.status === "draft" ? 45 : 28,
+      rev.floors?.reduce(
+        (total: number, floor: any) => total + (floor.nodes_count || 0),
+        0
+      ) || 0, // Real node count
+    connectionCount: 0, // TODO: Add connection count to API response if needed
     description: rev.note || "No description available",
   }));
 
@@ -245,7 +291,7 @@ export default function VenueRevisionsPage({
         <div className="flex-1">
           <h1 className="text-lg font-semibold md:text-2xl">Graph Revisions</h1>
           <p className="text-sm text-muted-foreground">
-            Manage navigation graph revisions for {venue?.name || "Venue"}
+            Manage navigation graph revisions for {venueName}
           </p>
         </div>
         <Button
@@ -385,7 +431,7 @@ export default function VenueRevisionsPage({
                               variant="outline"
                               size="sm"
                               className="text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteRevision(revision.id)}
+                              onClick={() => handleDeleteRevision(revision)}
                             >
                               <Trash2 className="mr-1 h-3 w-3" />
                               Delete
@@ -442,6 +488,21 @@ export default function VenueRevisionsPage({
           revisionId={selectedRevision.id}
           currentNote={selectedRevision.description || ""}
           onUpdate={handleUpdateRevision}
+        />
+      )}
+
+      {revisionToDelete && (
+        <DeleteRevisionConfirmModal
+          isOpen={deleteModalOpen}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setRevisionToDelete(null);
+          }}
+          orgSlug="acme-corp"
+          venueSlug={venueSlug}
+          revisionName={revisionToDelete.name}
+          onConfirm={handleConfirmDeleteRevision}
+          isDeleting={deletingRevision}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,13 @@ export function EditRevisionModal({
 }: EditRevisionModalProps) {
   const [note, setNote] = useState(currentNote);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Reset note when modal opens or currentNote changes
+  React.useEffect(() => {
+    if (isOpen) {
+      setNote(currentNote);
+    }
+  }, [isOpen, currentNote]);
 
   const handleUpdate = async () => {
     if (!note.trim()) {

@@ -115,39 +115,21 @@ export class GraphRevisionService {
   }
 
   /**
-   * Get graph data for a specific floor in a revision
+   * Get graph data for a venue (all floors and their nodes/connections)
    */
-  static async getGraphData(revisionId: string, floorId: string): Promise<any> {
+  static async getGraphData(venueId: string): Promise<any> {
     try {
-      const response = await getGraphData(revisionId, floorId);
+      const response = await getGraphData(venueId);
       return response.data;
     } catch (error) {
       console.error("Failed to fetch graph data:", error);
       // Return empty graph as fallback
       return {
-        id: `graph-${revisionId}-${floorId}`,
-        venueId: revisionId.split("-")[1] || "venue-1",
-        floorId,
-        name: `Graph for ${floorId}`,
-        nodes: [],
-        connections: [],
-        panoramas: [],
-        settings: {
-          gridSize: 20,
-          snapToGrid: true,
-          showGrid: true,
-          showLabels: true,
-          showConnections: true,
-          connectionStyle: "straight",
-          nodeSize: 1,
-          autoSave: true,
-          collaboration: false,
-          floorplanOpacity: 0.5,
-        },
-        version: 1,
-        isPublished: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        venue_id: venueId,
+        venue_name: "Unknown Venue",
+        last_updated: new Date().toISOString(),
+        start_node_id: "00000000-0000-0000-0000-000000000000",
+        floors: [],
       };
     }
   }

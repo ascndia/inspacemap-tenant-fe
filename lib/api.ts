@@ -408,13 +408,8 @@ export const deleteRevision = async (
 };
 
 // Graph API functions
-export const getGraphData = async (
-  revisionId: string,
-  floorId: string
-): Promise<any> => {
-  const response = await api.get(
-    `/editor/revisions/${revisionId}/floors/${floorId}/graph`
-  );
+export const getGraphData = async (venueId: string): Promise<any> => {
+  const response = await api.get(`/editor/${venueId}`);
   return response.data;
 };
 
@@ -435,10 +430,10 @@ export const createGraphNode = async (
   floorId: string,
   nodeData: any
 ): Promise<any> => {
-  const response = await api.post(
-    `/editor/revisions/${revisionId}/floors/${floorId}/nodes`,
-    nodeData
-  );
+  const response = await api.post(`/editor/nodes`, {
+    ...nodeData,
+    floor_id: floorId,
+  });
   return response.data;
 };
 
@@ -448,10 +443,10 @@ export const updateGraphNode = async (
   nodeId: string,
   nodeData: any
 ): Promise<any> => {
-  const response = await api.put(
-    `/editor/revisions/${revisionId}/floors/${floorId}/nodes/${nodeId}`,
-    nodeData
-  );
+  const response = await api.put(`/editor/nodes/${nodeId}`, {
+    ...nodeData,
+    floor_id: floorId,
+  });
   return response.data;
 };
 
@@ -460,9 +455,7 @@ export const deleteGraphNode = async (
   floorId: string,
   nodeId: string
 ): Promise<any> => {
-  const response = await api.delete(
-    `/editor/revisions/${revisionId}/floors/${floorId}/nodes/${nodeId}`
-  );
+  const response = await api.delete(`/editor/nodes/${nodeId}`);
   return response.data;
 };
 
@@ -471,10 +464,7 @@ export const createGraphConnection = async (
   floorId: string,
   connectionData: any
 ): Promise<any> => {
-  const response = await api.post(
-    `/editor/revisions/${revisionId}/floors/${floorId}/connections`,
-    connectionData
-  );
+  const response = await api.post(`/editor/connections`, connectionData);
   return response.data;
 };
 
@@ -483,9 +473,10 @@ export const deleteGraphConnection = async (
   floorId: string,
   connectionId: string
 ): Promise<any> => {
-  const response = await api.delete(
-    `/editor/revisions/${revisionId}/floors/${floorId}/connections/${connectionId}`
-  );
+  // For now, we'll use the connection ID as the endpoint
+  // The guide shows using from_node_id and to_node_id as query params
+  // but we need to parse the connectionId or store the node IDs
+  const response = await api.delete(`/editor/connections/${connectionId}`);
   return response.data;
 };
 

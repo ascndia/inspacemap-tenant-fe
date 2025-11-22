@@ -173,6 +173,7 @@ export function GraphEditor({
   return (
     <GraphProvider
       initialGraph={initialGraph}
+      venueId={venueId}
       revisionId={revisionId}
       floorId={floorId}
       autoSave={true}

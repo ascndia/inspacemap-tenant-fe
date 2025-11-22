@@ -535,6 +535,7 @@ const GraphContext = createContext<GraphContextType | undefined>(undefined);
 interface GraphProviderProps {
   children: ReactNode;
   initialGraph?: GraphData;
+  venueId?: string;
   revisionId?: string;
   floorId?: string;
   autoSave?: boolean;
@@ -543,6 +544,7 @@ interface GraphProviderProps {
 export function GraphProvider({
   children,
   initialGraph,
+  venueId,
   revisionId,
   floorId,
   autoSave = true,
@@ -550,12 +552,12 @@ export function GraphProvider({
   const graphServiceRef = useRef<GraphService | null>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize graph service when revision/floor IDs are provided
+  // Initialize graph service when venue/revision/floor IDs are provided
   useEffect(() => {
-    if (revisionId && floorId) {
-      graphServiceRef.current = new GraphService(revisionId, floorId);
+    if (venueId && revisionId && floorId) {
+      graphServiceRef.current = new GraphService(venueId, revisionId, floorId);
     }
-  }, [revisionId, floorId]);
+  }, [venueId, revisionId, floorId]);
 
   const [state, dispatch] = useReducer(graphReducer, {
     ...initialState,
@@ -590,9 +592,9 @@ export function GraphProvider({
     };
   }, [state.graph, autoSave]);
 
-  // Load graph data when revision/floor changes
+  // Load graph data when venue/revision/floor changes
   useEffect(() => {
-    if (!revisionId || !floorId || !graphServiceRef.current) return;
+    if (!venueId || !revisionId || !floorId || !graphServiceRef.current) return;
 
     const loadGraphData = async () => {
       try {
@@ -611,7 +613,7 @@ export function GraphProvider({
     };
 
     loadGraphData();
-  }, [revisionId, floorId]);
+  }, [venueId, revisionId, floorId]);
 
   // Helper functions
   const addNode = useCallback(

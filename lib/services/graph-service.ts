@@ -9,10 +9,12 @@ import type {
 } from "@/types/graph";
 
 export class GraphService {
+  private venueId: string;
   private revisionId: string;
   private floorId: string;
 
-  constructor(revisionId: string, floorId: string) {
+  constructor(venueId: string, revisionId: string, floorId: string) {
+    this.venueId = venueId;
     this.revisionId = revisionId;
     this.floorId = floorId;
   }
@@ -22,11 +24,87 @@ export class GraphService {
    */
   async loadGraph(): Promise<GraphData> {
     try {
-      const graphData = await GraphRevisionService.getGraphData(
-        this.revisionId,
-        this.floorId
+      const response = await GraphRevisionService.getGraphData(this.venueId);
+
+      // Find the specific floor data
+      const floorData = response.floors?.find(
+        (floor: any) => floor.id === this.floorId
       );
-      return graphData;
+
+      if (!floorData) {
+        // Floor not found, return empty graph
+        return this.createEmptyGraph();
+      }
+
+      // Transform API response to GraphData format
+      const nodes: GraphNode[] =
+        floorData.nodes?.map((node: any) => ({
+          id: node.id,
+          position: { x: node.x, y: node.y, z: 0 },
+          rotation: node.rotation_offset || 0,
+          pitch: 0,
+          heading: 0,
+          fov: 75,
+          connections:
+            node.neighbors?.map((neighbor: any) => neighbor.target_node_id) ||
+            [],
+          panoramaUrl: node.panorama_url,
+          label: node.area_name || `Node ${node.id.slice(-4)}`,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })) || [];
+
+      const connections: GraphConnection[] = [];
+      floorData.nodes?.forEach((node: any) => {
+        node.neighbors?.forEach((neighbor: any) => {
+          // Avoid duplicate connections
+          const existingConnection = connections.find(
+            (conn) =>
+              (conn.fromNodeId === node.id &&
+                conn.toNodeId === neighbor.target_node_id) ||
+              (conn.fromNodeId === neighbor.target_node_id &&
+                conn.toNodeId === node.id)
+          );
+
+          if (!existingConnection) {
+            connections.push({
+              id: `conn-${node.id}-${neighbor.target_node_id}`,
+              fromNodeId: node.id,
+              toNodeId: neighbor.target_node_id,
+              distance: neighbor.distance,
+              bidirectional: neighbor.is_active,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+        });
+      });
+
+      return {
+        id: `graph-${this.venueId}-${this.floorId}`,
+        venueId: this.venueId,
+        floorId: this.floorId,
+        name: floorData.level_name || `Floor ${this.floorId}`,
+        nodes,
+        connections,
+        panoramas: [],
+        settings: {
+          gridSize: 20,
+          snapToGrid: true,
+          showGrid: true,
+          showLabels: true,
+          showConnections: true,
+          connectionStyle: "straight",
+          nodeSize: 1,
+          autoSave: true,
+          collaboration: false,
+          floorplanOpacity: 0.5,
+        },
+        version: 1,
+        isPublished: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
     } catch (error) {
       console.error("Failed to load graph:", error);
       // Return a default empty graph
@@ -190,8 +268,8 @@ export class GraphService {
    */
   private createEmptyGraph(): GraphData {
     return {
-      id: `graph-${this.revisionId}-${this.floorId}`,
-      venueId: this.revisionId.split("-")[1] || "venue-1",
+      id: `graph-${this.venueId}-${this.floorId}`,
+      venueId: this.venueId,
       floorId: this.floorId,
       name: `Graph for ${this.floorId}`,
       nodes: [],

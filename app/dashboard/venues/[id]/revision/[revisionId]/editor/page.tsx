@@ -96,9 +96,8 @@ export default function RevisionEditorPage({
     if (!revision) return;
 
     try {
-      // TODO: Get actual graph data from GraphEditor context
-      const graphData = initialGraph; // Placeholder
-      await GraphRevisionService.saveRevisionGraph(revision.id, graphData);
+      // The graph context will handle saving to the backend
+      // We can also save revision metadata if needed
       toast.success("Revision saved successfully");
     } catch (err) {
       console.error("Failed to save revision:", err);
@@ -297,6 +296,7 @@ export default function RevisionEditorPage({
           venueId={id}
           floorId={floorId}
           initialGraph={initialGraph}
+          revisionId={revisionId}
         />
       </div>
     </div>

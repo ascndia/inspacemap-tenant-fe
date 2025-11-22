@@ -23,8 +23,14 @@ import {
 import { useGraph } from "@/contexts/graph-context";
 
 function GraphEditorContent() {
-  const { state, validateGraph, autoLayout, findPath, getGraphStats } =
-    useGraph();
+  const {
+    state,
+    validateGraph,
+    autoLayout,
+    findPath,
+    getGraphStats,
+    saveGraph,
+  } = useGraph();
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(true);
   const [pathPreview, setPathPreview] = useState<string[] | null>(null);
   const [pathStartNode, setPathStartNode] = useState<string | null>(null);
@@ -58,9 +64,13 @@ function GraphEditorContent() {
     // TODO: Show stats in a dialog
   };
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log("Saving graph:", state.graph);
+  const handleSave = async () => {
+    try {
+      await saveGraph();
+      console.log("Graph saved successfully");
+    } catch (error) {
+      console.error("Failed to save graph:", error);
+    }
   };
 
   const handleLoadFloorplan = () => {
@@ -151,15 +161,22 @@ interface GraphEditorProps {
   venueId: string;
   floorId: string;
   initialGraph?: any;
+  revisionId?: string;
 }
 
 export function GraphEditor({
   venueId,
   floorId,
   initialGraph,
+  revisionId,
 }: GraphEditorProps) {
   return (
-    <GraphProvider initialGraph={initialGraph}>
+    <GraphProvider
+      initialGraph={initialGraph}
+      revisionId={revisionId}
+      floorId={floorId}
+      autoSave={true}
+    >
       <GraphEditorContent />
     </GraphProvider>
   );

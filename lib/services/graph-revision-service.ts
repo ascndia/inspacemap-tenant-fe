@@ -5,6 +5,13 @@ import {
   listRevisions,
   getRevisionDetail,
   deleteRevision,
+  getGraphData,
+  saveGraphData,
+  createGraphNode,
+  updateGraphNode,
+  deleteGraphNode,
+  createGraphConnection,
+  deleteGraphConnection,
 } from "@/lib/api";
 import type {
   GraphRevision,
@@ -13,6 +20,10 @@ import type {
   ListRevisionsResponse,
   GetRevisionDetailResponse,
   DeleteRevisionResponse,
+  GraphData,
+  GraphNode,
+  GraphConnection,
+  Vector3,
 } from "@/types/graph";
 
 export class GraphRevisionService {
@@ -100,5 +111,159 @@ export class GraphRevisionService {
     console.log("Publishing revision:", revisionId);
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  /**
+   * Get graph data for a specific floor in a revision
+   */
+  static async getGraphData(revisionId: string, floorId: string): Promise<any> {
+    try {
+      const response = await getGraphData(revisionId, floorId);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch graph data:", error);
+      // Return empty graph as fallback
+      return {
+        id: `graph-${revisionId}-${floorId}`,
+        venueId: revisionId.split("-")[1] || "venue-1",
+        floorId,
+        name: `Graph for ${floorId}`,
+        nodes: [],
+        connections: [],
+        panoramas: [],
+        settings: {
+          gridSize: 20,
+          snapToGrid: true,
+          showGrid: true,
+          showLabels: true,
+          showConnections: true,
+          connectionStyle: "straight",
+          nodeSize: 1,
+          autoSave: true,
+          collaboration: false,
+          floorplanOpacity: 0.5,
+        },
+        version: 1,
+        isPublished: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+  }
+
+  /**
+   * Save graph data for a specific floor in a revision
+   */
+  static async saveGraphData(
+    revisionId: string,
+    floorId: string,
+    graphData: any
+  ): Promise<any> {
+    try {
+      const response = await saveGraphData(revisionId, floorId, graphData);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to save graph data:", error);
+      throw new Error("Failed to save graph data");
+    }
+  }
+
+  /**
+   * Create a new node in the graph
+   */
+  static async createNode(
+    revisionId: string,
+    floorId: string,
+    nodeData: any
+  ): Promise<any> {
+    try {
+      const response = await createGraphNode(revisionId, floorId, nodeData);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to create node:", error);
+      throw new Error("Failed to create node");
+    }
+  }
+
+  /**
+   * Update an existing node in the graph
+   */
+  static async updateNode(
+    revisionId: string,
+    floorId: string,
+    nodeId: string,
+    nodeData: any
+  ): Promise<any> {
+    try {
+      const response = await updateGraphNode(
+        revisionId,
+        floorId,
+        nodeId,
+        nodeData
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to update node:", error);
+      throw new Error("Failed to update node");
+    }
+  }
+
+  /**
+   * Delete a node from the graph
+   */
+  static async deleteNode(
+    revisionId: string,
+    floorId: string,
+    nodeId: string
+  ): Promise<any> {
+    try {
+      const response = await deleteGraphNode(revisionId, floorId, nodeId);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete node:", error);
+      throw new Error("Failed to delete node");
+    }
+  }
+
+  /**
+   * Create a new connection in the graph
+   */
+  static async createConnection(
+    revisionId: string,
+    floorId: string,
+    connectionData: any
+  ): Promise<any> {
+    try {
+      const response = await createGraphConnection(
+        revisionId,
+        floorId,
+        connectionData
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to create connection:", error);
+      throw new Error("Failed to create connection");
+    }
+  }
+
+  /**
+   * Delete a connection from the graph
+   */
+  static async deleteConnection(
+    revisionId: string,
+    floorId: string,
+    connectionId: string
+  ): Promise<any> {
+    try {
+      const response = await deleteGraphConnection(
+        revisionId,
+        floorId,
+        connectionId
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete connection:", error);
+      throw new Error("Failed to delete connection");
+    }
   }
 }

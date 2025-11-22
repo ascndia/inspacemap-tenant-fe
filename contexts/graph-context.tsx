@@ -6,7 +6,10 @@ import React, {
   useReducer,
   useCallback,
   ReactNode,
+  useEffect,
+  useRef,
 } from "react";
+import { GraphService } from "@/lib/services/graph-service";
 import {
   GraphNode,
   GraphConnection,
@@ -52,7 +55,9 @@ type GraphAction =
   | { type: "UNDO" }
   | { type: "REDO" }
   | { type: "SET_PANORAMA_NODE"; payload: { nodeId: string | null } }
-  | { type: "TOGGLE_PANORAMA_VIEWER" };
+  | { type: "TOGGLE_PANORAMA_VIEWER" }
+  | { type: "SET_LOADING"; payload: { loading: boolean } }
+  | { type: "SET_ERROR"; payload: { error: string | null } };
 
 // State Interface
 interface GraphState {
@@ -464,6 +469,21 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       };
     }
 
+    case "SET_LOADING": {
+      return {
+        ...state,
+        isLoading: action.payload.loading,
+      };
+    }
+
+    case "SET_ERROR": {
+      return {
+        ...state,
+        error: action.payload.error,
+        isLoading: false,
+      };
+    }
+
     default:
       return state;
   }
@@ -493,6 +513,7 @@ interface GraphContextType {
   redo: () => void;
   setPanoramaNode: (nodeId: string | null) => void;
   togglePanoramaViewer: () => void;
+  saveGraph: () => Promise<void>;
 
   // Advanced features
   autoLayout: () => void;
@@ -514,9 +535,28 @@ const GraphContext = createContext<GraphContextType | undefined>(undefined);
 interface GraphProviderProps {
   children: ReactNode;
   initialGraph?: GraphData;
+  revisionId?: string;
+  floorId?: string;
+  autoSave?: boolean;
 }
 
-export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
+export function GraphProvider({
+  children,
+  initialGraph,
+  revisionId,
+  floorId,
+  autoSave = true,
+}: GraphProviderProps) {
+  const graphServiceRef = useRef<GraphService | null>(null);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize graph service when revision/floor IDs are provided
+  useEffect(() => {
+    if (revisionId && floorId) {
+      graphServiceRef.current = new GraphService(revisionId, floorId);
+    }
+  }, [revisionId, floorId]);
+
   const [state, dispatch] = useReducer(graphReducer, {
     ...initialState,
     graph: initialGraph || null,
@@ -524,31 +564,196 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     historyIndex: initialGraph ? 0 : -1,
   });
 
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSave || !state.graph || !graphServiceRef.current) return;
+
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (5 seconds after last change)
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await graphServiceRef.current!.saveGraph(state.graph);
+        console.log("Graph auto-saved successfully");
+      } catch (error) {
+        console.error("Failed to auto-save graph:", error);
+      }
+    }, 5000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [state.graph, autoSave]);
+
+  // Load graph data when revision/floor changes
+  useEffect(() => {
+    if (!revisionId || !floorId || !graphServiceRef.current) return;
+
+    const loadGraphData = async () => {
+      try {
+        dispatch({ type: "SET_LOADING", payload: { loading: true } });
+        const graphData = await graphServiceRef.current!.loadGraph();
+        dispatch({ type: "LOAD_GRAPH", payload: { graph: graphData } });
+      } catch (error) {
+        console.error("Failed to load graph data:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to load graph data" },
+        });
+      } finally {
+        dispatch({ type: "SET_LOADING", payload: { loading: false } });
+      }
+    };
+
+    loadGraphData();
+  }, [revisionId, floorId]);
+
   // Helper functions
   const addNode = useCallback(
-    (position: Vector3, attributes?: Partial<GraphNode>) => {
-      dispatch({ type: "ADD_NODE", payload: { position, attributes } });
+    async (position: Vector3, attributes?: Partial<GraphNode>) => {
+      try {
+        let newNode: GraphNode;
+
+        if (graphServiceRef.current) {
+          // Use backend API
+          newNode = await graphServiceRef.current.createNode(
+            position,
+            attributes
+          );
+        } else {
+          // Fallback to local creation
+          newNode = {
+            id: crypto.randomUUID(),
+            position,
+            rotation: 0,
+            pitch: 0,
+            heading: 0,
+            fov: 75,
+            connections: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            ...attributes,
+          };
+        }
+
+        dispatch({
+          type: "ADD_NODE",
+          payload: { position, attributes: newNode },
+        });
+      } catch (error) {
+        console.error("Failed to add node:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to add node" },
+        });
+      }
     },
     []
   );
 
   const updateNode = useCallback(
-    (nodeId: string, updates: Partial<GraphNode>) => {
-      dispatch({ type: "UPDATE_NODE", payload: { nodeId, updates } });
+    async (nodeId: string, updates: Partial<GraphNode>) => {
+      try {
+        if (graphServiceRef.current) {
+          // Use backend API
+          await graphServiceRef.current.updateNode(nodeId, updates);
+        }
+
+        dispatch({ type: "UPDATE_NODE", payload: { nodeId, updates } });
+      } catch (error) {
+        console.error("Failed to update node:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to update node" },
+        });
+      }
     },
     []
   );
 
-  const deleteNode = useCallback((nodeId: string) => {
-    dispatch({ type: "DELETE_NODE", payload: { nodeId } });
+  const deleteNode = useCallback(async (nodeId: string) => {
+    try {
+      if (graphServiceRef.current) {
+        // Use backend API
+        await graphServiceRef.current.deleteNode(nodeId);
+      }
+
+      dispatch({ type: "DELETE_NODE", payload: { nodeId } });
+    } catch (error) {
+      console.error("Failed to delete node:", error);
+      dispatch({
+        type: "SET_ERROR",
+        payload: { error: "Failed to delete node" },
+      });
+    }
   }, []);
 
-  const addConnection = useCallback((fromNodeId: string, toNodeId: string) => {
-    dispatch({ type: "ADD_CONNECTION", payload: { fromNodeId, toNodeId } });
-  }, []);
+  const addConnection = useCallback(
+    async (fromNodeId: string, toNodeId: string) => {
+      try {
+        let newConnection: GraphConnection;
 
-  const deleteConnection = useCallback((connectionId: string) => {
-    dispatch({ type: "DELETE_CONNECTION", payload: { connectionId } });
+        if (graphServiceRef.current) {
+          // Use backend API
+          newConnection = await graphServiceRef.current.createConnection(
+            fromNodeId,
+            toNodeId
+          );
+        } else {
+          // Fallback to local creation
+          const fromNode = state.graph?.nodes.find((n) => n.id === fromNodeId);
+          const toNode = state.graph?.nodes.find((n) => n.id === toNodeId);
+
+          if (!fromNode || !toNode) return;
+
+          const distance = Math.sqrt(
+            Math.pow(toNode.position.x - fromNode.position.x, 2) +
+              Math.pow(toNode.position.y - fromNode.position.y, 2)
+          );
+
+          newConnection = {
+            id: crypto.randomUUID(),
+            fromNodeId,
+            toNodeId,
+            distance,
+            bidirectional: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+        }
+
+        dispatch({ type: "ADD_CONNECTION", payload: { fromNodeId, toNodeId } });
+      } catch (error) {
+        console.error("Failed to add connection:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to add connection" },
+        });
+      }
+    },
+    [state.graph?.nodes]
+  );
+
+  const deleteConnection = useCallback(async (connectionId: string) => {
+    try {
+      if (graphServiceRef.current) {
+        // Use backend API
+        await graphServiceRef.current.deleteConnection(connectionId);
+      }
+
+      dispatch({ type: "DELETE_CONNECTION", payload: { connectionId } });
+    } catch (error) {
+      console.error("Failed to delete connection:", error);
+      dispatch({
+        type: "SET_ERROR",
+        payload: { error: "Failed to delete connection" },
+      });
+    }
   }, []);
 
   const loadFloorplan = useCallback((floorplan: any) => {
@@ -605,6 +810,24 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
   const togglePanoramaViewer = useCallback(() => {
     dispatch({ type: "TOGGLE_PANORAMA_VIEWER" });
   }, []);
+
+  const saveGraph = useCallback(async () => {
+    if (!state.graph || !graphServiceRef.current) return;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: { loading: true } });
+      await graphServiceRef.current.saveGraph(state.graph);
+      dispatch({ type: "SET_ERROR", payload: { error: null } });
+    } catch (error) {
+      console.error("Failed to save graph:", error);
+      dispatch({
+        type: "SET_ERROR",
+        payload: { error: "Failed to save graph" },
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { loading: false } });
+    }
+  }, [state.graph]);
 
   const validateGraph = useCallback((): ValidationResult => {
     if (!state.graph) {
@@ -773,6 +996,7 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     canUndo,
     canRedo,
     validateGraph,
+    saveGraph,
   };
 
   return (

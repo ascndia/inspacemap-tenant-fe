@@ -406,3 +406,85 @@ export const deleteRevision = async (
   const response = await api.delete(`/editor/revisions/${revisionId}`);
   return response.data;
 };
+
+// Graph API functions
+export const getGraphData = async (
+  revisionId: string,
+  floorId: string
+): Promise<any> => {
+  const response = await api.get(
+    `/editor/revisions/${revisionId}/floors/${floorId}/graph`
+  );
+  return response.data;
+};
+
+export const saveGraphData = async (
+  revisionId: string,
+  floorId: string,
+  graphData: any
+): Promise<any> => {
+  const response = await api.put(
+    `/editor/revisions/${revisionId}/floors/${floorId}/graph`,
+    graphData
+  );
+  return response.data;
+};
+
+export const createGraphNode = async (
+  revisionId: string,
+  floorId: string,
+  nodeData: any
+): Promise<any> => {
+  const response = await api.post(
+    `/editor/revisions/${revisionId}/floors/${floorId}/nodes`,
+    nodeData
+  );
+  return response.data;
+};
+
+export const updateGraphNode = async (
+  revisionId: string,
+  floorId: string,
+  nodeId: string,
+  nodeData: any
+): Promise<any> => {
+  const response = await api.put(
+    `/editor/revisions/${revisionId}/floors/${floorId}/nodes/${nodeId}`,
+    nodeData
+  );
+  return response.data;
+};
+
+export const deleteGraphNode = async (
+  revisionId: string,
+  floorId: string,
+  nodeId: string
+): Promise<any> => {
+  const response = await api.delete(
+    `/editor/revisions/${revisionId}/floors/${floorId}/nodes/${nodeId}`
+  );
+  return response.data;
+};
+
+export const createGraphConnection = async (
+  revisionId: string,
+  floorId: string,
+  connectionData: any
+): Promise<any> => {
+  const response = await api.post(
+    `/editor/revisions/${revisionId}/floors/${floorId}/connections`,
+    connectionData
+  );
+  return response.data;
+};
+
+export const deleteGraphConnection = async (
+  revisionId: string,
+  floorId: string,
+  connectionId: string
+): Promise<any> => {
+  const response = await api.delete(
+    `/editor/revisions/${revisionId}/floors/${floorId}/connections/${connectionId}`
+  );
+  return response.data;
+};

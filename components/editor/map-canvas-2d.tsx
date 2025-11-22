@@ -53,6 +53,7 @@ export function MapCanvas2D({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isMiddleMousePanning, setIsMiddleMousePanning] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -143,6 +144,8 @@ export function MapCanvas2D({
     setHoveredNodeId,
     mousePosition,
     setMousePosition,
+    isMiddleMousePanning,
+    setIsMiddleMousePanning,
   });
 
   // Handle global click to close context menu
@@ -307,6 +310,8 @@ export function MapCanvas2D({
         onMouseDown={mouseHandlers.handleMouseDown}
         onMouseMove={mouseHandlers.handleMouseMove}
         onMouseUp={mouseHandlers.handleMouseUp}
+        onMouseEnter={mouseHandlers.handleMouseEnter}
+        onMouseLeave={mouseHandlers.handleMouseLeave}
         onWheel={mouseHandlers.handleWheel}
         onContextMenu={(e) => e.preventDefault()}
         style={{ cursor: state.ui.tool === "pan" ? "grab" : "crosshair" }}

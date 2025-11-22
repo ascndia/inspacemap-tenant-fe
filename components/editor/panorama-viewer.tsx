@@ -7,11 +7,13 @@ export default function PanoramaViewer({
   onRotationChange,
   onPitchChange,
   rotationSpeed = 0.5,
+  isDraggingNode = false,
 }: {
   selectedNode: any;
   onRotationChange: (rotation: number) => void;
   onPitchChange: (pitch: number) => void;
   rotationSpeed?: number;
+  isDraggingNode?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rotation, setRotation] = useState(0); // yaw (horizontal)
@@ -203,7 +205,7 @@ export default function PanoramaViewer({
   );
 
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedNode && !isDraggingNode) {
       const newRotation = selectedNode.rotation || 0;
       const newPitch = selectedNode.pitch || 0;
       setRotation(newRotation);
@@ -214,7 +216,7 @@ export default function PanoramaViewer({
       // Draw with new values
       drawPanorama(newRotation, newPitch);
     }
-  }, [selectedNode, drawPanorama]);
+  }, [selectedNode, drawPanorama, isDraggingNode]);
 
   // Resize canvas to match container while maintaining aspect ratio
   useEffect(() => {

@@ -8,6 +8,8 @@ export interface MouseEventHandlers {
   handleMouseMove: (event: React.MouseEvent) => void;
   handleMouseUp: () => void;
   handleWheel: (event: React.WheelEvent) => void;
+  handleMouseEnter: () => void;
+  handleMouseLeave: () => void;
 }
 
 export interface MouseHandlerParams {
@@ -62,6 +64,9 @@ export interface MouseHandlerParams {
   setHoveredNodeId: (nodeId: string | null) => void;
   mousePosition: { x: number; y: number };
   setMousePosition: (position: { x: number; y: number }) => void;
+  onToolChange?: (tool: string) => void;
+  isMiddleMousePanning: boolean;
+  setIsMiddleMousePanning: (panning: boolean) => void;
 }
 
 export function createMouseHandlers(
@@ -95,6 +100,9 @@ export function createMouseHandlers(
     setHoveredNodeId,
     mousePosition,
     setMousePosition,
+    onToolChange,
+    isMiddleMousePanning,
+    setIsMiddleMousePanning,
   } = params;
 
   const handleMouseDown = (event: React.MouseEvent) => {
@@ -141,6 +149,17 @@ export function createMouseHandlers(
         y: menuY,
         nodeId: clickedNode?.id,
         connectionId: clickedConnection?.id,
+      });
+      return;
+    }
+
+    // Handle middle mouse button for panning
+    if (event.button === 1) {
+      event.preventDefault();
+      setIsMiddleMousePanning(true);
+      setPanStart({
+        x: event.clientX - panOffset.x,
+        y: event.clientY - panOffset.y,
       });
       return;
     }
@@ -229,6 +248,16 @@ export function createMouseHandlers(
       setHoveredNodeId(null);
     }
 
+    // Handle middle mouse panning
+    if (isMiddleMousePanning) {
+      const newPanOffset = {
+        x: event.clientX - panStart.x,
+        y: event.clientY - panStart.y,
+      };
+      onPanChange(newPanOffset);
+      return;
+    }
+
     if (isPanning) {
       const newPanOffset = {
         x: event.clientX - panStart.x,
@@ -262,6 +291,7 @@ export function createMouseHandlers(
     setIsDragging(false);
     setDragNode(null);
     setIsPanning(false);
+    setIsMiddleMousePanning(false);
   };
 
   const handleWheel = (event: React.WheelEvent) => {
@@ -276,10 +306,22 @@ export function createMouseHandlers(
     onZoomChange(newZoom);
   };
 
+  const handleMouseEnter = () => {
+    // Reset hover state when mouse enters canvas
+    setHoveredNodeId(null);
+  };
+
+  const handleMouseLeave = () => {
+    // Reset hover state when mouse leaves canvas
+    setHoveredNodeId(null);
+  };
+
   return {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     handleWheel,
+    handleMouseEnter,
+    handleMouseLeave,
   };
 }

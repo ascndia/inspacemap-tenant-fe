@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
 import { useGraph } from "@/contexts/graph-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +11,7 @@ import {
   RotateCcw,
   ImageIcon,
   Link,
+  Eye,
 } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
 
@@ -26,6 +26,7 @@ interface CanvasToolbarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  onTogglePanoramaViewer?: () => void;
 }
 
 export function CanvasToolbar({
@@ -39,7 +40,9 @@ export function CanvasToolbar({
   canRedo,
   onUndo,
   onRedo,
+  onTogglePanoramaViewer,
 }: CanvasToolbarProps) {
+  const { state } = useGraph();
   return (
     <div className="flex items-center gap-2 p-2 bg-background border-b">
       <Button
@@ -76,6 +79,17 @@ export function CanvasToolbar({
         onClick={() => onToolChange("connect")}
       >
         <Link className="h-4 w-4" />
+      </Button>
+
+      <div className="h-6 w-px bg-border mx-2" />
+
+      <Button
+        variant={state.ui.showPanoramaViewer ? "default" : "ghost"}
+        size="sm"
+        title="Toggle Panorama Viewer"
+        onClick={onTogglePanoramaViewer}
+      >
+        <Eye className="h-4 w-4" />
       </Button>
 
       <div className="h-6 w-px bg-border mx-2" />

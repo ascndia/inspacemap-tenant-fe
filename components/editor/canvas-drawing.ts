@@ -312,7 +312,9 @@ function drawNodes(
     if (isConnectingFrom) {
       radius = 12 / zoom; // Enlarge connecting from node
     } else if (isHovered && isValidTarget) {
-      radius = 10 / zoom; // Enlarge hovered target node
+      radius = 12 / zoom; // Enlarge hovered target node in connect mode
+    } else if (isHovered) {
+      radius = 10 / zoom; // Slightly enlarge hovered node
     }
 
     // Node circle
@@ -325,9 +327,19 @@ function drawNodes(
       : node.panoramaUrl
       ? "#22c55e"
       : "#6b7280";
+
+    // Add glow effect for connect mode
+    if (isConnecting && (isHovered || isConnectingFrom)) {
+      ctx.shadowColor = isConnectingFrom ? "#f59e0b" : "#10b981";
+      ctx.shadowBlur = 8 / zoom;
+    }
+
     ctx.beginPath();
     ctx.arc(node.position.x, node.position.y, radius, 0, 2 * Math.PI);
     ctx.fill();
+
+    // Reset shadow
+    ctx.shadowBlur = 0;
 
     // Node border
     ctx.strokeStyle = isSelected ? "#1e40af" : "#374151";

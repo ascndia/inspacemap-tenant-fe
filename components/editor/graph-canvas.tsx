@@ -36,6 +36,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
+  const [isDraggingNode, setIsDraggingNode] = useState(false);
 
   // Prevent browser zoom gestures and shortcuts
   useEffect(() => {
@@ -182,6 +183,25 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     [deleteConnection]
   );
 
+  const handleNodeUpdate = useCallback(
+    (nodeId: string, updates: any) => {
+      // Check if this is a position update (dragging)
+      const isPositionUpdate = updates.position !== undefined;
+
+      if (isPositionUpdate && !isDraggingNode) {
+        setIsDraggingNode(true);
+      }
+
+      updateNode(nodeId, updates);
+
+      // Reset dragging state after a short delay to allow for smooth updates
+      if (isPositionUpdate) {
+        setTimeout(() => setIsDraggingNode(false), 100);
+      }
+    },
+    [updateNode, isDraggingNode]
+  );
+
   const handleFloorplanSelect = useCallback(
     (media: any) => {
       if (state.graph) {
@@ -236,6 +256,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
             canRedo={canRedo}
             onUndo={undo}
             onRedo={redo}
+            onTogglePanoramaViewer={togglePanoramaViewer}
           />
 
           {/* Canvas */}
@@ -249,7 +270,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
             <MapCanvas2D
               onNodeSelect={handleNodeSelect}
               onCanvasClick={handleCanvasClick}
-              onNodeUpdate={updateNode}
+              onNodeUpdate={handleNodeUpdate}
               onToolChange={handleToolChange}
               zoom={canvasZoom}
               panOffset={canvasPanOffset}
@@ -295,6 +316,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
                 selectedNode={panoramaNode}
                 onRotationChange={handleRotationChange}
                 onPitchChange={handlePitchChange}
+                isDraggingNode={isDraggingNode}
               />
             </div>
           </ResizablePanel>

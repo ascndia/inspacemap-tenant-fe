@@ -275,6 +275,25 @@ export function PropertiesPanel() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>
+                Floorplan Opacity:{" "}
+                {Math.round(
+                  (state.graph?.settings.floorplanOpacity || 0.5) * 100
+                )}
+                %
+              </Label>
+              <Slider
+                value={[state.graph?.settings.floorplanOpacity || 0.5]}
+                onValueChange={([value]) =>
+                  handleSettingsUpdate("floorplanOpacity", value)
+                }
+                min={0}
+                max={1}
+                step={0.1}
+                className="w-full"
+              />
+            </div>
           </TabsContent>
           <TabsContent value="analytics" className="space-y-4 mt-0">
             {graphStats ? (

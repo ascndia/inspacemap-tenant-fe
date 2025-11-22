@@ -48,7 +48,12 @@ export function drawCanvas(params: DrawParams) {
   ctx.scale(zoom, zoom);
 
   // Draw floorplan background if available
-  drawFloorplan(ctx, floorplanImage, graph.floorplan);
+  drawFloorplan(
+    ctx,
+    floorplanImage,
+    graph.floorplan,
+    graph.settings.floorplanOpacity
+  );
 
   // Draw grid
   if (ui.showGrid) {
@@ -91,7 +96,8 @@ export function drawCanvas(params: DrawParams) {
 function drawFloorplan(
   ctx: CanvasRenderingContext2D,
   floorplanImage: HTMLImageElement | null,
-  floorplan: any
+  floorplan: any,
+  floorplanOpacity: number = 0.5
 ) {
   if (floorplanImage && floorplan) {
     const scale = floorplan.scale || 1;
@@ -102,7 +108,16 @@ function drawFloorplan(
     const offsetX = -imgWidth / 2;
     const offsetY = -imgHeight / 2;
 
+    // Save current global alpha
+    const originalAlpha = ctx.globalAlpha;
+
+    // Set floorplan opacity
+    ctx.globalAlpha = floorplanOpacity;
+
     ctx.drawImage(floorplanImage, offsetX, offsetY, imgWidth, imgHeight);
+
+    // Restore original alpha
+    ctx.globalAlpha = originalAlpha;
   } else if (floorplan) {
     // Placeholder when image is loading
     ctx.fillStyle = "#f0f0f0";

@@ -198,6 +198,7 @@ export default function RevisionEditorPage({
       nodeSize: 1,
       autoSave: true,
       collaboration: false,
+      floorplanOpacity: 0.5,
     },
     version: 1,
     isPublished: revision?.status === "published",

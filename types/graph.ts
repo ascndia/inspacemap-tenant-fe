@@ -94,6 +94,7 @@ export interface GraphSettings {
   nodeSize: number;
   autoSave: boolean;
   collaboration: boolean;
+  floorplanOpacity: number;
 }
 
 export interface ValidationResult {

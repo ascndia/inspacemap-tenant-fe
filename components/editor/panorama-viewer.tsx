@@ -216,7 +216,12 @@ export default function PanoramaViewer({
       // Draw with new values
       drawPanorama(newRotation, newPitch);
     }
-  }, [selectedNode, drawPanorama, isDraggingNode]);
+  }, [
+    selectedNode?.rotation,
+    selectedNode?.pitch,
+    drawPanorama,
+    isDraggingNode,
+  ]);
 
   // Resize canvas to match container while maintaining aspect ratio
   useEffect(() => {

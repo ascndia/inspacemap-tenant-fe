@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useGraph } from "@/contexts/graph-context";
 import {
   ResizablePanelGroup,
@@ -233,9 +233,27 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     (n) => n.id === state.ui.selectedNodeId
   );
 
-  const panoramaNode = state.graph?.nodes.find(
-    (n) => n.id === state.ui.panoramaNodeId
-  );
+  const panoramaNode = useMemo(() => {
+    const node = state.graph?.nodes.find(
+      (n) => n.id === state.ui.panoramaNodeId
+    );
+    return node
+      ? {
+          ...node,
+          // Only include properties that should trigger panorama updates
+          id: node.id,
+          rotation: node.rotation,
+          pitch: node.pitch,
+          panoramaUrl: node.panoramaUrl,
+        }
+      : null;
+  }, [
+    state.ui.panoramaNodeId,
+    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId)?.rotation,
+    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId)?.pitch,
+    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId)
+      ?.panoramaUrl,
+  ]);
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">

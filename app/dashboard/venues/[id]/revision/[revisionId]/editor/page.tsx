@@ -80,6 +80,49 @@ export default function RevisionEditorPage({
   // In a real app, fetch venue by ID
   const venue = mockVenues.find((v) => v.id === id) || mockVenues[0];
 
+  const getStatusBadge = () => {
+    if (!revision) return null;
+
+    if (revision.status === "published") {
+      return <Badge className="bg-green-600">Live</Badge>;
+    }
+    if (revision.status === "draft") {
+      return <Badge variant="secondary">Draft</Badge>;
+    }
+    return <Badge variant="outline">Archived</Badge>;
+  };
+
+  const handleSave = async () => {
+    if (!revision) return;
+
+    try {
+      // TODO: Get actual graph data from GraphEditor context
+      const graphData = initialGraph; // Placeholder
+      await GraphRevisionService.saveRevisionGraph(revision.id, graphData);
+      toast.success("Revision saved successfully");
+    } catch (err) {
+      console.error("Failed to save revision:", err);
+      toast.error("Failed to save revision");
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!revision) return;
+
+    try {
+      await GraphRevisionService.publishRevision(revision.id);
+      toast.success("Revision published successfully");
+      // Reload revision data
+      const updatedRevision = await GraphRevisionService.getRevisionDetail(
+        revisionId
+      );
+      setRevision(updatedRevision);
+    } catch (err) {
+      console.error("Failed to publish revision:", err);
+      toast.error("Failed to publish revision");
+    }
+  };
+
   // Mock initial graph data - in real implementation, this would come from the revision
   const initialGraph = {
     id: `graph-${revisionId}`,
@@ -162,35 +205,6 @@ export default function RevisionEditorPage({
     updatedAt: new Date(),
   };
 
-  const getStatusBadge = () => {
-    if (!revision) return null;
-
-    if (revision.status === "published") {
-      return <Badge className="bg-green-600">Live</Badge>;
-    }
-    if (revision.status === "draft") {
-      return <Badge variant="secondary">Draft</Badge>;
-    }
-    return <Badge variant="outline">Archived</Badge>;
-  };
-
-  const handlePublish = async () => {
-    if (!revision) return;
-
-    try {
-      await GraphRevisionService.publishRevision(revision.id);
-      toast.success("Revision published successfully");
-      // Reload revision data
-      const updatedRevision = await GraphRevisionService.getRevisionDetail(
-        revisionId
-      );
-      setRevision(updatedRevision);
-    } catch (err) {
-      console.error("Failed to publish revision:", err);
-      toast.error("Failed to publish revision");
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col h-[calc(100vh-6rem)] gap-4 items-center justify-center">
@@ -210,98 +224,6 @@ export default function RevisionEditorPage({
       </div>
     );
   }
-
-  // Mock initial graph data
-  const initialGraph = {
-    id: `graph-${revisionId}`,
-    venueId: id,
-    floorId,
-    name: `${venue.name} - ${revision.name} - Floor ${floorId}`,
-    nodes: [
-      {
-        id: "node-1",
-        position: { x: 0, y: 0, z: 0 },
-        rotation: 0,
-        heading: 0,
-        fov: 75,
-        connections: ["node-2"],
-        label: "Entrance",
-        panoramaUrl: "/panoramas/lobby.jpg", // Mock URL
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "node-2",
-        position: { x: 3, y: 0, z: 2 },
-        rotation: 90,
-        heading: 90,
-        fov: 75,
-        connections: ["node-1", "node-3"],
-        label: "Lobby",
-        panoramaUrl: "/panoramas/lobby.jpg", // Mock URL
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "node-3",
-        position: { x: 6, y: 0, z: 0 },
-        rotation: 180,
-        heading: 180,
-        fov: 75,
-        connections: ["node-2"],
-        label: "Hallway",
-        panoramaUrl: "/panoramas/lobby.jpg", // Mock URL
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ],
-    connections: [
-      {
-        id: "conn-1",
-        fromNodeId: "node-1",
-        toNodeId: "node-2",
-        distance: 3.6,
-        bidirectional: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "conn-2",
-        fromNodeId: "node-2",
-        toNodeId: "node-3",
-        distance: 3.6,
-        bidirectional: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ],
-    panoramas: [],
-    settings: {
-      gridSize: 20,
-      snapToGrid: true,
-      showGrid: true,
-      showLabels: true,
-      showConnections: true,
-      connectionStyle: "straight" as const,
-      nodeSize: 1,
-      autoSave: true,
-      collaboration: false,
-    },
-    version: revision.version,
-    isPublished: revision.isLive,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  const getStatusBadge = () => {
-    if (revision.isLive) {
-      return <Badge className="bg-green-600">Live</Badge>;
-    }
-    if (revision.isDraft) {
-      return <Badge variant="secondary">Draft</Badge>;
-    }
-    return <Badge variant="outline">Archived</Badge>;
-  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] gap-4">

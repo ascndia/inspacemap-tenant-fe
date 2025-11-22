@@ -4,7 +4,6 @@ import { useState } from "react";
 import { GraphProvider } from "@/contexts/graph-context";
 import { GraphCanvas } from "./graph-canvas";
 import { PropertiesPanel } from "./properties-panel";
-import { PanoramaPreview } from "./panorama-preview";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -26,7 +25,6 @@ import { useGraph } from "@/contexts/graph-context";
 function GraphEditorContent() {
   const { state, validateGraph, autoLayout, findPath, getGraphStats } =
     useGraph();
-  const [showPanoramaPreview, setShowPanoramaPreview] = useState(false);
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(true);
   const [pathPreview, setPathPreview] = useState<string[] | null>(null);
   const [pathStartNode, setPathStartNode] = useState<string | null>(null);
@@ -108,14 +106,6 @@ function GraphEditorContent() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowPanoramaPreview(!showPanoramaPreview)}
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Panorama Preview
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
             onClick={() => setShowPropertiesPanel(!showPropertiesPanel)}
           >
             <Settings className="h-4 w-4 mr-2" />
@@ -138,11 +128,6 @@ function GraphEditorContent() {
           >
             <div className="h-full relative">
               <GraphCanvas pathPreview={pathPreview} />
-              {showPanoramaPreview && (
-                <div className="absolute top-4 right-4 w-80 h-60 bg-background border rounded-lg shadow-lg overflow-hidden">
-                  <PanoramaPreview />
-                </div>
-              )}
             </div>
           </ResizablePanel>
 

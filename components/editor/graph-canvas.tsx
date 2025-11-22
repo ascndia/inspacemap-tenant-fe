@@ -10,6 +10,7 @@ import {
 import { CanvasToolbar } from "./canvas-toolbar";
 import { MapCanvas2D } from "./map-canvas-2d";
 import PanoramaViewer from "./panorama-viewer";
+import { Button } from "@/components/ui/button";
 
 export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -30,6 +31,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     setTool,
     setConnectingStart,
     setConnectingEnd,
+    togglePanoramaViewer,
   } = useGraph();
 
   const [canvasZoom, setCanvasZoom] = useState(1);
@@ -142,20 +144,20 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
   const handlePitchChange = useCallback(
     (pitch: number) => {
-      if (state.ui.selectedNodeId) {
-        updateNode(state.ui.selectedNodeId, { pitch });
+      if (state.ui.panoramaNodeId) {
+        updateNode(state.ui.panoramaNodeId, { pitch });
       }
     },
-    [state.ui.selectedNodeId, updateNode]
+    [state.ui.panoramaNodeId, updateNode]
   );
 
   const handleRotationChange = useCallback(
     (rotation: number) => {
-      if (state.ui.selectedNodeId) {
-        updateNode(state.ui.selectedNodeId, { rotation });
+      if (state.ui.panoramaNodeId) {
+        updateNode(state.ui.panoramaNodeId, { rotation });
       }
     },
-    [state.ui.selectedNodeId, updateNode]
+    [state.ui.panoramaNodeId, updateNode]
   );
 
   const handleConnectionStart = useCallback(
@@ -211,10 +213,17 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     (n) => n.id === state.ui.selectedNodeId
   );
 
+  const panoramaNode = state.graph?.nodes.find(
+    (n) => n.id === state.ui.panoramaNodeId
+  );
+
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">
       {/* Canvas Panel */}
-      <ResizablePanel defaultSize={75} minSize={50}>
+      <ResizablePanel
+        defaultSize={state.ui.showPanoramaViewer ? 75 : 100}
+        minSize={50}
+      >
         <div className="flex flex-col h-full">
           <CanvasToolbar
             currentTool={state.ui.tool}
@@ -264,19 +273,33 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
         </div>
       </ResizablePanel>
 
-      <ResizableHandle withHandle />
+      {state.ui.showPanoramaViewer && (
+        <>
+          <ResizableHandle withHandle />
 
-      {/* Panorama Viewer Panel */}
-      <ResizablePanel defaultSize={25} minSize={20}>
-        <div className="h-full bg-background border-l p-4">
-          <h3 className="font-semibold mb-4">Panorama Viewer</h3>
-          <PanoramaViewer
-            selectedNode={selectedNode}
-            onRotationChange={handleRotationChange}
-            onPitchChange={handlePitchChange}
-          />
-        </div>
-      </ResizablePanel>
+          {/* Panorama Viewer Panel */}
+          <ResizablePanel defaultSize={25} minSize={20}>
+            <div className="h-full bg-background border-l p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Panorama Viewer</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={togglePanoramaViewer}
+                  className="h-6 w-6 p-0"
+                >
+                  ×
+                </Button>
+              </div>
+              <PanoramaViewer
+                selectedNode={panoramaNode}
+                onRotationChange={handleRotationChange}
+                onPitchChange={handlePitchChange}
+              />
+            </div>
+          </ResizablePanel>
+        </>
+      )}
     </ResizablePanelGroup>
   );
 }

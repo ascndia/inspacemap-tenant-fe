@@ -14,7 +14,9 @@ interface ContextMenuProps {
   onAddNode?: (x: number, y: number) => void;
   onResetView?: () => void;
   onDeleteConnection?: (connectionId: string) => void;
+  onViewPanorama?: (nodeId: string) => void;
   isNodeLocked?: boolean;
+  hasPanorama?: boolean;
 }
 
 export function CanvasContextMenu({
@@ -29,7 +31,9 @@ export function CanvasContextMenu({
   onAddNode,
   onResetView,
   onDeleteConnection,
+  onViewPanorama,
   isNodeLocked,
+  hasPanorama,
 }: ContextMenuProps) {
   return (
     <div
@@ -61,6 +65,16 @@ export function CanvasContextMenu({
           >
             Select Node
           </button>
+          {hasPanorama && (
+            <button
+              className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+              onClick={() => {
+                onViewPanorama?.(nodeId);
+              }}
+            >
+              View Panorama
+            </button>
+          )}
           <button
             className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
             onClick={() => {

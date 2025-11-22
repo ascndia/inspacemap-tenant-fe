@@ -43,7 +43,7 @@ export function MapCanvas2D({
   onDeleteConnection,
 }: MapCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { state, loadFloorplan } = useGraph();
+  const { state, loadFloorplan, setPanoramaNode } = useGraph();
   const [floorplanImage, setFloorplanImage] = useState<HTMLImageElement | null>(
     null
   );
@@ -291,6 +291,14 @@ export function MapCanvas2D({
     [onDeleteConnection]
   );
 
+  const handleViewPanorama = useCallback(
+    (nodeId: string) => {
+      setPanoramaNode(nodeId);
+      setContextMenu(null);
+    },
+    [setPanoramaNode]
+  );
+
   return (
     <>
       <canvas
@@ -318,8 +326,13 @@ export function MapCanvas2D({
           onAddNode={handleAddNode}
           onResetView={handleResetView}
           onDeleteConnection={handleDeleteConnection}
+          onViewPanorama={handleViewPanorama}
           isNodeLocked={
             state.graph?.nodes.find((n) => n.id === contextMenu.nodeId)?.locked
+          }
+          hasPanorama={
+            !!state.graph?.nodes.find((n) => n.id === contextMenu.nodeId)
+              ?.panoramaUrl
           }
         />
       )}

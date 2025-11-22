@@ -219,6 +219,8 @@ export interface GraphUIState {
   showProperties: boolean;
   showGrid: boolean;
   snapToGrid: boolean;
+  showPanoramaViewer: boolean;
+  panoramaNodeId: string | null;
 }
 
 // Venue and Floor Types (extending existing mock data)

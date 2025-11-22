@@ -50,7 +50,9 @@ type GraphAction =
   | { type: "LOAD_GRAPH"; payload: { graph: GraphData } }
   | { type: "RESET_GRAPH" }
   | { type: "UNDO" }
-  | { type: "REDO" };
+  | { type: "REDO" }
+  | { type: "SET_PANORAMA_NODE"; payload: { nodeId: string | null } }
+  | { type: "TOGGLE_PANORAMA_VIEWER" };
 
 // State Interface
 interface GraphState {
@@ -78,6 +80,8 @@ const initialState: GraphState = {
     showProperties: true,
     showGrid: true,
     snapToGrid: true,
+    showPanoramaViewer: true,
+    panoramaNodeId: null,
   },
   history: [],
   historyIndex: -1,
@@ -440,6 +444,26 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       return state;
     }
 
+    case "SET_PANORAMA_NODE": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          panoramaNodeId: action.payload.nodeId,
+        },
+      };
+    }
+
+    case "TOGGLE_PANORAMA_VIEWER": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          showPanoramaViewer: !state.ui.showPanoramaViewer,
+        },
+      };
+    }
+
     default:
       return state;
   }
@@ -467,6 +491,8 @@ interface GraphContextType {
   resetGraph: () => void;
   undo: () => void;
   redo: () => void;
+  setPanoramaNode: (nodeId: string | null) => void;
+  togglePanoramaViewer: () => void;
 
   // Advanced features
   autoLayout: () => void;
@@ -476,6 +502,7 @@ interface GraphContextType {
   // Computed values
   selectedNode: GraphNode | null;
   selectedConnection: GraphConnection | null;
+  panoramaNode: GraphNode | null;
   canUndo: boolean;
   canRedo: boolean;
   validateGraph: () => ValidationResult;
@@ -571,6 +598,14 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     dispatch({ type: "REDO" });
   }, []);
 
+  const setPanoramaNode = useCallback((nodeId: string | null) => {
+    dispatch({ type: "SET_PANORAMA_NODE", payload: { nodeId } });
+  }, []);
+
+  const togglePanoramaViewer = useCallback(() => {
+    dispatch({ type: "TOGGLE_PANORAMA_VIEWER" });
+  }, []);
+
   const validateGraph = useCallback((): ValidationResult => {
     if (!state.graph) {
       return { isValid: false, errors: ["No graph loaded"], warnings: [] };
@@ -647,6 +682,8 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     state.graph?.connections.find(
       (c) => c.id === state.ui.selectedConnectionId
     ) || null;
+  const panoramaNode =
+    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId) || null;
   const canUndo = state.historyIndex > 0;
   const canRedo = state.historyIndex < state.history.length - 1;
 
@@ -725,11 +762,14 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     resetGraph,
     undo,
     redo,
+    setPanoramaNode,
+    togglePanoramaViewer,
     autoLayout,
     findPath,
     getGraphStats,
     selectedNode,
     selectedConnection,
+    panoramaNode,
     canUndo,
     canRedo,
     validateGraph,

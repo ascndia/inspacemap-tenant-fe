@@ -184,7 +184,7 @@ export class GraphService {
 
       // Return the created node in our internal format
       return {
-        id: createdNode.id || crypto.randomUUID(),
+        id: createdNode.id,
         position,
         rotation: attributes?.rotation || 0,
         pitch: attributes?.pitch || 0,
@@ -192,21 +192,23 @@ export class GraphService {
         fov: attributes?.fov || 75,
         connections: [],
         panoramaUrl: attributes?.panoramaUrl,
-        label: attributes?.label || `Node ${position.x},${position.y}`,
+        label: attributes?.label || `Node ${createdNode.id.slice(0, 4)}`,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
     } catch (error) {
       console.error("Failed to create node:", error);
       // Fallback: create node locally
+      const fallbackId = crypto.randomUUID();
       return {
-        id: crypto.randomUUID(),
+        id: fallbackId,
         position,
         rotation: 0,
         pitch: 0,
         heading: 0,
         fov: 75,
         connections: [],
+        label: `Node ${fallbackId.slice(0, 4)}`,
         createdAt: new Date(),
         updatedAt: new Date(),
         ...attributes,
@@ -273,7 +275,7 @@ export class GraphService {
 
       // Return the created connection in our internal format
       return {
-        id: createdConnection.id || crypto.randomUUID(),
+        id: createdConnection.id,
         fromNodeId,
         toNodeId,
         distance: 0, // Will be calculated by the graph context

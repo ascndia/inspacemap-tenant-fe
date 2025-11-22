@@ -301,9 +301,27 @@ export function createMouseHandlers(
 
     // Only handle zoom if Ctrl is not pressed (to avoid interfering with browser zoom)
     // Actually, we want to prevent browser zoom, so we'll handle it regardless
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    // Calculate world coordinates under mouse before zoom
+    const worldX = (mouseX - panOffset.x) / zoom;
+    const worldY = (mouseY - panOffset.y) / zoom;
+
+    // Calculate new zoom
     const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
+
+    // Adjust pan so mouse stays over the same world point
+    const newPanX = mouseX - worldX * newZoom;
+    const newPanY = mouseY - worldY * newZoom;
+
     onZoomChange(newZoom);
+    onPanChange({ x: newPanX, y: newPanY });
   };
 
   const handleMouseEnter = () => {

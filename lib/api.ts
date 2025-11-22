@@ -407,6 +407,14 @@ export const deleteRevision = async (
   return response.data;
 };
 
+export const updateRevision = async (
+  revisionId: string,
+  data: { note: string }
+): Promise<any> => {
+  const response = await api.put(`/editor/revisions/${revisionId}`, data);
+  return response.data;
+};
+
 // Graph API functions
 export const getGraphData = async (venueId: string): Promise<any> => {
   const response = await api.get(`/editor/${venueId}`);

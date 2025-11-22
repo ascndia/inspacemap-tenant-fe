@@ -322,3 +322,8 @@ export interface DeleteRevisionResponse {
   success: boolean;
   data: string;
 }
+
+export interface UpdateRevisionResponse {
+  success: boolean;
+  data: GraphRevision;
+}

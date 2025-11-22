@@ -36,6 +36,7 @@ import { GraphRevision } from "@/types/graph";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { EditRevisionModal } from "@/components/revisions/edit-revision-modal";
 
 interface VenueRevisionsPageProps {
   params: Promise<{ id: string }>;
@@ -49,6 +50,9 @@ export default function VenueRevisionsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creatingRevision, setCreatingRevision] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedRevision, setSelectedRevision] = useState<any>(null);
+  const [hasDraftRevision, setHasDraftRevision] = useState(false);
   const router = useRouter();
 
   // Resolve params
@@ -65,6 +69,10 @@ export default function VenueRevisionsPage({
       setError(null);
       const data = await GraphRevisionService.getRevisions(id);
       setRevisions(data);
+
+      // Check if there's already a draft revision
+      const hasDraft = data.some((rev: any) => rev.status === "draft");
+      setHasDraftRevision(hasDraft);
     } catch (err) {
       console.error("Failed to load revisions:", err);
       setError("Failed to load revisions");
@@ -89,6 +97,7 @@ export default function VenueRevisionsPage({
           updated_at: new Date("2024-01-22").toISOString(),
         },
       ]);
+      setHasDraftRevision(true); // Mock data has a draft
     } finally {
       setLoading(false);
     }
@@ -105,9 +114,52 @@ export default function VenueRevisionsPage({
       );
       toast.success("Draft revision created successfully");
       router.push(`/dashboard/venues/${venueId}/revision/${revisionId}/editor`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to create revision:", err);
-      toast.error("Failed to create draft revision");
+
+      // Handle specific error cases
+      if (err.response?.status === 400) {
+        const errorData = err.response?.data;
+
+        // Check if the error message is a string containing "draft already exists"
+        if (
+          typeof errorData === "string" &&
+          errorData.toLowerCase().includes("draft") &&
+          errorData.toLowerCase().includes("already")
+        ) {
+          toast.error(
+            "A draft revision already exists for this venue. You can only have one draft at a time.",
+            {
+              description:
+                "Please complete or delete the existing draft revision before creating a new one.",
+              duration: 6000,
+            }
+          );
+          return;
+        }
+
+        // Check for message property in error response
+        const errorMessage = errorData?.message || errorData || "Bad request";
+        if (
+          typeof errorMessage === "string" &&
+          errorMessage.toLowerCase().includes("draft") &&
+          errorMessage.toLowerCase().includes("already")
+        ) {
+          toast.error(
+            "A draft revision already exists for this venue. You can only have one draft at a time.",
+            {
+              description:
+                "Please complete or delete the existing draft revision before creating a new one.",
+              duration: 6000,
+            }
+          );
+          return;
+        }
+
+        toast.error(`Failed to create draft revision: ${errorMessage}`);
+      } else {
+        toast.error("Failed to create draft revision. Please try again.");
+      }
     } finally {
       setCreatingRevision(false);
     }
@@ -122,6 +174,18 @@ export default function VenueRevisionsPage({
       console.error("Failed to delete revision:", err);
       toast.error("Failed to delete revision");
     }
+  };
+
+  const handleEditRevision = (revision: any) => {
+    setSelectedRevision(revision);
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateRevision = (updatedRevision: any) => {
+    // Update the revision in the local state
+    setRevisions((prev) =>
+      prev.map((rev) => (rev.id === updatedRevision.id ? updatedRevision : rev))
+    );
   };
 
   // Get venue data (keeping mock for now)
@@ -158,7 +222,14 @@ export default function VenueRevisionsPage({
       return <Badge className="bg-green-600">Live</Badge>;
     }
     if (revision.isDraft) {
-      return <Badge variant="secondary">Draft</Badge>;
+      return (
+        <Badge
+          variant="secondary"
+          className="bg-blue-100 text-blue-800 border-blue-300"
+        >
+          Draft
+        </Badge>
+      );
     }
     return <Badge variant="outline">Archived</Badge>;
   };
@@ -177,13 +248,24 @@ export default function VenueRevisionsPage({
             Manage navigation graph revisions for {venue?.name || "Venue"}
           </p>
         </div>
-        <Button onClick={handleCreateRevision} disabled={creatingRevision}>
+        <Button
+          onClick={handleCreateRevision}
+          disabled={creatingRevision || hasDraftRevision}
+          title={
+            hasDraftRevision
+              ? "A draft revision already exists. Complete or delete it before creating a new one."
+              : ""
+          }
+        >
           {creatingRevision ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Plus className="mr-2 h-4 w-4" />
           )}
           New Revision
+          {hasDraftRevision && (
+            <span className="ml-2 text-xs opacity-75">(Draft exists)</span>
+          )}
         </Button>
       </div>
 
@@ -196,6 +278,12 @@ export default function VenueRevisionsPage({
           <CardDescription>
             View and manage all graph revisions for this venue. Each revision
             contains the complete navigation graph data for all floors.
+            {hasDraftRevision && (
+              <span className="block mt-1 text-blue-600 font-medium">
+                ⚠️ A draft revision is currently in progress. Complete or delete
+                it before creating a new one.
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -236,9 +324,19 @@ export default function VenueRevisionsPage({
                   </TableRow>
                 ) : (
                   transformedRevisions.map((revision) => (
-                    <TableRow key={revision.id}>
+                    <TableRow
+                      key={revision.id}
+                      className={
+                        revision.isDraft ? "bg-blue-50/50 border-blue-200" : ""
+                      }
+                    >
                       <TableCell className="font-medium">
                         v{revision.version}
+                        {revision.isDraft && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Draft
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div>
@@ -266,18 +364,22 @@ export default function VenueRevisionsPage({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center gap-2 justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditRevision(revision)}
+                          >
+                            <Edit className="mr-1 h-3 w-3" />
+                            Edit Note
+                          </Button>
                           <Link
                             href={`/dashboard/venues/${venueId}/revision/${revision.id}/editor`}
                           >
                             <Button variant="outline" size="sm">
-                              <Edit className="mr-1 h-3 w-3" />
-                              Edit
+                              <Eye className="mr-1 h-3 w-3" />
+                              Open Editor
                             </Button>
                           </Link>
-                          <Button variant="outline" size="sm">
-                            <Eye className="mr-1 h-3 w-3" />
-                            Preview
-                          </Button>
                           {revision.isDraft && (
                             <Button
                               variant="outline"
@@ -332,6 +434,16 @@ export default function VenueRevisionsPage({
           </div>
         </CardContent>
       </Card>
+
+      {selectedRevision && (
+        <EditRevisionModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          revisionId={selectedRevision.id}
+          currentNote={selectedRevision.description || ""}
+          onUpdate={handleUpdateRevision}
+        />
+      )}
     </div>
   );
 }

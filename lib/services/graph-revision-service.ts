@@ -5,6 +5,7 @@ import {
   listRevisions,
   getRevisionDetail,
   deleteRevision,
+  updateRevision,
   getGraphData,
   createGraphNode,
   updateGraphNode,
@@ -26,6 +27,7 @@ import type {
   ListRevisionsResponse,
   GetRevisionDetailResponse,
   DeleteRevisionResponse,
+  UpdateRevisionResponse,
   GraphData,
   GraphNode,
   GraphConnection,
@@ -93,6 +95,25 @@ export class GraphRevisionService {
     } catch (error) {
       console.error("Failed to delete revision:", error);
       throw new Error("Failed to delete revision");
+    }
+  }
+
+  /**
+   * Update revision metadata (notes)
+   */
+  static async updateRevision(
+    revisionId: string,
+    updateData: { note: string }
+  ): Promise<GraphRevision> {
+    try {
+      const response: UpdateRevisionResponse = await updateRevision(
+        revisionId,
+        updateData
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Failed to update revision:", error);
+      throw new Error("Failed to update revision");
     }
   }
 

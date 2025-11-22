@@ -38,6 +38,7 @@ type GraphAction =
     }
   | { type: "DELETE_CONNECTION"; payload: { connectionId: string } }
   | { type: "UPDATE_FLOORPLAN_BOUNDS"; payload: { bounds: any } }
+  | { type: "LOAD_FLOORPLAN"; payload: { floorplan: any } }
   | { type: "SET_SELECTED_NODE"; payload: { nodeId: string | null } }
   | {
       type: "SET_SELECTED_CONNECTION";
@@ -337,6 +338,23 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       };
     }
 
+    case "LOAD_FLOORPLAN": {
+      if (!state.graph) return state;
+
+      const newGraph = {
+        ...state.graph,
+        floorplan: action.payload.floorplan,
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        history: [...state.history.slice(0, state.historyIndex + 1), newGraph],
+        historyIndex: state.historyIndex + 1,
+      };
+    }
+
     case "SET_SELECTED_NODE": {
       return {
         ...state,
@@ -503,6 +521,7 @@ interface GraphContextType {
   addConnection: (fromNodeId: string, toNodeId: string) => void;
   deleteConnection: (connectionId: string) => void;
   loadFloorplan: (floorplan: any) => void;
+  updateFloorplan: (floorplanData: any) => Promise<void>;
   updateFloorplanBounds: (bounds: any) => void;
   setSelectedNode: (nodeId: string | null) => void;
   setSelectedConnection: (connectionId: string | null) => void;
@@ -782,6 +801,24 @@ export function GraphProvider({
     dispatch({ type: "UPDATE_FLOORPLAN_BOUNDS", payload: { bounds } });
   }, []);
 
+  const updateFloorplan = useCallback(async (floorplanData: any) => {
+    if (!graphServiceRef.current) return;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: { loading: true } });
+      await graphServiceRef.current.updateFloorplan(floorplanData);
+      dispatch({ type: "SET_ERROR", payload: { error: null } });
+    } catch (error) {
+      console.error("Failed to update floorplan:", error);
+      dispatch({
+        type: "SET_ERROR",
+        payload: { error: "Failed to update floorplan" },
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { loading: false } });
+    }
+  }, []);
+
   const setSelectedNode = useCallback((nodeId: string | null) => {
     dispatch({ type: "SET_SELECTED_NODE", payload: { nodeId } });
   }, []);
@@ -997,6 +1034,7 @@ export function GraphProvider({
     addConnection,
     deleteConnection,
     loadFloorplan,
+    updateFloorplan,
     updateFloorplanBounds,
     setSelectedNode,
     setSelectedConnection,

@@ -12,6 +12,7 @@ import {
   ImageIcon,
   Link,
   Eye,
+  Edit,
 } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
 
@@ -22,6 +23,7 @@ interface CanvasToolbarProps {
   onZoomOut: () => void;
   onResetView: () => void;
   onFloorplanSelect: (media: any) => void;
+  onFloorplanUpdate?: (media: any) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -36,6 +38,7 @@ export function CanvasToolbar({
   onZoomOut,
   onResetView,
   onFloorplanSelect,
+  onFloorplanUpdate,
   canUndo,
   canRedo,
   onUndo,
@@ -103,6 +106,18 @@ export function CanvasToolbar({
         }
         acceptTypes={["image"]}
       />
+
+      {state.graph?.floorplan && onFloorplanUpdate && (
+        <MediaPicker
+          onSelect={onFloorplanUpdate}
+          trigger={
+            <Button variant="ghost" size="sm" title="Change Floorplan Image">
+              <Edit className="h-4 w-4" />
+            </Button>
+          }
+          acceptTypes={["image"]}
+        />
+      )}
 
       <div className="h-6 w-px bg-border mx-2" />
 

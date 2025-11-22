@@ -162,15 +162,19 @@ export class GraphService {
   ): Promise<GraphNode> {
     try {
       // Format data according to API guide
-      const apiNodeData = {
+      const apiNodeData: any = {
         floor_id: this.floorId,
         x: position.x,
         y: position.y,
-        panorama_asset_id: attributes?.panoramaUrl
-          ? "placeholder-media-id"
-          : undefined, // TODO: Map panorama URL to asset ID
         label: attributes?.label || `Node ${position.x},${position.y}`,
       };
+
+      // Only include panorama_asset_id if it exists
+      if (attributes?.panoramaUrl) {
+        apiNodeData.panorama_asset_id = "placeholder-media-id"; // TODO: Map panorama URL to asset ID
+      }
+
+      console.log("Creating node with data:", apiNodeData); // Debug log
 
       const createdNode = await GraphRevisionService.createNode(
         this.revisionId,
@@ -293,14 +297,24 @@ export class GraphService {
   }
 
   /**
-   * Delete a connection
+   * Update floorplan for a floor
    */
-  async deleteConnection(connectionId: string): Promise<void> {
-    // This method is now handled directly in the graph context
-    // since it needs access to the graph state to find node IDs
-    throw new Error(
-      "deleteConnection should be called from graph context, not service"
-    );
+  async updateFloorplan(floorplanData: {
+    map_image_id?: string;
+    pixels_per_meter?: number;
+    map_width?: number;
+    map_height?: number;
+  }): Promise<any> {
+    try {
+      const response = await GraphRevisionService.updateFloor(
+        this.floorId,
+        floorplanData
+      );
+      return response;
+    } catch (error) {
+      console.error("Failed to update floorplan:", error);
+      throw error;
+    }
   }
 
   /**

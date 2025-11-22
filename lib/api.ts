@@ -488,6 +488,14 @@ export const deleteGraphConnection = async (
   return response.data;
 };
 
+export const updateFloor = async (
+  floorId: string,
+  floorData: any
+): Promise<any> => {
+  const response = await api.put(`/editor/floors/${floorId}`, floorData);
+  return response.data;
+};
+
 export const createFloor = async (
   venueId: string,
   floorData: any
@@ -495,5 +503,20 @@ export const createFloor = async (
   const response = await api.post(`/editor/floors`, floorData, {
     params: { venue_id: venueId },
   });
+  return response.data;
+};
+
+export const deleteFloor = async (floorId: string): Promise<any> => {
+  const response = await api.delete(`/editor/floors/${floorId}`);
+  return response.data;
+};
+
+export const getFloors = async (venueId: string): Promise<any> => {
+  const response = await api.get(`/editor/${venueId}/floors`);
+  return response.data;
+};
+
+export const getFloor = async (floorId: string): Promise<any> => {
+  const response = await api.get(`/editor/floors/${floorId}`);
   return response.data;
 };

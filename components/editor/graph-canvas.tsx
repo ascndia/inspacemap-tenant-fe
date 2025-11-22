@@ -28,6 +28,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     canUndo,
     canRedo,
     loadFloorplan,
+    updateFloorplan,
     setTool,
     setConnectingStart,
     setConnectingEnd,
@@ -229,6 +230,53 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     [state.graph, loadFloorplan]
   );
 
+  const handleFloorplanUpdate = useCallback(
+    async (media: any) => {
+      if (state.graph && updateFloorplan) {
+        try {
+          // Update floorplan URL in the backend
+          await updateFloorplan({
+            map_image_id: media.id, // Assuming media.id is the asset ID
+          });
+
+          // Update floorplan in local state with new image URL
+          const updatedFloorplan = {
+            ...state.graph.floorplan,
+            fileUrl: media.url,
+            name: media.name || state.graph.floorplan?.name || "Floorplan",
+            updatedAt: new Date(),
+            // Reset bounds to trigger recalculation
+            bounds: {
+              width: 1000,
+              height: 1000,
+              minX: -500,
+              minY: -500,
+              maxX: 500,
+              maxY: 500,
+            },
+          };
+
+          // Force reload the floorplan to trigger image bounds recalculation
+          loadFloorplan(updatedFloorplan);
+
+          // Add a small delay to ensure the image loads and bounds are recalculated
+          setTimeout(() => {
+            if (state.graph?.floorplan) {
+              // Trigger bounds recalculation by updating with current data
+              loadFloorplan({
+                ...updatedFloorplan,
+                updatedAt: new Date(),
+              });
+            }
+          }, 100);
+        } catch (error) {
+          console.error("Failed to update floorplan:", error);
+        }
+      }
+    },
+    [state.graph, updateFloorplan, loadFloorplan]
+  );
+
   const selectedNode = state.graph?.nodes.find(
     (n) => n.id === state.ui.selectedNodeId
   );
@@ -270,6 +318,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
             onZoomOut={handleZoomOut}
             onResetView={handleResetView}
             onFloorplanSelect={handleFloorplanSelect}
+            onFloorplanUpdate={handleFloorplanUpdate}
             canUndo={canUndo}
             canRedo={canRedo}
             onUndo={undo}

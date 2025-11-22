@@ -14,6 +14,10 @@ import {
   createGraphConnection,
   deleteGraphConnection,
   createFloor,
+  updateFloor,
+  deleteFloor,
+  getFloors,
+  getFloor,
 } from "@/lib/api";
 import type {
   GraphRevision,
@@ -273,6 +277,69 @@ export class GraphRevisionService {
     } catch (error) {
       console.error("Failed to create floor:", error);
       throw new Error("Failed to create floor");
+    }
+  }
+
+  /**
+   * Update an existing floor
+   */
+  static async updateFloor(
+    floorId: string,
+    floorData: {
+      name?: string;
+      level_index?: number;
+      map_image_id?: string;
+      pixels_per_meter?: number;
+      map_width?: number;
+      map_height?: number;
+      is_active?: boolean;
+    }
+  ): Promise<any> {
+    try {
+      const response = await updateFloor(floorId, floorData);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to update floor:", error);
+      throw new Error("Failed to update floor");
+    }
+  }
+
+  /**
+   * Delete a floor from the venue revision
+   */
+  static async deleteFloor(floorId: string): Promise<any> {
+    try {
+      const response = await deleteFloor(floorId);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to delete floor:", error);
+      throw new Error("Failed to delete floor");
+    }
+  }
+
+  /**
+   * Get all floors for a venue (without detailed node data)
+   */
+  static async getFloors(venueId: string): Promise<any> {
+    try {
+      const response = await getFloors(venueId);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch floors:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get detailed information about a specific floor
+   */
+  static async getFloor(floorId: string): Promise<any> {
+    try {
+      const response = await getFloor(floorId);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch floor:", error);
+      throw new Error("Failed to fetch floor");
     }
   }
 }

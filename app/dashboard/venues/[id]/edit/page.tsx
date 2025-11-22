@@ -43,7 +43,7 @@ export default function VenueEditPage({
 
   const getCoverImage = (imageId?: string) => {
     if (!imageId) return null;
-    return mockMedia.find((media) => media.id === imageId);
+    return mockMedia.data.find((media) => media.id === imageId);
   };
 
   const coverImage = getCoverImage(coverImageId);

@@ -3,8 +3,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { mockVenues, mockMedia } from "@/lib/api";
-import { MapPin, MoreVertical, Edit, Eye } from "lucide-react";
+import { mockMedia } from "@/lib/api";
+import { MapPin, MoreVertical, Edit, Eye, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,17 +13,92 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import { venueService } from "@/lib/services/venue-service";
+import type { Venue } from "@/types/venue";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export function VenueList() {
+interface VenueListProps {
+  refreshTrigger?: number;
+}
+
+export function VenueList({ refreshTrigger }: VenueListProps) {
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Safety check: ensure venues is always an array
+  const safeVenues = Array.isArray(venues) ? venues : [];
+
+  useEffect(() => {
+    const fetchVenues = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await venueService.getVenues();
+
+        // Handle both successful and fallback responses
+        if (response.success && response.data?.venues) {
+          setVenues(response.data.venues);
+        } else if (response.data?.venues) {
+          // Fallback case: response has data but success=false
+          setVenues(response.data.venues);
+          setError(response.error || "Some venues may not be loaded");
+        } else {
+          // No data available
+          setVenues([]);
+          setError(response.error || "Failed to fetch venues");
+        }
+      } catch (err: any) {
+        console.error("Error fetching venues:", err);
+        setError(err.message || "Failed to load venues");
+        setVenues([]); // Ensure venues is always an array
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVenues();
+  }, [refreshTrigger]);
+
   const getCoverImage = (coverImageId?: string) => {
     if (!coverImageId) return null;
-    return mockMedia.find((media) => media.id === coverImageId);
+    return mockMedia.data.find((media) => media.id === coverImageId);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading venues...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert className="m-4">
+        <AlertDescription>{error}. Using mock data for now.</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (safeVenues.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-12rem)] text-center">
+        <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
+        <h3 className="text-lg font-semibold">No venues found</h3>
+        <p className="text-muted-foreground">
+          Get started by creating your first venue.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <ScrollArea className="h-[calc(100vh-12rem)]">
       <div className="flex flex-col gap-2 pr-4">
-        {mockVenues.map((venue) => {
+        {safeVenues.map((venue) => {
           const coverImage = getCoverImage(venue.coverImageId);
           return (
             <Link key={venue.id} href={`/dashboard/venues/${venue.id}`}>
@@ -48,7 +123,7 @@ export function VenueList() {
                         {venue.name}
                       </h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {venue.address}
+                        {venue.city}
                       </p>
                     </div>
                   </div>
@@ -81,13 +156,13 @@ export function VenueList() {
                 <div className="flex items-center justify-between mt-2">
                   <Badge
                     variant={
-                      venue.status === "published" ? "default" : "secondary"
+                      venue.visibility === "public" ? "default" : "secondary"
                     }
                   >
-                    {venue.status}
+                    {venue.visibility}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {venue.floors.length} Floors
+                    {venue.is_live ? "Live" : "Offline"}
                   </span>
                 </div>
               </div>

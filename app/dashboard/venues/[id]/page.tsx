@@ -1,4 +1,8 @@
-import { mockVenues, mockMedia } from "@/lib/api";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { mockMedia } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,25 +21,73 @@ import {
   Image as ImageIcon,
   Edit,
   GitBranch,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { venueService } from "@/lib/services/venue-service";
+import type { VenueDetail } from "@/types/venue";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default async function VenueDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  // In a real app, fetch venue by ID
-  const venue = mockVenues.find((v) => v.id === id) || mockVenues[0];
+export default function VenueDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+
+  const [venue, setVenue] = useState<VenueDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchVenueDetail = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await venueService.getVenueById(id);
+
+        if (response.success && response.data) {
+          setVenue(response.data);
+        } else {
+          throw new Error(response.error || "Failed to fetch venue details");
+        }
+      } catch (err: any) {
+        console.error("Error fetching venue details:", err);
+        setError(err.message || "Failed to load venue details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchVenueDetail();
+    }
+  }, [id]);
 
   const getCoverImage = (coverImageId?: string) => {
     if (!coverImageId) return null;
-    return mockMedia.find((media) => media.id === coverImageId);
+    return mockMedia.data.find((media) => media.id === coverImageId);
   };
 
-  const coverImage = getCoverImage(venue.coverImageId);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading venue details...</span>
+      </div>
+    );
+  }
+
+  if (error || !venue) {
+    return (
+      <Alert className="m-4">
+        <AlertDescription>{error || "Venue not found"}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  const coverImage = getCoverImage(
+    venue.gallery?.find((item) => item.is_featured)?.media_asset_id ||
+      venue.gallery?.[0]?.media_asset_id
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,13 +101,13 @@ export default async function VenueDetailPage({
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold md:text-2xl">{venue.name}</h1>
             <Badge
-              variant={venue.status === "published" ? "default" : "secondary"}
+              variant={venue.visibility === "public" ? "default" : "secondary"}
             >
-              {venue.status}
+              {venue.visibility}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            Venue details and overview
+            {venue.description || "Venue details and overview"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -110,25 +162,50 @@ export default async function VenueDetailPage({
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <h3 className="font-medium">Address</h3>
-                <p className="text-sm text-muted-foreground">{venue.address}</p>
+                <h3 className="font-medium">Full Address</h3>
+                <p className="text-sm text-muted-foreground">
+                  {venue.full_address || "No address provided"}
+                </p>
               </div>
+              {venue.description && (
+                <div>
+                  <h3 className="font-medium">Description</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {venue.description}
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-medium">Floors</h3>
+                  <h3 className="font-medium">Coordinates</h3>
                   <p className="text-sm text-muted-foreground">
-                    {venue.floors.length} floors
+                    {venue.coordinates.latitude.toFixed(6)},{" "}
+                    {venue.coordinates.longitude.toFixed(6)}
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-medium">Status</h3>
+                  <h3 className="font-medium">Visibility</h3>
                   <Badge
                     variant={
-                      venue.status === "published" ? "default" : "secondary"
+                      venue.visibility === "public" ? "default" : "secondary"
                     }
                   >
-                    {venue.status}
+                    {venue.visibility}
                   </Badge>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-medium">Created</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(venue.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium">Last Updated</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(venue.updated_at).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -185,18 +262,24 @@ export default async function VenueDetailPage({
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Floors:</span>
-                <span className="font-medium">{venue.floors.length}</span>
+                <span>Gallery Items:</span>
+                <span className="font-medium">
+                  {venue.gallery?.length || 0}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>Status:</span>
+                <span>POIs:</span>
+                <span className="font-medium">{venue.pois?.length || 0}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Visibility:</span>
                 <Badge
                   variant={
-                    venue.status === "published" ? "default" : "secondary"
+                    venue.visibility === "public" ? "default" : "secondary"
                   }
                   className="text-xs"
                 >
-                  {venue.status}
+                  {venue.visibility}
                 </Badge>
               </div>
             </CardContent>

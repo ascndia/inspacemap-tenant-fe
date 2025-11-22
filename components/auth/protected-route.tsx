@@ -11,15 +11,27 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, token } = useAuthStore();
+  const { user, token, hydrated } = useAuthStore();
 
   useEffect(() => {
-    if (!token || !user) {
+    console.log("ProtectedRoute: Checking auth state", {
+      hasToken: !!token,
+      hasUser: !!user,
+      hydrated,
+    });
+    if (hydrated && (!token || !user)) {
+      console.log(
+        "ProtectedRoute: Hydrated but no token/user, redirecting to login"
+      );
       router.push("/login");
+    } else if (hydrated) {
+      console.log("ProtectedRoute: User authenticated, allowing access");
+    } else {
+      console.log("ProtectedRoute: Not yet hydrated, waiting...");
     }
-  }, [token, user, router]);
+  }, [token, user, hydrated, router]);
 
-  if (!token || !user) {
+  if (!hydrated || !token || !user) {
     return (
       fallback || (
         <div className="flex items-center justify-center min-h-screen">

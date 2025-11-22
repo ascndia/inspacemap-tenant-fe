@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { MediaItem } from "@/types/media";
+import type { MediaItem, MediaListResponse } from "@/types/media";
 
 export const mockOrganizations = [
   {
@@ -90,54 +90,96 @@ export const mockVenues = [
   },
 ];
 
-export const mockMedia: MediaItem[] = [
-  {
-    id: "1",
-    name: "lobby_360.jpg",
-    type: "image",
-    size: "4.2 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-25T14:30:00Z",
-    uploadedBy: "John Doe",
+export const mockMedia: MediaListResponse = {
+  data: [
+    {
+      id: "1",
+      asset_id: "asset-1",
+      name: "Lobby 360 Panorama",
+      file_name: "lobby_360.jpg",
+      file_type: "image/jpeg",
+      file_size: 4404019,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-25T14:30:00Z",
+      uploaded_by: "John Doe",
+      organization_id: "org-1",
+    },
+    {
+      id: "2",
+      asset_id: "asset-2",
+      name: "Hallway A",
+      file_name: "hallway_A.jpg",
+      file_type: "image/jpeg",
+      file_size: 3250585,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-25T11:15:00Z",
+      uploaded_by: "Jane Smith",
+      organization_id: "org-1",
+    },
+    {
+      id: "3",
+      asset_id: "asset-3",
+      name: "Intro Video",
+      file_name: "intro_video.mp4",
+      file_type: "video/mp4",
+      file_size: 26214400,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 1920,
+      height: 1080,
+      uploaded_at: "2023-10-24T09:45:00Z",
+      uploaded_by: "John Doe",
+      organization_id: "org-1",
+    },
+    {
+      id: "4",
+      asset_id: "asset-4",
+      name: "Storefront",
+      file_name: "storefront_01.jpg",
+      file_type: "image/jpeg",
+      file_size: 2936012,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-23T16:20:00Z",
+      uploaded_by: "Jane Smith",
+      organization_id: "org-1",
+    },
+    {
+      id: "5",
+      asset_id: "asset-5",
+      name: "Atrium View",
+      file_name: "atrium_view.jpg",
+      file_type: "image/jpeg",
+      file_size: 5505020,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-22T10:00:00Z",
+      uploaded_by: "Bob Johnson",
+      organization_id: "org-1",
+    },
+  ],
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 5,
+    total_pages: 1,
   },
-  {
-    id: "2",
-    name: "hallway_A.jpg",
-    type: "image",
-    size: "3.1 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-25T11:15:00Z",
-    uploadedBy: "Jane Smith",
-  },
-  {
-    id: "3",
-    name: "intro_video.mp4",
-    type: "video",
-    size: "24.5 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-24T09:45:00Z",
-    uploadedBy: "John Doe",
-  },
-  {
-    id: "4",
-    name: "storefront_01.jpg",
-    type: "image",
-    size: "2.8 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-23T16:20:00Z",
-    uploadedBy: "Jane Smith",
-  },
-  {
-    id: "5",
-    name: "atrium_view.jpg",
-    type: "image",
-    size: "5.6 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-22T10:00:00Z",
-    uploadedBy: "Bob Johnson",
-  },
-];
-
+};
 export const mockMembers = [
   {
     id: 1,
@@ -239,16 +281,25 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("access_token");
-      // Redirect to login if not already there
-      if (
-        typeof window !== "undefined" &&
-        !window.location.pathname.includes("/login")
-      ) {
-        window.location.href = "/login";
-      }
+    // Log all errors for debugging during development
+    console.log("API Error:", {
+      status: error.response?.status,
+      url: error.config?.url,
+      method: error.config?.method,
+      message: error.message,
+      pathname:
+        typeof window !== "undefined" ? window.location.pathname : "unknown",
+    });
+
+    // Log detailed error response for debugging
+    if (error.response?.data) {
+      console.log("API Error Response Data:", error.response.data);
     }
+
+    // Don't automatically logout on any HTTP errors during development
+    // This prevents unwanted logouts when APIs are not fully implemented
+    // Components should handle authentication errors individually
+
     return Promise.reject(error);
   }
 );

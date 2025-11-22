@@ -6,7 +6,9 @@ import { MediaGrid } from "@/components/media/media-grid";
 import { MediaUpload } from "@/components/media/media-upload";
 import { MediaFilters } from "@/components/media/media-filters";
 import { mediaService } from "@/lib/services/media-service";
-import type { MediaItem } from "@/types/media";
+import type { MediaItem, MediaListResponse } from "@/types/media";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { mockMedia } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -39,23 +41,45 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { user, token } = useAuthStore();
+
   // Load media on component mount
   useEffect(() => {
+    console.log("MediaLibrary: Component mounted, checking auth", {
+      hasToken: !!token,
+      hasUser: !!user,
+    });
     const loadMedia = async () => {
+      // Only load media if user is authenticated
+      if (!token || !user) {
+        console.log("MediaLibrary: No auth, setting error");
+        setLoading(false);
+        setError("Please log in to view media");
+        return;
+      }
+
+      console.log("MediaLibrary: User authenticated, loading media");
       try {
         setLoading(true);
+        setError(null);
+        console.log("MediaLibrary: Calling mediaService.getMedia()");
         const response = await mediaService.getMedia();
-        setMedia(response.data);
+        console.log("MediaLibrary: API call successful", response);
+        const mediaData =
+          (response as any).data?.data || (response as any).data || [];
+        setMedia(Array.isArray(mediaData) ? mediaData : []);
       } catch (err: any) {
-        setError(err.message || "Failed to load media");
-        console.error("Failed to load media:", err);
+        console.error("MediaLibrary: API call failed, using mock data:", err);
+        // Fall back to mock data for development
+        setMedia(mockMedia.data);
+        setError("Using demo data - API not available");
       } finally {
         setLoading(false);
       }
     };
 
     loadMedia();
-  }, []);
+  }, [user, token]);
 
   const handleUploadSuccess = (uploadedItems: MediaItem[]) => {
     setMedia((prev) => [...uploadedItems, ...prev]);

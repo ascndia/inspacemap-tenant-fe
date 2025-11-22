@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { DeleteMediaDialog } from "./delete-media-dialog";
 
 interface MediaGridProps {
@@ -52,7 +53,7 @@ export function MediaGrid({
   viewMode = "grid",
   mode = "manage",
   onSelect,
-  media = mockMedia,
+  media = [],
   onDeleteSuccess,
 }: MediaGridProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -167,7 +168,7 @@ export function MediaGrid({
                 {mode === "select" && <Checkbox className="shrink-0" />}
 
                 <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center shrink-0">
-                  {item.type === "video" ? (
+                  {item.file_type.startsWith("video/") ? (
                     <Play className="h-6 w-6" />
                   ) : (
                     <Maximize2 className="h-6 w-6" />

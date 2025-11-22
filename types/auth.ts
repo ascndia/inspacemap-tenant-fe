@@ -10,8 +10,10 @@ export interface User {
 export interface AuthState {
   user: User | null;
   token: string | null;
+  hydrated: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  loadFromStorage: () => void;
   hasPermission: (permission: string) => boolean;
 }
 

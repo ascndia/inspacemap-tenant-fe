@@ -1,10 +1,13 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useGraph } from "@/contexts/graph-context";
+import { useGraphStore } from "@/stores/graph-store";
 import { drawCanvas } from "./canvas-drawing";
 import { createMouseHandlers } from "./canvas-mouse-handlers";
 import { CanvasContextMenu } from "./canvas-context-menu";
+import { mediaService } from "@/lib/services/media-service";
+import { MediaItem } from "@/types/media";
+import { MediaPicker } from "@/components/media/media-picker";
 
 interface MapCanvas2DProps {
   onNodeSelect: (nodeId: string) => void;
@@ -43,16 +46,28 @@ export function MapCanvas2D({
   onDeleteConnection,
 }: MapCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { state, loadFloorplan } = useGraph();
+  const graphStore = useGraphStore();
   const [floorplanImage, setFloorplanImage] = useState<HTMLImageElement | null>(
     null
   );
+
+  // Extract values from store
+  const {
+    graph,
+    selectedNodeId,
+    tool,
+    panoramaNodeId,
+    setPanoramaNode,
+    isConnecting,
+    connectingFromId,
+  } = graphStore;
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragNode, setDragNode] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isMiddleMousePanning, setIsMiddleMousePanning] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -61,23 +76,78 @@ export function MapCanvas2D({
   } | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [panoramaMedia, setPanoramaMedia] = useState<MediaItem[]>([]);
+  const [loadingPanoramaMedia, setLoadingPanoramaMedia] = useState(false);
+  const [showPanoramaPicker, setShowPanoramaPicker] = useState(false);
+  const [panoramaPickerTarget, setPanoramaPickerTarget] = useState<{
+    type: "set" | "add";
+    nodeId?: string;
+    position?: { x: number; y: number };
+  } | null>(null);
+
+  // Load panorama media
+  useEffect(() => {
+    const loadPanoramaMedia = async () => {
+      try {
+        setLoadingPanoramaMedia(true);
+        const response = await mediaService.getMedia();
+        const panoramas = response.data.filter(
+          (item: MediaItem) => item.category === "panorama"
+        );
+        setPanoramaMedia(panoramas);
+      } catch (error) {
+        console.error("Failed to load panorama media:", error);
+      } finally {
+        setLoadingPanoramaMedia(false);
+      }
+    };
+
+    loadPanoramaMedia();
+  }, []);
 
   // Load floorplan image when floorplan data changes
   useEffect(() => {
-    if (state.graph?.floorplan?.fileUrl) {
+    if (graph?.floorplan?.fileUrl) {
       const img = new Image();
+      img.crossOrigin = "anonymous"; // Allow canvas operations
       img.onload = () => {
         setFloorplanImage(img);
+
+        // Update floorplan bounds based on actual image dimensions
+        if (graph?.floorplan) {
+          const aspectRatio = img.width / img.height;
+          const maxDimension = Math.max(img.width, img.height);
+          const scaleFactor = 1000 / maxDimension; // Normalize to reasonable size
+
+          const displayWidth = img.width * scaleFactor;
+          const displayHeight = img.height * scaleFactor;
+
+          // Update floorplan bounds in the graph state
+          const updatedFloorplan = {
+            ...graph.floorplan,
+            bounds: {
+              width: displayWidth,
+              height: displayHeight,
+              minX: -displayWidth / 2,
+              minY: -displayHeight / 2,
+              maxX: displayWidth / 2,
+              maxY: displayHeight / 2,
+            },
+          };
+
+          // TODO: Implement floorplan bounds update in Zustand store
+          console.log("Floorplan bounds update not yet implemented");
+        }
       };
       img.onerror = () => {
         console.error("Failed to load floorplan image");
         setFloorplanImage(null);
       };
-      img.src = state.graph.floorplan.fileUrl;
+      img.src = graph.floorplan.fileUrl;
     } else {
       setFloorplanImage(null);
     }
-  }, [state.graph?.floorplan?.fileUrl]);
+  }, [graph?.floorplan?.fileUrl]);
 
   // Draw function
   const draw = useCallback(() => {
@@ -87,29 +157,33 @@ export function MapCanvas2D({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    // Don't draw if graph is not loaded yet
+    if (!graph) return;
+
     drawCanvas({
       ctx,
       canvas,
       panOffset,
       zoom,
       floorplanImage,
-      graph: state.graph!,
+      graph,
       ui: {
-        showGrid: state.ui.showGrid,
-        selectedNodeId: state.ui.selectedNodeId,
-        isConnecting: state.ui.isConnecting,
-        connectingFromId: state.ui.connectingFromId,
+        showGrid: graph?.settings.showGrid ?? true,
+        selectedNodeId,
+        isConnecting,
+        connectingFromId,
         hoveredNodeId,
         mousePosition,
       },
       pathPreview,
     });
   }, [
-    state,
+    graph,
     panOffset,
     zoom,
     pathPreview,
     floorplanImage,
+    selectedNodeId,
     hoveredNodeId,
     mousePosition,
   ]);
@@ -117,7 +191,15 @@ export function MapCanvas2D({
   // Create mouse handlers
   const mouseHandlers = createMouseHandlers({
     canvasRef,
-    state,
+    state: {
+      graph,
+      ui: {
+        tool,
+        snapToGrid: graph?.settings.snapToGrid ?? true,
+        isConnecting,
+        connectingFromId,
+      },
+    },
     panOffset,
     zoom,
     onNodeSelect,
@@ -143,6 +225,8 @@ export function MapCanvas2D({
     setHoveredNodeId,
     mousePosition,
     setMousePosition,
+    isMiddleMousePanning,
+    setIsMiddleMousePanning,
   });
 
   // Handle global click to close context menu
@@ -192,18 +276,18 @@ export function MapCanvas2D({
 
   const handleToggleLock = useCallback(
     (nodeId: string) => {
-      const node = state.graph?.nodes.find((n) => n.id === nodeId);
+      const node = graph?.nodes.find((n) => n.id === nodeId);
       if (node) {
         onNodeUpdate(nodeId, { locked: !node.locked });
       }
       setContextMenu(null);
     },
-    [state.graph?.nodes, onNodeUpdate]
+    [graph?.nodes, onNodeUpdate]
   );
 
   const handleDuplicateNode = useCallback(
     (nodeId: string) => {
-      const node = state.graph?.nodes.find((n) => n.id === nodeId);
+      const node = graph?.nodes.find((n) => n.id === nodeId);
       if (node) {
         const newNode = {
           ...node,
@@ -219,7 +303,7 @@ export function MapCanvas2D({
       }
       setContextMenu(null);
     },
-    [state.graph?.nodes, addNode]
+    [graph?.nodes, addNode]
   );
 
   const handleDeleteNode = useCallback(
@@ -245,11 +329,11 @@ export function MapCanvas2D({
   );
 
   const handleResetView = useCallback(() => {
-    if (state.graph?.floorplan && canvasRef.current) {
+    if (graph?.floorplan && canvasRef.current) {
       // Recenter the floorplan
       const canvas = canvasRef.current;
       const canvasRect = canvas.getBoundingClientRect();
-      const floorplan = state.graph.floorplan;
+      const floorplan = graph.floorplan;
 
       // Calculate floorplan center
       const floorplanCenterX =
@@ -281,7 +365,7 @@ export function MapCanvas2D({
       onPanChange({ x: 0, y: 0 });
     }
     setContextMenu(null);
-  }, [state.graph?.floorplan, onZoomChange, onPanChange]);
+  }, [graph?.floorplan, onZoomChange, onPanChange]);
 
   const handleDeleteConnection = useCallback(
     (connectionId: string) => {
@@ -289,6 +373,75 @@ export function MapCanvas2D({
       setContextMenu(null);
     },
     [onDeleteConnection]
+  );
+
+  const handleAddNodeWithPanorama = useCallback((x: number, y: number) => {
+    // Open media picker dialog for selecting panorama
+    setPanoramaPickerTarget({
+      type: "add",
+      position: { x, y },
+    });
+    setShowPanoramaPicker(true);
+    setContextMenu(null);
+  }, []);
+
+  const handleSetPanorama = useCallback((nodeId: string) => {
+    // Open media picker dialog for selecting panorama
+    setPanoramaPickerTarget({
+      type: "set",
+      nodeId,
+    });
+    setShowPanoramaPicker(true);
+    setContextMenu(null);
+  }, []);
+
+  const handlePanoramaSelected = useCallback(
+    (media: MediaItem) => {
+      if (!panoramaPickerTarget) return;
+
+      if (
+        panoramaPickerTarget.type === "add" &&
+        panoramaPickerTarget.position
+      ) {
+        // Add new node with selected panorama
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const { x, y } = panoramaPickerTarget.position;
+          const worldX = (x - panOffset.x) / zoom;
+          const worldY = (y - panOffset.y) / zoom;
+
+          addNode(
+            { x: worldX, y: worldY, z: 0 },
+            {
+              panorama_asset_id: media.asset_id,
+              panorama_url: media.url,
+            }
+          );
+        }
+      } else if (
+        panoramaPickerTarget.type === "set" &&
+        panoramaPickerTarget.nodeId
+      ) {
+        // Update existing node with selected panorama
+        onNodeUpdate(panoramaPickerTarget.nodeId, {
+          panorama_asset_id: media.asset_id,
+          panorama_url: media.url,
+        });
+      }
+
+      // Reset picker state
+      setShowPanoramaPicker(false);
+      setPanoramaPickerTarget(null);
+    },
+    [panoramaPickerTarget, panOffset, zoom, addNode, onNodeUpdate]
+  );
+
+  const handleViewPanorama = useCallback(
+    (nodeId: string) => {
+      setPanoramaNode(nodeId);
+      setContextMenu(null);
+    },
+    [setPanoramaNode]
   );
 
   return (
@@ -299,9 +452,11 @@ export function MapCanvas2D({
         onMouseDown={mouseHandlers.handleMouseDown}
         onMouseMove={mouseHandlers.handleMouseMove}
         onMouseUp={mouseHandlers.handleMouseUp}
+        onMouseEnter={mouseHandlers.handleMouseEnter}
+        onMouseLeave={mouseHandlers.handleMouseLeave}
         onWheel={mouseHandlers.handleWheel}
         onContextMenu={(e) => e.preventDefault()}
-        style={{ cursor: state.ui.tool === "pan" ? "grab" : "crosshair" }}
+        style={{ cursor: tool === "pan" ? "grab" : "crosshair" }}
       />
 
       {/* Context Menu */}
@@ -316,13 +471,31 @@ export function MapCanvas2D({
           onDuplicateNode={handleDuplicateNode}
           onDeleteNode={handleDeleteNode}
           onAddNode={handleAddNode}
+          onAddNodeWithPanorama={handleAddNodeWithPanorama}
           onResetView={handleResetView}
           onDeleteConnection={handleDeleteConnection}
+          onViewPanorama={handleViewPanorama}
+          onSetPanorama={handleSetPanorama}
           isNodeLocked={
-            state.graph?.nodes.find((n) => n.id === contextMenu.nodeId)?.locked
+            graph?.nodes.find((n) => n.id === contextMenu.nodeId)?.locked
+          }
+          hasPanorama={
+            !!graph?.nodes.find((n) => n.id === contextMenu.nodeId)
+              ?.panorama_url ||
+            !!graph?.nodes.find((n) => n.id === contextMenu.nodeId)
+              ?.panorama_asset_id
           }
         />
       )}
+
+      {/* Panorama Media Picker */}
+      <MediaPicker
+        open={showPanoramaPicker}
+        onOpenChange={setShowPanoramaPicker}
+        onSelect={handlePanoramaSelected}
+        acceptTypes={["image"]}
+        trigger={null}
+      />
     </>
   );
 }

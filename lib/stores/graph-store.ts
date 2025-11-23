@@ -24,6 +24,7 @@ const defaultSettings: GraphSettings = {
   nodeSize: 20,
   autoSave: true,
   collaboration: false,
+  floorplanOpacity: 0.5,
 };
 
 // Default UI state
@@ -40,6 +41,8 @@ const defaultUIState: GraphUIState = {
   showProperties: true,
   showGrid: true,
   snapToGrid: true,
+  showPanoramaViewer: false,
+  panoramaNodeId: null,
 };
 
 // Helper functions
@@ -120,6 +123,8 @@ interface GraphStore {
   toggleGrid: () => void;
   toggleSnapToGrid: () => void;
   toggleProperties: () => void;
+  togglePanoramaViewer: () => void;
+  setPanoramaNode: (nodeId: string | null) => void;
 
   // Connection mode
   startConnecting: (fromNodeId: string) => void;
@@ -239,6 +244,7 @@ export const useGraphStore = create<GraphStore>()(
             id: createNodeId(),
             position: snappedPosition,
             rotation: 0,
+            pitch: 0,
             heading: 0,
             fov: 75,
             connections: [],
@@ -495,7 +501,7 @@ export const useGraphStore = create<GraphStore>()(
           const panorama = state.panoramas.find((p) => p.id === panoramaId);
           if (!panorama) return;
 
-          get().updateNode(nodeId, { panoramaUrl: panorama.fileUrl });
+          get().updateNode(nodeId, { panorama_url: panorama.fileUrl });
         },
 
         // Settings
@@ -542,6 +548,21 @@ export const useGraphStore = create<GraphStore>()(
           }));
         },
 
+        togglePanoramaViewer: () => {
+          set((state) => ({
+            ui: {
+              ...state.ui,
+              showPanoramaViewer: !state.ui.showPanoramaViewer,
+            },
+          }));
+        },
+
+        setPanoramaNode: (nodeId: string | null) => {
+          set((state) => ({
+            ui: { ...state.ui, panoramaNodeId: nodeId },
+          }));
+        },
+
         // Connection mode
         startConnecting: (fromNodeId: string) => {
           set((state) => ({
@@ -583,7 +604,7 @@ export const useGraphStore = create<GraphStore>()(
 
           // Check for nodes without panoramas
           const nodesWithoutPanoramas = state.nodes.filter(
-            (node) => !node.panoramaUrl
+            (node) => !node.panorama_url
           );
           if (nodesWithoutPanoramas.length > 0) {
             warnings.push(
@@ -686,6 +707,8 @@ export const useGraphStore = create<GraphStore>()(
             showProperties: state.ui.showProperties,
             showGrid: state.ui.showGrid,
             snapToGrid: state.ui.snapToGrid,
+            showPanoramaViewer: state.ui.showPanoramaViewer,
+            panoramaNodeId: state.ui.panoramaNodeId,
           },
         }),
       }

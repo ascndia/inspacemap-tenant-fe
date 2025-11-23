@@ -8,6 +8,8 @@ export interface MouseEventHandlers {
   handleMouseMove: (event: React.MouseEvent) => void;
   handleMouseUp: () => void;
   handleWheel: (event: React.WheelEvent) => void;
+  handleMouseEnter: () => void;
+  handleMouseLeave: () => void;
 }
 
 export interface MouseHandlerParams {
@@ -29,7 +31,7 @@ export interface MouseHandlerParams {
   zoom: number;
   onNodeSelect: (nodeId: string) => void;
   onCanvasClick: (x: number, y: number) => void;
-  onNodeUpdate: (nodeId: string, updates: any) => void;
+  onNodeUpdate: (nodeId: string, updates: any, isDragging?: boolean) => void;
   onPanChange: (panOffset: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
   onConnectionStart?: (nodeId: string) => void;
@@ -62,6 +64,9 @@ export interface MouseHandlerParams {
   setHoveredNodeId: (nodeId: string | null) => void;
   mousePosition: { x: number; y: number };
   setMousePosition: (position: { x: number; y: number }) => void;
+  onToolChange?: (tool: string) => void;
+  isMiddleMousePanning: boolean;
+  setIsMiddleMousePanning: (panning: boolean) => void;
 }
 
 export function createMouseHandlers(
@@ -95,6 +100,9 @@ export function createMouseHandlers(
     setHoveredNodeId,
     mousePosition,
     setMousePosition,
+    onToolChange,
+    isMiddleMousePanning,
+    setIsMiddleMousePanning,
   } = params;
 
   const handleMouseDown = (event: React.MouseEvent) => {
@@ -125,8 +133,10 @@ export function createMouseHandlers(
         return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
       });
 
-      // Check if right-clicking on a connection
-      const clickedConnection = state.graph?.connections
+      // Only check for connection if no node was found (prioritize nodes over connections)
+      const clickedConnection = clickedNode
+        ? null
+        : state.graph?.connections
         ? getConnectionAtPoint(
             x,
             y,
@@ -141,6 +151,17 @@ export function createMouseHandlers(
         y: menuY,
         nodeId: clickedNode?.id,
         connectionId: clickedConnection?.id,
+      });
+      return;
+    }
+
+    // Handle middle mouse button for panning
+    if (event.button === 1) {
+      event.preventDefault();
+      setIsMiddleMousePanning(true);
+      setPanStart({
+        x: event.clientX - panOffset.x,
+        y: event.clientY - panOffset.y,
       });
       return;
     }
@@ -175,8 +196,11 @@ export function createMouseHandlers(
 
     if (clickedNode) {
       if (state.ui.tool === "select") {
+        // In select mode, only select the node, don't start dragging
         onNodeSelect(clickedNode.id);
-        // Only allow dragging if node is not locked
+      } else if (state.ui.tool === "move") {
+        // In move mode, select and start dragging if node is not locked
+        onNodeSelect(clickedNode.id);
         if (!clickedNode.locked) {
           setIsDragging(true);
           setDragNode(clickedNode.id);
@@ -229,6 +253,16 @@ export function createMouseHandlers(
       setHoveredNodeId(null);
     }
 
+    // Handle middle mouse panning
+    if (isMiddleMousePanning) {
+      const newPanOffset = {
+        x: event.clientX - panStart.x,
+        y: event.clientY - panStart.y,
+      };
+      onPanChange(newPanOffset);
+      return;
+    }
+
     if (isPanning) {
       const newPanOffset = {
         x: event.clientX - panStart.x,
@@ -238,30 +272,44 @@ export function createMouseHandlers(
       return;
     }
 
+    // Handle node dragging for real-time visual feedback
     if (isDragging && dragNode) {
-      // Update node position through context
       const node = state.graph?.nodes.find((n) => n.id === dragNode);
-      if (node) {
-        // Snap to grid if enabled
+      if (node && !node.locked) {
+        // Calculate new position
         let newX = x - dragStart.x;
         let newY = y - dragStart.y;
 
+        // Snap to grid if enabled
         if (state.ui.snapToGrid) {
           const gridSize = state.graph?.settings.gridSize || 20;
           newX = Math.round(newX / gridSize) * gridSize;
           newY = Math.round(newY / gridSize) * gridSize;
         }
 
-        // Update node position
-        onNodeUpdate(dragNode, { position: { x: newX, y: newY } });
+        // Update node position in real-time for visual feedback (isDragging = true)
+        onNodeUpdate(dragNode, { position: { x: newX, y: newY } }, true);
       }
     }
   };
 
   const handleMouseUp = () => {
+    // If we were dragging a node, sync final position with backend
+    if (isDragging && dragNode) {
+      const node = state.graph?.nodes.find((n) => n.id === dragNode);
+      if (node) {
+        // Get current position from the node (already updated during dragging)
+        const finalPosition = node.position;
+
+        // Sync with backend (isDragging = false to trigger API call)
+        onNodeUpdate(dragNode, { position: finalPosition }, false);
+      }
+    }
+
     setIsDragging(false);
     setDragNode(null);
     setIsPanning(false);
+    setIsMiddleMousePanning(false);
   };
 
   const handleWheel = (event: React.WheelEvent) => {
@@ -271,9 +319,37 @@ export function createMouseHandlers(
 
     // Only handle zoom if Ctrl is not pressed (to avoid interfering with browser zoom)
     // Actually, we want to prevent browser zoom, so we'll handle it regardless
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+
+    // Calculate world coordinates under mouse before zoom
+    const worldX = (mouseX - panOffset.x) / zoom;
+    const worldY = (mouseY - panOffset.y) / zoom;
+
+    // Calculate new zoom
     const zoomFactor = event.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
+
+    // Adjust pan so mouse stays over the same world point
+    const newPanX = mouseX - worldX * newZoom;
+    const newPanY = mouseY - worldY * newZoom;
+
     onZoomChange(newZoom);
+    onPanChange({ x: newPanX, y: newPanY });
+  };
+
+  const handleMouseEnter = () => {
+    // Reset hover state when mouse enters canvas
+    setHoveredNodeId(null);
+  };
+
+  const handleMouseLeave = () => {
+    // Reset hover state when mouse leaves canvas
+    setHoveredNodeId(null);
   };
 
   return {
@@ -281,5 +357,7 @@ export function createMouseHandlers(
     handleMouseMove,
     handleMouseUp,
     handleWheel,
+    handleMouseEnter,
+    handleMouseLeave,
   };
 }

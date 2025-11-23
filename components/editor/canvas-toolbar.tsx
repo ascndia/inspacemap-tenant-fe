@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
-import { useGraph } from "@/contexts/graph-context";
+import { useGraphStore } from "@/stores/graph-store";
 import { Button } from "@/components/ui/button";
 import {
   MousePointer2,
@@ -12,6 +11,9 @@ import {
   RotateCcw,
   ImageIcon,
   Link,
+  Eye,
+  Edit,
+  Grid3X3,
 } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
 
@@ -22,10 +24,13 @@ interface CanvasToolbarProps {
   onZoomOut: () => void;
   onResetView: () => void;
   onFloorplanSelect: (media: any) => void;
+  onFloorplanUpdate?: (media: any) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  onTogglePanoramaViewer?: () => void;
+  onToggleGrid?: () => void;
 }
 
 export function CanvasToolbar({
@@ -35,11 +40,15 @@ export function CanvasToolbar({
   onZoomOut,
   onResetView,
   onFloorplanSelect,
+  onFloorplanUpdate,
   canUndo,
   canRedo,
   onUndo,
   onRedo,
+  onTogglePanoramaViewer,
+  onToggleGrid,
 }: CanvasToolbarProps) {
+  const { showPanoramaViewer, graph } = useGraphStore();
   return (
     <div className="flex items-center gap-2 p-2 bg-background border-b">
       <Button
@@ -49,6 +58,14 @@ export function CanvasToolbar({
         onClick={() => onToolChange("select")}
       >
         <MousePointer2 className="h-4 w-4" />
+      </Button>
+      <Button
+        variant={currentTool === "move" ? "default" : "ghost"}
+        size="sm"
+        title="Move Nodes"
+        onClick={() => onToolChange("move")}
+      >
+        <Move className="h-4 w-4" />
       </Button>
       <Button
         variant={currentTool === "add-node" ? "default" : "ghost"}
@@ -80,6 +97,26 @@ export function CanvasToolbar({
 
       <div className="h-6 w-px bg-border mx-2" />
 
+      <Button
+        variant={showPanoramaViewer ? "default" : "ghost"}
+        size="sm"
+        title="Toggle Panorama Viewer"
+        onClick={onTogglePanoramaViewer}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+
+      <div className="h-6 w-px bg-border mx-2" />
+
+      <Button
+        variant={graph?.settings?.showGrid ? "default" : "ghost"}
+        size="sm"
+        title="Toggle Grid"
+        onClick={onToggleGrid}
+      >
+        <Grid3X3 className="h-4 w-4" />
+      </Button>
+
       <MediaPicker
         onSelect={onFloorplanSelect}
         trigger={
@@ -89,6 +126,18 @@ export function CanvasToolbar({
         }
         acceptTypes={["image"]}
       />
+
+      {graph?.floorplan && onFloorplanUpdate && (
+        <MediaPicker
+          onSelect={onFloorplanUpdate}
+          trigger={
+            <Button variant="ghost" size="sm" title="Change Floorplan Image">
+              <Edit className="h-4 w-4" />
+            </Button>
+          }
+          acceptTypes={["image"]}
+        />
+      )}
 
       <div className="h-6 w-px bg-border mx-2" />
 

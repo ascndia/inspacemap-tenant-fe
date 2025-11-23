@@ -12,9 +12,13 @@ interface ContextMenuProps {
   onDuplicateNode?: (nodeId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
   onAddNode?: (x: number, y: number) => void;
+  onAddNodeWithPanorama?: (x: number, y: number) => void;
   onResetView?: () => void;
   onDeleteConnection?: (connectionId: string) => void;
+  onViewPanorama?: (nodeId: string) => void;
+  onSetPanorama?: (nodeId: string) => void;
   isNodeLocked?: boolean;
+  hasPanorama?: boolean;
 }
 
 export function CanvasContextMenu({
@@ -27,9 +31,13 @@ export function CanvasContextMenu({
   onDuplicateNode,
   onDeleteNode,
   onAddNode,
+  onAddNodeWithPanorama,
   onResetView,
   onDeleteConnection,
+  onViewPanorama,
+  onSetPanorama,
   isNodeLocked,
+  hasPanorama,
 }: ContextMenuProps) {
   return (
     <div
@@ -60,6 +68,24 @@ export function CanvasContextMenu({
             }}
           >
             Select Node
+          </button>
+          {hasPanorama && (
+            <button
+              className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+              onClick={() => {
+                onViewPanorama?.(nodeId);
+              }}
+            >
+              View Panorama
+            </button>
+          )}
+          <button
+            className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+            onClick={() => {
+              onSetPanorama?.(nodeId);
+            }}
+          >
+            Set Panorama
           </button>
           <button
             className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
@@ -105,6 +131,14 @@ export function CanvasContextMenu({
             }}
           >
             Add Node Here
+          </button>
+          <button
+            className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"
+            onClick={() => {
+              onAddNodeWithPanorama?.(x, y);
+            }}
+          >
+            Add Node with Panorama
           </button>
           <button
             className="w-full text-left px-3 py-2 hover:bg-accent hover:text-accent-foreground text-sm"

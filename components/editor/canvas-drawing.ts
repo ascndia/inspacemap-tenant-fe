@@ -48,7 +48,12 @@ export function drawCanvas(params: DrawParams) {
   ctx.scale(zoom, zoom);
 
   // Draw floorplan background if available
-  drawFloorplan(ctx, floorplanImage, graph.floorplan);
+  drawFloorplan(
+    ctx,
+    floorplanImage,
+    graph.floorplan,
+    graph.settings.floorplanOpacity
+  );
 
   // Draw grid
   if (ui.showGrid) {
@@ -91,7 +96,8 @@ export function drawCanvas(params: DrawParams) {
 function drawFloorplan(
   ctx: CanvasRenderingContext2D,
   floorplanImage: HTMLImageElement | null,
-  floorplan: any
+  floorplan: any,
+  floorplanOpacity: number = 0.5
 ) {
   if (floorplanImage && floorplan) {
     const scale = floorplan.scale || 1;
@@ -102,7 +108,16 @@ function drawFloorplan(
     const offsetX = -imgWidth / 2;
     const offsetY = -imgHeight / 2;
 
+    // Save current global alpha
+    const originalAlpha = ctx.globalAlpha;
+
+    // Set floorplan opacity
+    ctx.globalAlpha = floorplanOpacity;
+
     ctx.drawImage(floorplanImage, offsetX, offsetY, imgWidth, imgHeight);
+
+    // Restore original alpha
+    ctx.globalAlpha = originalAlpha;
   } else if (floorplan) {
     // Placeholder when image is loading
     ctx.fillStyle = "#f0f0f0";
@@ -124,17 +139,20 @@ function drawGrid(
   ctx.strokeStyle = "#e0e0e0";
   ctx.lineWidth = 1 / zoom;
 
-  for (let x = -500; x <= 500; x += gridSize) {
+  // Draw more grid lines for better coverage
+  const gridRange = 2000; // Increased from 500 to 2000
+
+  for (let x = -gridRange; x <= gridRange; x += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(x, -500);
-    ctx.lineTo(x, 500);
+    ctx.moveTo(x, -gridRange);
+    ctx.lineTo(x, gridRange);
     ctx.stroke();
   }
 
-  for (let y = -500; y <= 500; y += gridSize) {
+  for (let y = -gridRange; y <= gridRange; y += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(-500, y);
-    ctx.lineTo(500, y);
+    ctx.moveTo(-gridRange, y);
+    ctx.lineTo(gridRange, y);
     ctx.stroke();
   }
 }
@@ -297,7 +315,9 @@ function drawNodes(
     if (isConnectingFrom) {
       radius = 12 / zoom; // Enlarge connecting from node
     } else if (isHovered && isValidTarget) {
-      radius = 10 / zoom; // Enlarge hovered target node
+      radius = 12 / zoom; // Enlarge hovered target node in connect mode
+    } else if (isHovered) {
+      radius = 10 / zoom; // Slightly enlarge hovered node
     }
 
     // Node circle
@@ -307,12 +327,22 @@ function drawNodes(
       ? "#f59e0b" // Orange for connecting from
       : isHovered && isValidTarget
       ? "#10b981" // Green for valid target
-      : node.panoramaUrl
+      : node.panorama_url
       ? "#22c55e"
       : "#6b7280";
+
+    // Add glow effect for connect mode
+    if (isConnecting && (isHovered || isConnectingFrom)) {
+      ctx.shadowColor = isConnectingFrom ? "#f59e0b" : "#10b981";
+      ctx.shadowBlur = 8 / zoom;
+    }
+
     ctx.beginPath();
     ctx.arc(node.position.x, node.position.y, radius, 0, 2 * Math.PI);
     ctx.fill();
+
+    // Reset shadow
+    ctx.shadowBlur = 0;
 
     // Node border
     ctx.strokeStyle = isSelected ? "#1e40af" : "#374151";

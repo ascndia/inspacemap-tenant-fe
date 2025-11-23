@@ -57,15 +57,7 @@ export default async function VenueFloorPage({
                 <Map className="h-8 w-8 text-muted-foreground" />
               </div>
               <div className="flex gap-2">
-                <Link
-                  href={`/dashboard/graph-editor?venueId=${venue.id}&floorId=${floor.id}`}
-                  className="flex-1"
-                >
-                  <Button variant="outline" size="sm" className="w-full">
-                    Edit Graph
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="flex-1">
                   View Plan
                 </Button>
               </div>

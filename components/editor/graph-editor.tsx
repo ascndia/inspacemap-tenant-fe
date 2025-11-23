@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { GraphProvider } from "@/contexts/graph-context";
+import { GraphProvider } from "@/providers/GraphProvider";
 import { GraphCanvas } from "./graph-canvas";
 import { PropertiesPanel } from "./properties-panel";
-import { PanoramaPreview } from "./panorama-preview";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -21,48 +20,45 @@ import {
   Settings,
   Eye,
 } from "lucide-react";
-import { useGraph } from "@/contexts/graph-context";
+import { useGraphStore } from "@/stores/graph-store";
 
 function GraphEditorContent() {
-  const { state, validateGraph, autoLayout, findPath, getGraphStats } =
-    useGraph();
-  const [showPanoramaPreview, setShowPanoramaPreview] = useState(false);
+  const graphStore = useGraphStore();
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(true);
   const [pathPreview, setPathPreview] = useState<string[] | null>(null);
   const [pathStartNode, setPathStartNode] = useState<string | null>(null);
 
+  const { graph, selectedNodeId, isLoading, error } = graphStore;
+
   const handleValidate = () => {
-    const result = validateGraph();
-    console.log("Validation result:", result);
-    // TODO: Show validation results in UI
+    // TODO: Implement validation with Zustand store
+    console.log("Validation not yet implemented");
   };
 
   const handleAutoLayout = () => {
-    autoLayout();
+    // TODO: Implement auto layout with Zustand store
+    console.log("Auto layout not yet implemented");
   };
 
   const handlePathfinding = () => {
-    if (!state.ui.selectedNodeId || !pathStartNode) {
-      setPathStartNode(state.ui.selectedNodeId);
+    if (!selectedNodeId || !pathStartNode) {
+      setPathStartNode(selectedNodeId);
       return;
     }
 
-    const path = findPath(pathStartNode, state.ui.selectedNodeId);
-    if (path) {
-      setPathPreview(path.map((node) => node.id));
-    }
+    // TODO: Implement pathfinding with Zustand store
+    console.log("Pathfinding not yet implemented");
     setPathStartNode(null);
   };
 
   const handleShowStats = () => {
-    const stats = getGraphStats();
-    console.log("Graph statistics:", stats);
-    // TODO: Show stats in a dialog
+    // TODO: Implement stats with Zustand store
+    console.log("Stats not yet implemented");
   };
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log("Saving graph:", state.graph);
+  const handleSave = async () => {
+    // TODO: Implement save with Zustand store
+    console.log("Save not yet implemented");
   };
 
   const handleLoadFloorplan = () => {
@@ -89,7 +85,7 @@ function GraphEditorContent() {
               variant="outline"
               size="sm"
               onClick={handlePathfinding}
-              disabled={!state.ui.selectedNodeId}
+              disabled={!selectedNodeId}
             >
               <Route className="h-4 w-4 mr-2" />
               {pathStartNode ? "Find Path" : "Start Path"}
@@ -105,14 +101,6 @@ function GraphEditorContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowPanoramaPreview(!showPanoramaPreview)}
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Panorama Preview
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -138,11 +126,6 @@ function GraphEditorContent() {
           >
             <div className="h-full relative">
               <GraphCanvas pathPreview={pathPreview} />
-              {showPanoramaPreview && (
-                <div className="absolute top-4 right-4 w-80 h-60 bg-background border rounded-lg shadow-lg overflow-hidden">
-                  <PanoramaPreview />
-                </div>
-              )}
             </div>
           </ResizablePanel>
 
@@ -166,15 +149,17 @@ interface GraphEditorProps {
   venueId: string;
   floorId: string;
   initialGraph?: any;
+  revisionId?: string;
 }
 
 export function GraphEditor({
   venueId,
   floorId,
   initialGraph,
+  revisionId,
 }: GraphEditorProps) {
   return (
-    <GraphProvider initialGraph={initialGraph}>
+    <GraphProvider venueId={venueId} revisionId={revisionId} floorId={floorId}>
       <GraphEditorContent />
     </GraphProvider>
   );

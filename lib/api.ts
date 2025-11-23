@@ -1,5 +1,13 @@
 import axios from "axios";
-import type { MediaItem } from "@/types/media";
+import type { MediaItem, MediaListResponse } from "@/types/media";
+import type {
+  GraphRevision,
+  GraphRevisionDetail,
+  CreateDraftRevisionResponse,
+  ListRevisionsResponse,
+  GetRevisionDetailResponse,
+  DeleteRevisionResponse,
+} from "@/types/graph";
 
 export const mockOrganizations = [
   {
@@ -90,54 +98,96 @@ export const mockVenues = [
   },
 ];
 
-export const mockMedia: MediaItem[] = [
-  {
-    id: "1",
-    name: "lobby_360.jpg",
-    type: "image",
-    size: "4.2 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-25T14:30:00Z",
-    uploadedBy: "John Doe",
+export const mockMedia: MediaListResponse = {
+  data: [
+    {
+      id: "1",
+      asset_id: "asset-1",
+      name: "Lobby 360 Panorama",
+      file_name: "lobby_360.jpg",
+      file_type: "image/jpeg",
+      file_size: 4404019,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-25T14:30:00Z",
+      uploaded_by: "John Doe",
+      organization_id: "org-1",
+    },
+    {
+      id: "2",
+      asset_id: "asset-2",
+      name: "Hallway A",
+      file_name: "hallway_A.jpg",
+      file_type: "image/jpeg",
+      file_size: 3250585,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-25T11:15:00Z",
+      uploaded_by: "Jane Smith",
+      organization_id: "org-1",
+    },
+    {
+      id: "3",
+      asset_id: "asset-3",
+      name: "Intro Video",
+      file_name: "intro_video.mp4",
+      file_type: "video/mp4",
+      file_size: 26214400,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 1920,
+      height: 1080,
+      uploaded_at: "2023-10-24T09:45:00Z",
+      uploaded_by: "John Doe",
+      organization_id: "org-1",
+    },
+    {
+      id: "4",
+      asset_id: "asset-4",
+      name: "Storefront",
+      file_name: "storefront_01.jpg",
+      file_type: "image/jpeg",
+      file_size: 2936012,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-23T16:20:00Z",
+      uploaded_by: "Jane Smith",
+      organization_id: "org-1",
+    },
+    {
+      id: "5",
+      asset_id: "asset-5",
+      name: "Atrium View",
+      file_name: "atrium_view.jpg",
+      file_type: "image/jpeg",
+      file_size: 5505020,
+      category: "panorama",
+      url: "/placeholder.svg",
+      thumbnail_url: "/placeholder.svg",
+      width: 4096,
+      height: 2048,
+      uploaded_at: "2023-10-22T10:00:00Z",
+      uploaded_by: "Bob Johnson",
+      organization_id: "org-1",
+    },
+  ],
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 5,
+    total_pages: 1,
   },
-  {
-    id: "2",
-    name: "hallway_A.jpg",
-    type: "image",
-    size: "3.1 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-25T11:15:00Z",
-    uploadedBy: "Jane Smith",
-  },
-  {
-    id: "3",
-    name: "intro_video.mp4",
-    type: "video",
-    size: "24.5 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-24T09:45:00Z",
-    uploadedBy: "John Doe",
-  },
-  {
-    id: "4",
-    name: "storefront_01.jpg",
-    type: "image",
-    size: "2.8 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-23T16:20:00Z",
-    uploadedBy: "Jane Smith",
-  },
-  {
-    id: "5",
-    name: "atrium_view.jpg",
-    type: "image",
-    size: "5.6 MB",
-    url: "/placeholder.svg",
-    uploadedAt: "2023-10-22T10:00:00Z",
-    uploadedBy: "Bob Johnson",
-  },
-];
-
+};
 export const mockMembers = [
   {
     id: 1,
@@ -210,7 +260,8 @@ export const mockAuditLogs = [
 
 // Buat instance Axios
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL,
+  baseURL:
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8081/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
@@ -234,6 +285,33 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Response interceptor for token refresh/error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Log all errors for debugging during development
+    console.log("API Error:", {
+      status: error.response?.status,
+      url: error.config?.url,
+      method: error.config?.method,
+      message: error.message,
+      pathname:
+        typeof window !== "undefined" ? window.location.pathname : "unknown",
+    });
+
+    // Log detailed error response for debugging
+    if (error.response?.data) {
+      console.log("API Error Response Data:", error.response.data);
+    }
+
+    // Don't automatically logout on any HTTP errors during development
+    // This prevents unwanted logouts when APIs are not fully implemented
+    // Components should handle authentication errors individually
+
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 // Media API functions
@@ -252,16 +330,21 @@ export const uploadMedia = async (
   // Simulate API response
   const media: MediaItem = {
     id: Date.now().toString(),
+    asset_id: `asset-${Date.now()}`,
     name: file.name,
-    type: file.type.startsWith("image/")
-      ? "image"
+    file_name: file.name,
+    file_type: file.type,
+    file_size: file.size,
+    category: file.type.startsWith("image/")
+      ? "panorama"
       : file.type.startsWith("video/")
-      ? "video"
+      ? "panorama"
       : "panorama",
-    size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
     url: URL.createObjectURL(file), // In real app, this would be the uploaded URL
-    uploadedAt: new Date().toISOString(),
-    uploadedBy: "Current User", // In real app, get from auth
+    thumbnail_url: URL.createObjectURL(file),
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: "Current User", // In real app, get from auth
+    organization_id: "org-1",
   };
 
   return media;
@@ -289,5 +372,175 @@ export const uploadMedia = async (
 
 export const getMedia = async (): Promise<MediaItem[]> => {
   const response = await api.get("/media");
+  return response.data;
+};
+
+// Graph Revision API functions
+export const createDraftRevision = async (
+  venueId: string,
+  note?: string
+): Promise<CreateDraftRevisionResponse> => {
+  const response = await api.post(`/editor/${venueId}/revisions/draft`, {
+    note,
+  });
+  return response.data;
+};
+
+export const listRevisions = async (
+  venueId: string
+): Promise<ListRevisionsResponse> => {
+  const response = await api.get(`/editor/${venueId}/revisions`);
+  return response.data;
+};
+
+export const getRevisionDetail = async (
+  revisionId: string
+): Promise<GetRevisionDetailResponse> => {
+  const response = await api.get(`/editor/revisions/${revisionId}`);
+  return response.data;
+};
+
+export const deleteRevision = async (
+  revisionId: string
+): Promise<DeleteRevisionResponse> => {
+  const response = await api.delete(`/editor/revisions/${revisionId}`);
+  return response.data;
+};
+
+// export const updateRevision = async (
+//   revisionId: string,
+//   data: { note: string }
+// ): Promise<any> => {
+//   const response = await api.put(`/editor/revisions/${revisionId}`, data);
+//   return response.data;
+// };
+
+// Graph API functions
+export const getGraphData = async (venueId: string): Promise<any> => {
+  const response = await api.get(`/editor/${venueId}`);
+  return response.data;
+};
+
+export const createGraphNode = async (
+  revisionId: string,
+  floorId: string,
+  nodeData: any
+): Promise<any> => {
+  const response = await api.post(`/editor/nodes`, {
+    ...nodeData,
+    floor_id: floorId,
+  });
+  return response.data;
+};
+
+export const updateGraphNode = async (
+  revisionId: string,
+  floorId: string,
+  nodeId: string,
+  nodeData: any
+): Promise<{ success: boolean; data: string }> => {
+  const response = await api.put(`/editor/nodes/${nodeId}`, nodeData);
+  return response.data;
+};
+
+export const updateRevision = async (
+  revisionId: string,
+  revisionData: { note: string }
+): Promise<{ success: boolean; data: string }> => {
+  const response = await api.put(
+    `/editor/revisions/${revisionId}`,
+    revisionData
+  );
+  return response.data;
+};
+
+export const publishRevision = async (
+  venueId: string,
+  note?: string
+): Promise<{ success: boolean; data: string }> => {
+  const response = await api.post(`/editor/${venueId}/publish`, { note });
+  return response.data;
+};
+
+export const updateNodePosition = async (
+  nodeId: string,
+  x: number,
+  y: number
+): Promise<any> => {
+  const response = await api.put(`/editor/nodes/${nodeId}/position`, {
+    x,
+    y,
+  });
+  return response.data;
+};
+
+export const calibrateNode = async (
+  nodeId: string,
+  rotationOffset: number
+): Promise<any> => {
+  const response = await api.put(`/editor/nodes/${nodeId}/calibration`, {
+    rotation_offset: rotationOffset,
+  });
+  return response.data;
+};
+
+export const deleteGraphNode = async (
+  revisionId: string,
+  floorId: string,
+  nodeId: string
+): Promise<any> => {
+  const response = await api.delete(`/editor/nodes/${nodeId}`);
+  return response.data;
+};
+
+export const createGraphConnection = async (
+  revisionId: string,
+  floorId: string,
+  connectionData: any
+): Promise<any> => {
+  const response = await api.post(`/editor/connections`, connectionData);
+  return response.data;
+};
+
+export const deleteGraphConnection = async (
+  fromNodeId: string,
+  toNodeId: string
+): Promise<any> => {
+  const response = await api.delete(`/editor/connections`, {
+    params: { from_node_id: fromNodeId, to_node_id: toNodeId },
+  });
+  return response.data;
+};
+
+export const updateFloor = async (
+  floorId: string,
+  floorData: any
+): Promise<any> => {
+  const response = await api.put(`/editor/floors/${floorId}`, floorData);
+  return response.data;
+};
+
+export const createFloor = async (
+  venueId: string,
+  floorData: any
+): Promise<any> => {
+  const response = await api.post(`/editor/floors`, floorData, {
+    params: { venue_id: venueId },
+  });
+  return response.data;
+};
+
+export const deleteFloor = async (floorId: string): Promise<any> => {
+  const response = await api.delete(`/editor/floors/${floorId}`);
+  return response.data;
+};
+
+export const getFloors = async (venueId: string): Promise<any> => {
+  const response = await api.get(`/editor/${venueId}/floors`);
+  return response.data;
+};
+
+export const getFloor = async (floorId: string): Promise<any> => {
+  const response = await api.get(`/editor/floors/${floorId}`);
   return response.data;
 };

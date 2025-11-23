@@ -1,17 +1,25 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { mediaService } from "@/lib/services/media-service";
+import { MediaItem } from "@/types/media";
 // Panorama Viewer Component
 export default function PanoramaViewer({
   selectedNode,
   onRotationChange,
   onPitchChange,
   rotationSpeed = 0.5,
+  isDraggingNode = false,
+  graph, // Add graph data for hotspot calculation
+  onNavigateToNode, // Add navigation callback
 }: {
   selectedNode: any;
   onRotationChange: (rotation: number) => void;
   onPitchChange: (pitch: number) => void;
   rotationSpeed?: number;
+  isDraggingNode?: boolean;
+  graph?: any; // Graph data containing nodes and connections
+  onNavigateToNode: (nodeId: string) => void; // Navigation callback
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rotation, setRotation] = useState(0); // yaw (horizontal)
@@ -37,27 +45,47 @@ export default function PanoramaViewer({
   // Animation frame ref for throttling
   const animationFrameRef = useRef<number | null>(null);
 
+  // Hotspot radius for click detection
+  const hotspotRadius = 15;
+
   // Cached image data to avoid re-processing
   const imageDataCache = useRef<ImageData | null>(null);
 
   // Load panorama image
   useEffect(() => {
-    if (selectedNode?.panoramaUrl) {
-      const img = new Image();
-      // Remove crossOrigin for local images
-      img.onload = () => {
-        console.log("Image loaded successfully:", selectedNode.panoramaUrl);
-        setImage(img);
-      };
-      img.onerror = (error) => {
-        console.error("Failed to load image:", selectedNode.panoramaUrl, error);
+    const loadPanoramaImage = async () => {
+      if (selectedNode?.panorama_url) {
+        try {
+          const img = new Image();
+          // Set crossOrigin to allow canvas operations on local images
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            console.log(
+              "Image loaded successfully:",
+              selectedNode.panorama_url
+            );
+            setImage(img);
+          };
+          img.onerror = (error) => {
+            console.error(
+              "Failed to load image:",
+              selectedNode.panorama_url,
+              error
+            );
+            setImage(null);
+          };
+          img.src = selectedNode.panorama_url;
+        } catch (error) {
+          console.error("Failed to load panorama image:", error);
+          setImage(null);
+        }
+      } else {
         setImage(null);
-      };
-      img.src = selectedNode.panoramaUrl;
-    } else {
-      setImage(null);
-    }
-  }, [selectedNode]);
+      }
+    };
+
+    loadPanoramaImage();
+  }, [selectedNode?.panorama_url]);
 
   // Helper function to calculate rotation matrices
   const getRotationMatrices = useCallback(
@@ -197,13 +225,228 @@ export default function PanoramaViewer({
         }
       }
 
+      // Put the processed image data onto the canvas
       ctx.putImageData(imageData, 0, 0);
     },
     [processedImageData, getRotationMatrices]
   );
 
+  // Calculate navigation hotspots based on graph connections
+  const calculateHotspots = useCallback(() => {
+    if (!selectedNode || !graph?.nodes || !graph?.connections) return [];
+
+    const hotspots = [];
+    const currentNode = selectedNode;
+
+    // Find all connected nodes (neighbors)
+    const neighborConnections = graph.connections.filter(
+      (conn: any) =>
+        conn.fromNodeId === currentNode.id || conn.toNodeId === currentNode.id
+    );
+
+    for (const connection of neighborConnections) {
+      const neighborId =
+        connection.fromNodeId === currentNode.id
+          ? connection.toNodeId
+          : connection.fromNodeId;
+
+      const neighborNode = graph.nodes.find(
+        (node: any) => node.id === neighborId
+      );
+      if (!neighborNode) continue;
+
+      // Calculate direction vector from current node to neighbor
+      const directionX = neighborNode.position.x - currentNode.position.x;
+      const directionY = neighborNode.position.y - currentNode.position.y;
+      const directionZ = neighborNode.position.z - currentNode.position.z;
+
+      // Calculate distance
+      const distance = Math.sqrt(
+        directionX * directionX +
+          directionY * directionY +
+          directionZ * directionZ
+      );
+      if (distance === 0) continue; // Skip if same position
+
+      // Normalize direction vector
+      const normalizedX = directionX / distance;
+      const normalizedY = directionY / distance;
+      const normalizedZ = directionZ / distance;
+
+      // Convert to spherical coordinates relative to current node's viewing direction
+      // Current node's heading represents the forward direction (0° = positive X-axis)
+      const headingRad = ((currentNode.heading || 0) * Math.PI) / 180;
+
+      // Rotate direction vector by current heading to get relative direction
+      const relativeX =
+        normalizedX * Math.cos(headingRad) - normalizedY * Math.sin(headingRad);
+      const relativeY =
+        normalizedX * Math.sin(headingRad) + normalizedY * Math.cos(headingRad);
+      const relativeZ = normalizedZ;
+
+      // Calculate yaw (horizontal angle) and pitch (vertical angle)
+      const yaw = (Math.atan2(relativeY, relativeX) * 180) / Math.PI;
+      const pitch =
+        (Math.asin(Math.max(-1, Math.min(1, relativeZ))) * 180) / Math.PI;
+
+      hotspots.push({
+        nodeId: neighborId,
+        node: neighborNode,
+        yaw: yaw,
+        pitch: pitch,
+        distance: distance,
+      });
+    }
+
+    return hotspots;
+  }, [selectedNode, graph]);
+
+  // Project hotspot to screen coordinates
+  const projectHotspotToScreen = useCallback(
+    (
+      hotspot: any,
+      canvasWidth: number,
+      canvasHeight: number,
+      currentRotation: number,
+      currentPitch: number
+    ) => {
+      // Calculate relative yaw and pitch from current view
+      const relativeYaw = hotspot.yaw - currentRotation;
+      const relativePitch = hotspot.pitch - currentPitch;
+
+      // Normalize yaw to -180 to 180 range
+      let normalizedYaw = relativeYaw;
+      while (normalizedYaw > 180) normalizedYaw -= 360;
+      while (normalizedYaw < -180) normalizedYaw += 360;
+
+      // Check if hotspot is within field of view (roughly 90° horizontal, 60° vertical)
+      if (Math.abs(normalizedYaw) > 45 || Math.abs(relativePitch) > 30) {
+        return null; // Hotspot is outside view
+      }
+
+      // Convert to screen coordinates
+      // FOV is approximately 90° horizontal
+      const fovHorizontal = 90;
+      const fovVertical = 60;
+
+      const screenX =
+        canvasWidth / 2 + (normalizedYaw / fovHorizontal) * (canvasWidth / 2);
+      const screenY =
+        canvasHeight / 2 - (relativePitch / fovVertical) * (canvasHeight / 2);
+
+      return {
+        x: Math.max(20, Math.min(canvasWidth - 20, screenX)),
+        y: Math.max(20, Math.min(canvasHeight - 20, screenY)),
+      };
+    },
+    []
+  );
+
+  // Draw navigation hotspots
+  const drawHotspots = useCallback(
+    (
+      currentRotation = currentRotationRef.current,
+      currentPitch = currentPitchRef.current
+    ) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const hotspots = calculateHotspots();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+
+      hotspots.forEach((hotspot) => {
+        const screenPos = projectHotspotToScreen(
+          hotspot,
+          canvasWidth,
+          canvasHeight,
+          currentRotation,
+          currentPitch
+        );
+        if (!screenPos) return;
+
+        // Draw hotspot as a circular indicator
+        ctx.save();
+
+        // Draw outer ring
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, hotspotRadius, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        // Draw inner circle
+        ctx.fillStyle = "#007bff";
+        ctx.beginPath();
+        ctx.arc(screenPos.x, screenPos.y, hotspotRadius - 3, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Draw direction arrow if close enough
+        if (hotspot.distance < 50) {
+          // Within 50 units
+          const angle = ((hotspot.yaw - currentRotation) * Math.PI) / 180;
+          const arrowLength = 20;
+
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(screenPos.x, screenPos.y);
+          ctx.lineTo(
+            screenPos.x + Math.sin(angle) * arrowLength,
+            screenPos.y - Math.cos(angle) * arrowLength
+          );
+          ctx.stroke();
+
+          // Arrow head
+          const headLength = 8;
+          const headAngle = Math.PI / 6;
+          ctx.beginPath();
+          ctx.moveTo(
+            screenPos.x + Math.sin(angle) * arrowLength,
+            screenPos.y - Math.cos(angle) * arrowLength
+          );
+          ctx.lineTo(
+            screenPos.x +
+              Math.sin(angle - headAngle) * (arrowLength - headLength),
+            screenPos.y -
+              Math.cos(angle - headAngle) * (arrowLength - headLength)
+          );
+          ctx.moveTo(
+            screenPos.x + Math.sin(angle) * arrowLength,
+            screenPos.y - Math.cos(angle) * arrowLength
+          );
+          ctx.lineTo(
+            screenPos.x +
+              Math.sin(angle + headAngle) * (arrowLength - headLength),
+            screenPos.y -
+              Math.cos(angle + headAngle) * (arrowLength - headLength)
+          );
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      });
+    },
+    [calculateHotspots, projectHotspotToScreen]
+  );
+
+  // Update drawPanorama to also draw hotspots
+  const drawPanoramaWithHotspots = useCallback(
+    (
+      currentRotation = currentRotationRef.current,
+      currentPitch = currentPitchRef.current
+    ) => {
+      drawPanorama(currentRotation, currentPitch);
+      drawHotspots(currentRotation, currentPitch);
+    },
+    [drawPanorama, drawHotspots]
+  );
+
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedNode && !isDraggingNode) {
       const newRotation = selectedNode.rotation || 0;
       const newPitch = selectedNode.pitch || 0;
       setRotation(newRotation);
@@ -212,9 +455,14 @@ export default function PanoramaViewer({
       currentRotationRef.current = newRotation;
       currentPitchRef.current = newPitch;
       // Draw with new values
-      drawPanorama(newRotation, newPitch);
+      drawPanoramaWithHotspots(newRotation, newPitch);
     }
-  }, [selectedNode, drawPanorama]);
+  }, [
+    selectedNode?.rotation,
+    selectedNode?.pitch,
+    drawPanoramaWithHotspots,
+    isDraggingNode,
+  ]);
 
   // Resize canvas to match container while maintaining aspect ratio
   useEffect(() => {
@@ -241,7 +489,7 @@ export default function PanoramaViewer({
         // Trigger redraw with debouncing
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-          drawPanorama();
+          drawPanoramaWithHotspots();
         }, 16); // ~60fps
       }
     };
@@ -264,6 +512,43 @@ export default function PanoramaViewer({
       clearTimeout(resizeTimeout);
     };
   }, [drawPanorama]);
+
+  // Handle hotspot clicks
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleClick = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      // Check if click is on a hotspot
+      const hotspots = calculateHotspots();
+      for (const hotspot of hotspots) {
+        const screenPos = projectHotspotToScreen(
+          hotspot,
+          canvas.width,
+          canvas.height,
+          currentRotationRef.current,
+          currentPitchRef.current
+        );
+        if (!screenPos) continue;
+
+        const distance = Math.sqrt(
+          (x - screenPos.x) ** 2 + (y - screenPos.y) ** 2
+        );
+        if (distance <= hotspotRadius) {
+          // hotspotRadius is 15
+          onNavigateToNode(hotspot.nodeId);
+          break;
+        }
+      }
+    };
+
+    canvas.addEventListener("click", handleClick);
+    return () => canvas.removeEventListener("click", handleClick);
+  }, [calculateHotspots, projectHotspotToScreen, onNavigateToNode]);
 
   // Cleanup animation frame on unmount
   useEffect(() => {

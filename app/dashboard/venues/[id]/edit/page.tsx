@@ -1,6 +1,5 @@
 "use client";
 
-import { mockVenues, mockMedia } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,13 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Save, Image as ImageIcon, X } from "lucide-react";
+import { ArrowLeft, Save, Image as ImageIcon, X, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, use } from "react";
 import { MediaPicker } from "@/components/media/media-picker";
 import Image from "next/image";
-
-import { use } from "react";
+import { useRouter } from "next/navigation";
+import { venueService } from "@/lib/services/venue-service";
+import { mediaService } from "@/lib/services/media-service";
+import { useToast } from "@/hooks/use-toast";
+import type { VenueDetail, UpdateVenueRequest } from "@/types/venue";
+import type { Media } from "@/types/media";
+import { replaceMinioPort } from "@/lib/utils";
 
 export default function VenueEditPage({
   params,
@@ -33,29 +37,230 @@ export default function VenueEditPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  // In a real app, fetch venue by ID
-  const venue = mockVenues.find((v) => v.id === id) || mockVenues[0];
+  const { toast } = useToast();
+  const router = useRouter();
 
-  const [coverImageId, setCoverImageId] = useState<string | undefined>(
-    venue.coverImageId
-  );
+  const [venue, setVenue] = useState<VenueDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [coverImage, setCoverImage] = useState<Media | null>(null);
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
 
-  const getCoverImage = (imageId?: string) => {
-    if (!imageId) return null;
-    return mockMedia.find((media) => media.id === imageId);
+  // Form state
+  const [formData, setFormData] = useState<UpdateVenueRequest>({
+    name: "",
+    description: "",
+    address: "",
+    city: "",
+    province: "",
+    postal_code: "",
+    coordinates: { latitude: 0, longitude: 0 },
+    visibility: "private",
+    cover_image_id: undefined,
+  });
+
+  // Load venue data
+  useEffect(() => {
+    const loadVenue = async () => {
+      try {
+        setLoading(true);
+        const response = await venueService.getVenueById(id);
+
+        if (response.success && response.data) {
+          const venueData = response.data;
+          setVenue(venueData);
+
+          // Set form data
+          setFormData({
+            name: venueData.name,
+            description: venueData.description || "",
+            address: venueData.address || "",
+            city: venueData.city || "",
+            province: venueData.province || "",
+            postal_code: venueData.postal_code || "",
+            coordinates: {
+              latitude: venueData.coordinates.latitude,
+              longitude: venueData.coordinates.longitude,
+            },
+            visibility: venueData.visibility,
+            cover_image_id: venueData.cover_image_id, // Set initial cover_image_id
+          });
+
+          // Load cover image if exists
+          let coverImageId = venueData.cover_image_id;
+          let coverImageUrl = venueData.cover_image_url;
+
+          // If no direct cover_image_id, check gallery for featured image
+          if (
+            !coverImageId &&
+            venueData.gallery &&
+            venueData.gallery.length > 0
+          ) {
+            const coverItem = venueData.gallery.find(
+              (item) => item.is_featured
+            );
+            if (coverItem) {
+              coverImageId = coverItem.media_asset_id;
+            }
+          }
+
+          // Update form data with cover image ID
+          setFormData((prev) => ({
+            ...prev,
+            cover_image_id: coverImageId,
+          }));
+
+          // If we have cover image URL, use it directly (replace port for dev environment)
+          if (coverImageUrl) {
+            const processedUrl = replaceMinioPort(coverImageUrl);
+            const basicMedia: Media = {
+              id: coverImageId || "cover-image",
+              name: "Cover Image",
+              url: processedUrl,
+              file_type: "image/jpeg",
+              file_size: 0,
+              created_at: venueData.created_at,
+              updated_at: venueData.updated_at,
+            };
+            setCoverImage(basicMedia);
+          } else if (coverImageId) {
+            try {
+              const mediaResponse = await mediaService.getMediaById(
+                coverImageId
+              );
+              if (mediaResponse.success && mediaResponse.data) {
+                setCoverImage(mediaResponse.data);
+              }
+            } catch (error) {
+              console.warn("Failed to load cover image:", error);
+            }
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: response.error || "Failed to load venue details",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load venue:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load venue details",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadVenue();
+  }, [id, toast]);
+
+  const handleInputChange = (field: keyof UpdateVenueRequest, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const coverImage = getCoverImage(coverImageId);
+  const handleCoordinatesChange = (
+    field: "latitude" | "longitude",
+    value: number
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      coordinates: {
+        ...prev.coordinates!,
+        [field]: value,
+      },
+    }));
+  };
 
-  const handleCoverImageSelect = (selectedIds: string[]) => {
-    setCoverImageId(selectedIds[0] || undefined);
-    setIsMediaPickerOpen(false);
+  const handleCoverImageSelect = async (media: Media) => {
+    setCoverImage(media);
+    setFormData((prev) => ({ ...prev, cover_image_id: media.id }));
   };
 
   const handleRemoveCoverImage = () => {
-    setCoverImageId(undefined);
+    setCoverImage(null);
+    setFormData((prev) => ({ ...prev, cover_image_id: null }));
   };
+
+  const handleSave = async () => {
+    if (!venue) return;
+
+    try {
+      setSaving(true);
+
+      // Prepare update data - only include fields that have changed
+      const updateData: UpdateVenueRequest = {};
+
+      if (formData.name !== venue.name) updateData.name = formData.name;
+      if (formData.description !== (venue.description || ""))
+        updateData.description = formData.description;
+      if (formData.address !== (venue.address || ""))
+        updateData.address = formData.address;
+      if (formData.city !== (venue.city || "")) updateData.city = formData.city;
+      if (formData.province !== (venue.province || ""))
+        updateData.province = formData.province;
+      if (formData.postal_code !== (venue.postal_code || ""))
+        updateData.postal_code = formData.postal_code;
+      if (
+        formData.coordinates?.latitude !== venue.coordinates.latitude ||
+        formData.coordinates?.longitude !== venue.coordinates.longitude
+      ) {
+        updateData.coordinates = formData.coordinates;
+      }
+      if (formData.visibility !== venue.visibility)
+        updateData.visibility = formData.visibility;
+      if (formData.cover_image_id !== undefined)
+        updateData.cover_image_id = formData.cover_image_id;
+
+      const response = await venueService.updateVenue(id, updateData);
+
+      if (response.success) {
+        toast({
+          title: "Success",
+          description: "Venue updated successfully",
+        });
+
+        // Redirect to venue detail page
+        router.push(`/dashboard/venues/${id}`);
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to update venue",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to update venue:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update venue",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!venue) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Venue not found</p>
+        <Link href="/dashboard/venues">
+          <Button className="mt-4">Back to Venues</Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,10 +279,16 @@ export default function VenueEditPage({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Cancel</Button>
-          <Button>
-            <Save className="mr-2 h-4 w-4" />
-            Save Changes
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/venues/${id}`}>Cancel</Link>
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </div>
@@ -116,8 +327,8 @@ export default function VenueEditPage({
               </div>
               <div className="flex gap-2">
                 <MediaPicker
-                  onSelect={(media) => handleCoverImageSelect([media.id])}
-                  selectedMediaId={coverImageId}
+                  onSelect={handleCoverImageSelect}
+                  selectedMediaId={formData.cover_image_id}
                   multiple={false}
                   acceptTypes={["image"]}
                   trigger={
@@ -136,8 +347,8 @@ export default function VenueEditPage({
                 No cover image selected
               </p>
               <MediaPicker
-                onSelect={(media) => handleCoverImageSelect([media.id])}
-                selectedMediaId={coverImageId}
+                onSelect={handleCoverImageSelect}
+                selectedMediaId={formData.cover_image_id}
                 multiple={false}
                 acceptTypes={["image"]}
                 trigger={
@@ -163,11 +374,19 @@ export default function VenueEditPage({
           <CardContent className="space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Venue Name</Label>
-              <Input id="name" defaultValue={venue.name} />
+              <Input
+                id="name"
+                value={formData.name || ""}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="address">Address</Label>
-              <Input id="address" defaultValue={venue.address} />
+              <Input
+                id="address"
+                value={formData.address || ""}
+                onChange={(e) => handleInputChange("address", e.target.value)}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Description</Label>
@@ -175,7 +394,10 @@ export default function VenueEditPage({
                 id="description"
                 placeholder="Enter venue description..."
                 className="min-h-[100px]"
-                defaultValue=""
+                value={formData.description || ""}
+                onChange={(e) =>
+                  handleInputChange("description", e.target.value)
+                }
               />
             </div>
           </CardContent>
@@ -190,33 +412,48 @@ export default function VenueEditPage({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-              <Select defaultValue={venue.status}>
+              <Label htmlFor="visibility">Visibility</Label>
+              <Select
+                value={formData.visibility}
+                onValueChange={(value: "public" | "private" | "unlisted") =>
+                  handleInputChange("visibility", value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="unlisted">Unlisted</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="category">Category</Label>
-              <Select defaultValue="other">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="shopping">Shopping Mall</SelectItem>
-                  <SelectItem value="office">Office Building</SelectItem>
-                  <SelectItem value="hospital">Hospital</SelectItem>
-                  <SelectItem value="airport">Airport</SelectItem>
-                  <SelectItem value="hotel">Hotel</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="city">City</Label>
+              <Input
+                id="city"
+                value={formData.city || ""}
+                onChange={(e) => handleInputChange("city", e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="province">Province</Label>
+              <Input
+                id="province"
+                value={formData.province || ""}
+                onChange={(e) => handleInputChange("province", e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="postal_code">Postal Code</Label>
+              <Input
+                id="postal_code"
+                value={formData.postal_code || ""}
+                onChange={(e) =>
+                  handleInputChange("postal_code", e.target.value)
+                }
+              />
             </div>
           </CardContent>
         </Card>
@@ -237,7 +474,13 @@ export default function VenueEditPage({
                 id="latitude"
                 type="number"
                 step="any"
-                defaultValue={venue.location?.lat || ""}
+                value={formData.coordinates?.latitude || ""}
+                onChange={(e) =>
+                  handleCoordinatesChange(
+                    "latitude",
+                    parseFloat(e.target.value) || 0
+                  )
+                }
               />
             </div>
             <div className="grid gap-2">
@@ -246,7 +489,13 @@ export default function VenueEditPage({
                 id="longitude"
                 type="number"
                 step="any"
-                defaultValue={venue.location?.lng || ""}
+                value={formData.coordinates?.longitude || ""}
+                onChange={(e) =>
+                  handleCoordinatesChange(
+                    "longitude",
+                    parseFloat(e.target.value) || 0
+                  )
+                }
               />
             </div>
           </div>

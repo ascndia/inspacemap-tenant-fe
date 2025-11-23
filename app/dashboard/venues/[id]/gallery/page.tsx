@@ -1,4 +1,7 @@
-import { mockVenues } from "@/lib/api";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,17 +11,72 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { VenueGallery } from "@/components/venues/venue-gallery";
-import { ArrowLeft, Upload, Settings, Eye } from "lucide-react";
+import { ArrowLeft, Upload, Settings, Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { venueService } from "@/lib/services/venue-service";
+import type { VenueDetail } from "@/types/venue";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default async function VenueGalleryPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  // In a real app, fetch venue by ID
-  const venue = mockVenues.find((v) => v.id === id) || mockVenues[0];
+export default function VenueGalleryPage() {
+  const params = useParams();
+  const id = params.id as string;
+
+  const [venue, setVenue] = useState<VenueDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchVenueDetail = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await venueService.getVenueById(id);
+
+        if (response.success && response.data) {
+          setVenue(response.data);
+        } else {
+          throw new Error(response.error || "Failed to fetch venue details");
+        }
+      } catch (err: any) {
+        console.error("Error fetching venue details:", err);
+        setError(err.message || "Failed to load venue details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchVenueDetail();
+    }
+  }, [id]);
+
+  const handleGalleryUpdate = () => {
+    // Refresh venue data after gallery changes
+    if (id) {
+      venueService.getVenueById(id).then((response) => {
+        if (response.success && response.data) {
+          setVenue(response.data);
+        }
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading gallery...</span>
+      </div>
+    );
+  }
+
+  if (error || !venue) {
+    return (
+      <Alert className="m-4">
+        <AlertDescription>{error || "Venue not found"}</AlertDescription>
+      </Alert>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -61,7 +119,11 @@ export default async function VenueGalleryPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <VenueGallery />
+              <VenueGallery
+                venueId={id}
+                galleryItems={venue.gallery || []}
+                onUpdate={handleGalleryUpdate}
+              />
             </CardContent>
           </Card>
         </div>
@@ -75,11 +137,17 @@ export default async function VenueGalleryPage({
             <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
                 <span>Total Images:</span>
-                <span className="font-medium">4</span>
+                <span className="font-medium">
+                  {venue.gallery?.length || 0}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Cover Image:</span>
-                <span className="font-medium">Set</span>
+                <span className="font-medium">
+                  {venue.gallery?.some((item) => item.is_featured)
+                    ? "Set"
+                    : "Not Set"}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Sort Order:</span>

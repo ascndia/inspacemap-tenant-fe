@@ -6,7 +6,10 @@ import React, {
   useReducer,
   useCallback,
   ReactNode,
+  useEffect,
+  useRef,
 } from "react";
+import { GraphService } from "@/lib/services/graph-service";
 import {
   GraphNode,
   GraphConnection,
@@ -34,6 +37,7 @@ type GraphAction =
       payload: { fromNodeId: string; toNodeId: string };
     }
   | { type: "DELETE_CONNECTION"; payload: { connectionId: string } }
+  | { type: "UPDATE_FLOORPLAN_BOUNDS"; payload: { bounds: any } }
   | { type: "LOAD_FLOORPLAN"; payload: { floorplan: any } }
   | { type: "SET_SELECTED_NODE"; payload: { nodeId: string | null } }
   | {
@@ -50,7 +54,11 @@ type GraphAction =
   | { type: "LOAD_GRAPH"; payload: { graph: GraphData } }
   | { type: "RESET_GRAPH" }
   | { type: "UNDO" }
-  | { type: "REDO" };
+  | { type: "REDO" }
+  | { type: "SET_PANORAMA_NODE"; payload: { nodeId: string | null } }
+  | { type: "TOGGLE_PANORAMA_VIEWER" }
+  | { type: "SET_LOADING"; payload: { loading: boolean } }
+  | { type: "SET_ERROR"; payload: { error: string | null } };
 
 // State Interface
 interface GraphState {
@@ -78,6 +86,8 @@ const initialState: GraphState = {
     showProperties: true,
     showGrid: true,
     snapToGrid: true,
+    showPanoramaViewer: true,
+    panoramaNodeId: null,
   },
   history: [],
   historyIndex: -1,
@@ -309,6 +319,25 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       };
     }
 
+    case "UPDATE_FLOORPLAN_BOUNDS": {
+      if (!state.graph?.floorplan) return state;
+
+      const newGraph = {
+        ...state.graph,
+        floorplan: {
+          ...state.graph.floorplan,
+          bounds: action.payload.bounds,
+        },
+        updatedAt: new Date(),
+      };
+
+      return {
+        ...state,
+        graph: newGraph,
+        // Don't add to history for bounds updates
+      };
+    }
+
     case "LOAD_FLOORPLAN": {
       if (!state.graph) return state;
 
@@ -440,6 +469,41 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       return state;
     }
 
+    case "SET_PANORAMA_NODE": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          panoramaNodeId: action.payload.nodeId,
+        },
+      };
+    }
+
+    case "TOGGLE_PANORAMA_VIEWER": {
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          showPanoramaViewer: !state.ui.showPanoramaViewer,
+        },
+      };
+    }
+
+    case "SET_LOADING": {
+      return {
+        ...state,
+        isLoading: action.payload.loading,
+      };
+    }
+
+    case "SET_ERROR": {
+      return {
+        ...state,
+        error: action.payload.error,
+        isLoading: false,
+      };
+    }
+
     default:
       return state;
   }
@@ -457,6 +521,8 @@ interface GraphContextType {
   addConnection: (fromNodeId: string, toNodeId: string) => void;
   deleteConnection: (connectionId: string) => void;
   loadFloorplan: (floorplan: any) => void;
+  updateFloorplan: (floorplanData: any) => Promise<void>;
+  updateFloorplanBounds: (bounds: any) => void;
   setSelectedNode: (nodeId: string | null) => void;
   setSelectedConnection: (connectionId: string | null) => void;
   updateSettings: (settings: Partial<GraphSettings>) => void;
@@ -467,6 +533,9 @@ interface GraphContextType {
   resetGraph: () => void;
   undo: () => void;
   redo: () => void;
+  setPanoramaNode: (nodeId: string | null) => void;
+  togglePanoramaViewer: () => void;
+  saveGraph: () => Promise<void>;
 
   // Advanced features
   autoLayout: () => void;
@@ -476,6 +545,7 @@ interface GraphContextType {
   // Computed values
   selectedNode: GraphNode | null;
   selectedConnection: GraphConnection | null;
+  panoramaNode: GraphNode | null;
   canUndo: boolean;
   canRedo: boolean;
   validateGraph: () => ValidationResult;
@@ -487,9 +557,30 @@ const GraphContext = createContext<GraphContextType | undefined>(undefined);
 interface GraphProviderProps {
   children: ReactNode;
   initialGraph?: GraphData;
+  venueId?: string;
+  revisionId?: string;
+  floorId?: string;
+  autoSave?: boolean;
 }
 
-export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
+export function GraphProvider({
+  children,
+  initialGraph,
+  venueId,
+  revisionId,
+  floorId,
+  autoSave = true,
+}: GraphProviderProps) {
+  const graphServiceRef = useRef<GraphService | null>(null);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize graph service when venue/revision/floor IDs are provided
+  useEffect(() => {
+    if (venueId && revisionId && floorId) {
+      graphServiceRef.current = new GraphService(venueId, revisionId, floorId);
+    }
+  }, [venueId, revisionId, floorId]);
+
   const [state, dispatch] = useReducer(graphReducer, {
     ...initialState,
     graph: initialGraph || null,
@@ -497,35 +588,235 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     historyIndex: initialGraph ? 0 : -1,
   });
 
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSave || !state.graph || !graphServiceRef.current) return;
+
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (5 seconds after last change)
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await graphServiceRef.current!.saveGraph(state.graph);
+        console.log("Graph auto-saved successfully");
+      } catch (error) {
+        console.error("Failed to auto-save graph:", error);
+      }
+    }, 5000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [state.graph, autoSave]);
+
+  // Load graph data when venue/revision/floor changes
+  useEffect(() => {
+    if (!venueId || !revisionId || !floorId || !graphServiceRef.current) return;
+
+    const loadGraphData = async () => {
+      try {
+        dispatch({ type: "SET_LOADING", payload: { loading: true } });
+        const graphData = await graphServiceRef.current!.loadGraph();
+
+        dispatch({ type: "LOAD_GRAPH", payload: { graph: graphData } });
+      } catch (error) {
+        console.error("Failed to load graph data:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to load graph data" },
+        });
+      } finally {
+        dispatch({ type: "SET_LOADING", payload: { loading: false } });
+      }
+    };
+
+    loadGraphData();
+  }, [venueId, revisionId, floorId]);
+
   // Helper functions
   const addNode = useCallback(
-    (position: Vector3, attributes?: Partial<GraphNode>) => {
-      dispatch({ type: "ADD_NODE", payload: { position, attributes } });
+    async (position: Vector3, attributes?: Partial<GraphNode>) => {
+      try {
+        let newNode: GraphNode;
+
+        if (graphServiceRef.current) {
+          // Use backend API
+          newNode = await graphServiceRef.current.createNode(
+            position,
+            attributes
+          );
+        } else {
+          // Fallback to local creation
+          newNode = {
+            id: crypto.randomUUID(),
+            position,
+            rotation: 0,
+            pitch: 0,
+            heading: 0,
+            fov: 75,
+            connections: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            ...attributes,
+          };
+        }
+
+        dispatch({
+          type: "ADD_NODE",
+          payload: { position, attributes: newNode },
+        });
+      } catch (error) {
+        console.error("Failed to add node:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to add node" },
+        });
+      }
     },
     []
   );
 
   const updateNode = useCallback(
-    (nodeId: string, updates: Partial<GraphNode>) => {
-      dispatch({ type: "UPDATE_NODE", payload: { nodeId, updates } });
+    async (nodeId: string, updates: Partial<GraphNode>) => {
+      try {
+        if (graphServiceRef.current) {
+          // Use backend API
+          await graphServiceRef.current.updateNode(nodeId, updates);
+        }
+
+        dispatch({ type: "UPDATE_NODE", payload: { nodeId, updates } });
+      } catch (error) {
+        console.error("Failed to update node:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to update node" },
+        });
+      }
     },
     []
   );
 
-  const deleteNode = useCallback((nodeId: string) => {
-    dispatch({ type: "DELETE_NODE", payload: { nodeId } });
+  const deleteNode = useCallback(async (nodeId: string) => {
+    try {
+      if (graphServiceRef.current) {
+        // Use backend API
+        await graphServiceRef.current.deleteNode(nodeId);
+      }
+
+      dispatch({ type: "DELETE_NODE", payload: { nodeId } });
+    } catch (error) {
+      console.error("Failed to delete node:", error);
+      dispatch({
+        type: "SET_ERROR",
+        payload: { error: "Failed to delete node" },
+      });
+    }
   }, []);
 
-  const addConnection = useCallback((fromNodeId: string, toNodeId: string) => {
-    dispatch({ type: "ADD_CONNECTION", payload: { fromNodeId, toNodeId } });
-  }, []);
+  const addConnection = useCallback(
+    async (fromNodeId: string, toNodeId: string) => {
+      try {
+        let newConnection: GraphConnection;
 
-  const deleteConnection = useCallback((connectionId: string) => {
-    dispatch({ type: "DELETE_CONNECTION", payload: { connectionId } });
-  }, []);
+        if (graphServiceRef.current) {
+          // Use backend API
+          newConnection = await graphServiceRef.current.createConnection(
+            fromNodeId,
+            toNodeId
+          );
+        } else {
+          // Fallback to local creation
+          const fromNode = state.graph?.nodes.find((n) => n.id === fromNodeId);
+          const toNode = state.graph?.nodes.find((n) => n.id === toNodeId);
+
+          if (!fromNode || !toNode) return;
+
+          const distance = Math.sqrt(
+            Math.pow(toNode.position.x - fromNode.position.x, 2) +
+              Math.pow(toNode.position.y - fromNode.position.y, 2)
+          );
+
+          newConnection = {
+            id: crypto.randomUUID(),
+            fromNodeId,
+            toNodeId,
+            distance,
+            bidirectional: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+        }
+
+        dispatch({ type: "ADD_CONNECTION", payload: { fromNodeId, toNodeId } });
+      } catch (error) {
+        console.error("Failed to add connection:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to add connection" },
+        });
+      }
+    },
+    [state.graph?.nodes]
+  );
+
+  const deleteConnection = useCallback(
+    async (connectionId: string) => {
+      try {
+        if (graphServiceRef.current && state.graph) {
+          // Find the connection to get node IDs
+          const connection = state.graph.connections.find(
+            (c) => c.id === connectionId
+          );
+          if (connection) {
+            // Use backend API with node IDs
+            await GraphRevisionService.deleteConnection(
+              connection.fromNodeId,
+              connection.toNodeId
+            );
+          }
+        }
+
+        dispatch({ type: "DELETE_CONNECTION", payload: { connectionId } });
+      } catch (error) {
+        console.error("Failed to delete connection:", error);
+        dispatch({
+          type: "SET_ERROR",
+          payload: { error: "Failed to delete connection" },
+        });
+      }
+    },
+    [state.graph?.connections]
+  );
 
   const loadFloorplan = useCallback((floorplan: any) => {
     dispatch({ type: "LOAD_FLOORPLAN", payload: { floorplan } });
+  }, []);
+
+  const updateFloorplanBounds = useCallback((bounds: any) => {
+    dispatch({ type: "UPDATE_FLOORPLAN_BOUNDS", payload: { bounds } });
+  }, []);
+
+  const updateFloorplan = useCallback(async (floorplanData: any) => {
+    if (!graphServiceRef.current) return;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: { loading: true } });
+      await graphServiceRef.current.updateFloorplan(floorplanData);
+      dispatch({ type: "SET_ERROR", payload: { error: null } });
+    } catch (error) {
+      console.error("Failed to update floorplan:", error);
+      dispatch({
+        type: "SET_ERROR",
+        payload: { error: "Failed to update floorplan" },
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { loading: false } });
+    }
   }, []);
 
   const setSelectedNode = useCallback((nodeId: string | null) => {
@@ -571,6 +862,32 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     dispatch({ type: "REDO" });
   }, []);
 
+  const setPanoramaNode = useCallback((nodeId: string | null) => {
+    dispatch({ type: "SET_PANORAMA_NODE", payload: { nodeId } });
+  }, []);
+
+  const togglePanoramaViewer = useCallback(() => {
+    dispatch({ type: "TOGGLE_PANORAMA_VIEWER" });
+  }, []);
+
+  const saveGraph = useCallback(async () => {
+    if (!state.graph || !graphServiceRef.current) return;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: { loading: true } });
+      await graphServiceRef.current.saveGraph(state.graph);
+      dispatch({ type: "SET_ERROR", payload: { error: null } });
+    } catch (error) {
+      console.error("Failed to save graph:", error);
+      dispatch({
+        type: "SET_ERROR",
+        payload: { error: "Failed to save graph" },
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { loading: false } });
+    }
+  }, [state.graph]);
+
   const validateGraph = useCallback((): ValidationResult => {
     if (!state.graph) {
       return { isValid: false, errors: ["No graph loaded"], warnings: [] };
@@ -591,7 +908,7 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
 
     // Check for nodes without panoramas
     const nodesWithoutPanoramas = state.graph.nodes.filter(
-      (node) => !node.panoramaUrl
+      (node) => !node.panorama_url
     );
     if (nodesWithoutPanoramas.length > 0) {
       warnings.push(
@@ -647,6 +964,8 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     state.graph?.connections.find(
       (c) => c.id === state.ui.selectedConnectionId
     ) || null;
+  const panoramaNode =
+    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId) || null;
   const canUndo = state.historyIndex > 0;
   const canRedo = state.historyIndex < state.history.length - 1;
 
@@ -715,6 +1034,8 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     addConnection,
     deleteConnection,
     loadFloorplan,
+    updateFloorplan,
+    updateFloorplanBounds,
     setSelectedNode,
     setSelectedConnection,
     updateSettings,
@@ -725,14 +1046,18 @@ export function GraphProvider({ children, initialGraph }: GraphProviderProps) {
     resetGraph,
     undo,
     redo,
+    setPanoramaNode,
+    togglePanoramaViewer,
     autoLayout,
     findPath,
     getGraphStats,
     selectedNode,
     selectedConnection,
+    panoramaNode,
     canUndo,
     canRedo,
     validateGraph,
+    saveGraph,
   };
 
   return (

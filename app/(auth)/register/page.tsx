@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Building2 } from "lucide-react";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { authService } from "@/lib/services/auth-service";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,30 +18,38 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const login = useAuthStore((state) => state.login);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!agreed) return setError("You must agree to the Terms of Service.");
-    if (!fullName || !email || !password)
+    if (!fullName || !email || !password || !organizationName)
       return setError("Please fill all fields.");
     if (password !== confirm) return setError("Passwords do not match.");
 
     setLoading(true);
     try {
-      // NOTE: this is a lightweight client-side mock to keep the flow working
-      // Replace this with a real API call to register the user when backend is ready
-      // e.g. await api.post('/auth/register', { email, password, fullName })
+      const response = await authService.register({
+        full_name: fullName,
+        email,
+        password,
+        organization_name: organizationName,
+      });
 
-      // Save a mock access token and mark user as logged in
-      localStorage.setItem("access_token", "mock-token");
-      // No orgs yet for new user -> redirect to onboarding organization
-      router.push("/onboarding/organization");
+      login(response.access_token, response.user);
+      toast.success("Account created successfully!");
+      router.push("/dashboard");
     } catch (err: any) {
-      setError(err?.message || "Failed to register");
+      const message =
+        err.response?.data?.message || err.message || "Failed to register";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -69,6 +80,7 @@ export default function RegisterPage() {
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Jane Doe"
                 required
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -80,6 +92,18 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                disabled={loading}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="organizationName">Organization Name</Label>
+              <Input
+                id="organizationName"
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                placeholder="Your Company Name"
+                required
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -90,6 +114,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -100,6 +125,7 @@ export default function RegisterPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -108,6 +134,7 @@ export default function RegisterPage() {
                 checked={agreed}
                 onCheckedChange={(v: any) => setAgreed(Boolean(v))}
                 required
+                disabled={loading}
               />
               <Label htmlFor="terms" className="text-sm font-normal">
                 I agree to the{" "}

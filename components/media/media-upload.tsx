@@ -6,7 +6,7 @@ import { Upload, FileImage, X, Check } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useState, useRef } from "react";
-import { uploadMedia } from "@/lib/api";
+import { mediaService } from "@/lib/services/media-service";
 import type { MediaItem } from "@/types/media";
 
 interface MediaUploadProps {
@@ -89,16 +89,27 @@ export function MediaUpload({
       );
 
       try {
-        const media = await uploadMedia(file, (progress) => {
-          setUploadingFiles((prev) => {
-            const newMap = new Map(prev);
-            const current = newMap.get(fileId);
-            if (current) {
-              newMap.set(fileId, { ...current, progress });
-            }
-            return newMap;
-          });
-        });
+        // Determine category based on file type
+        let category: "panorama" | "icon" | "floorplan" = "panorama";
+        if (file.type.startsWith("image/")) {
+          // For now, treat all images as panoramas. This could be enhanced with user selection
+          category = "panorama";
+        }
+
+        const media = await mediaService.uploadFile(
+          file,
+          category,
+          (progress) => {
+            setUploadingFiles((prev) => {
+              const newMap = new Map(prev);
+              const current = newMap.get(fileId);
+              if (current) {
+                newMap.set(fileId, { ...current, progress });
+              }
+              return newMap;
+            });
+          }
+        );
 
         setUploadedMedia((prev) => [...prev, media]);
         setUploadingFiles((prev) => {
@@ -257,7 +268,10 @@ export function MediaUpload({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{file.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {(file.size / (1024 * 1024)).toFixed(1)} MB
+                      {file.size
+                        ? (file.size / (1024 * 1024)).toFixed(1)
+                        : "0.0"}{" "}
+                      MB
                     </p>
                     {uploadStatus && (
                       <div className="mt-1">
@@ -324,7 +338,10 @@ export function MediaUpload({
                   <div className="flex-1">
                     <p className="font-medium text-sm">{media.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {media.size}
+                      {media.file_size
+                        ? (media.file_size / (1024 * 1024)).toFixed(1)
+                        : "0.0"}{" "}
+                      MB
                     </p>
                   </div>
                 </div>

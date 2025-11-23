@@ -14,7 +14,8 @@ export interface GraphNode {
   heading: number; // Viewing direction (0-360°)
   fov: number; // Field of view (default 75°)
   connections: string[]; // Array of connected node IDs
-  panoramaUrl?: string; // Associated 360° image URL
+  panorama_asset_id?: string; // Associated 360° image asset ID
+  panorama_url?: string; // Associated 360° image URL (derived from asset_id)
   label?: string; // Optional display label
   locked?: boolean; // Whether the node is locked (cannot be moved)
   metadata?: Record<string, any>; // Additional custom data
@@ -94,6 +95,7 @@ export interface GraphSettings {
   nodeSize: number;
   autoSave: boolean;
   collaboration: boolean;
+  floorplanOpacity: number;
 }
 
 export interface ValidationResult {
@@ -218,6 +220,8 @@ export interface GraphUIState {
   showProperties: boolean;
   showGrid: boolean;
   snapToGrid: boolean;
+  showPanoramaViewer: boolean;
+  panoramaNodeId: string | null;
 }
 
 // Venue and Floor Types (extending existing mock data)
@@ -262,4 +266,65 @@ export interface Area {
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Graph Revision Types (for API integration)
+export interface GraphRevision {
+  id: string;
+  venue_id: string;
+  status: "draft" | "published" | "archived";
+  note?: string;
+  created_at: string;
+  created_by: string;
+  updated_at?: string;
+  floors?: GraphRevisionFloor[];
+}
+
+export interface GraphRevisionFloor {
+  id: string;
+  name: string;
+  level_index: number;
+  map_image_url?: string;
+  map_width?: number;
+  map_height?: number;
+  pixels_per_meter?: number;
+  is_active: boolean;
+  nodes_count: number;
+  areas_count: number;
+}
+
+export interface GraphRevisionDetail extends GraphRevision {
+  floors: GraphRevisionFloor[];
+}
+
+export interface CreateDraftRevisionRequest {
+  venue_id: string;
+  note?: string;
+}
+
+export interface CreateDraftRevisionResponse {
+  success: boolean;
+  data: {
+    id: string;
+  };
+}
+
+export interface ListRevisionsResponse {
+  success: boolean;
+  data: GraphRevision[];
+}
+
+export interface GetRevisionDetailResponse {
+  success: boolean;
+  data: GraphRevisionDetail;
+}
+
+export interface DeleteRevisionResponse {
+  success: boolean;
+  data: string;
+}
+
+export interface UpdateRevisionResponse {
+  success: boolean;
+  data: GraphRevision;
 }

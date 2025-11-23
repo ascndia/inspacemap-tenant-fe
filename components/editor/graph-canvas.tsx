@@ -51,6 +51,13 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
   const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
   const [isDraggingNode, setIsDraggingNode] = useState(false);
 
+  // Auto-show panorama viewer when panorama node is set
+  useEffect(() => {
+    if (panoramaNodeId && !showPanoramaViewer) {
+      togglePanoramaViewer();
+    }
+  }, [panoramaNodeId, showPanoramaViewer, togglePanoramaViewer]);
+
   // Prevent browser zoom gestures and shortcuts
   useEffect(() => {
     const preventZoom = (e: Event) => {
@@ -154,6 +161,35 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
       graphStore.setGraph(updatedGraph);
     }
   }, [graph, graphStore]);
+
+  const handleTogglePanoramaViewer = useCallback(() => {
+    if (showPanoramaViewer) {
+      // Closing panorama viewer
+      togglePanoramaViewer();
+      setPanoramaNode(null);
+    } else {
+      // Opening panorama viewer
+      if (selectedNodeId) {
+        const node = graph?.nodes.find((n) => n.id === selectedNodeId);
+        if (node && (node.panorama_url || node.panorama_asset_id)) {
+          // Set panorama node to current selected node if it has panorama
+          setPanoramaNode(selectedNodeId);
+        } else {
+          // Just toggle the viewer even if no panorama
+          togglePanoramaViewer();
+        }
+      } else {
+        // Just toggle the viewer
+        togglePanoramaViewer();
+      }
+    }
+  }, [
+    showPanoramaViewer,
+    togglePanoramaViewer,
+    selectedNodeId,
+    graph?.nodes,
+    setPanoramaNode,
+  ]);
 
   const handleCanvasClick = useCallback(
     (x: number, y: number) => {
@@ -369,7 +405,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
             canRedo={false} // TODO: Implement undo/redo in Zustand store
             onUndo={() => {}} // TODO: Implement undo/redo in Zustand store
             onRedo={() => {}} // TODO: Implement undo/redo in Zustand store
-            onTogglePanoramaViewer={togglePanoramaViewer}
+            onTogglePanoramaViewer={handleTogglePanoramaViewer}
             onToggleGrid={handleToggleGrid}
           />
 
@@ -419,7 +455,13 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={togglePanoramaViewer}
+                  onClick={() => {
+                    togglePanoramaViewer();
+                    // Also clear the panorama node when closing
+                    if (showPanoramaViewer) {
+                      setPanoramaNode(null);
+                    }
+                  }}
                   className="h-6 w-6 p-0"
                 >
                   ×

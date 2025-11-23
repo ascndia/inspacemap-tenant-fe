@@ -20,7 +20,7 @@ import { useState, useEffect, useMemo } from "react";
 import { mediaService } from "@/lib/services/media-service";
 import { MediaItem } from "@/types/media";
 import { MediaPicker } from "@/components/media/media-picker";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Eye } from "lucide-react";
 
 export function PropertiesPanel() {
   const graphStore = useGraphStore();
@@ -359,6 +359,43 @@ export function PropertiesPanel() {
                     className="w-full"
                   />
                 </div>
+
+                {(selectedNode.panorama_asset_id ||
+                  selectedNode.panorama_url) && (
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => {
+                        // Import the graph store to toggle panorama viewer
+                        const {
+                          useGraphStore,
+                        } = require("@/stores/graph-store");
+                        const graphStore = useGraphStore.getState();
+                        graphStore.setPanoramaNode(selectedNode.id);
+                      }}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      View Panorama
+                    </Button>
+                  </div>
+                )}
+
+                {(selectedNode.panorama_asset_id ||
+                  selectedNode.panorama_url) && (
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => {
+                        // Set panorama node to show panorama viewer
+                        graphStore.setPanoramaNode(selectedNode.id);
+                      }}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Panorama
+                    </Button>
+                  </div>
+                )}
               </>
             ) : (
               <div className="p-4 text-center text-muted-foreground text-sm border border-dashed rounded-lg">

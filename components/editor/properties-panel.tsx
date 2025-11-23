@@ -135,7 +135,13 @@ export function PropertiesPanel() {
       }
     } else if (field === "panorama_asset_id") {
       // Only update if we have a valid asset ID, otherwise don't send the field
-      if (value && value.trim() !== "" && value !== "null" && value !== null && value !== undefined) {
+      if (
+        value &&
+        value.trim() !== "" &&
+        value !== "null" &&
+        value !== null &&
+        value !== undefined
+      ) {
         updates.panorama_asset_id = value;
       }
     }
@@ -233,7 +239,8 @@ export function PropertiesPanel() {
 
                 <div className="space-y-2">
                   <Label>Panorama Image</Label>
-                  {selectedNode.panorama_asset_id || selectedNode.panorama_url ? (
+                  {selectedNode.panorama_asset_id ||
+                  selectedNode.panorama_url ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/20">
                         <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
@@ -241,22 +248,39 @@ export function PropertiesPanel() {
                         </div>
                         <div className="flex-1 text-sm">
                           <p className="font-medium">
-                            {selectedNode.panorama_asset_id ? "Panorama Selected" : "Panorama Loaded"}
+                            {selectedNode.panorama_asset_id
+                              ? "Panorama Selected"
+                              : "Panorama Loaded"}
                           </p>
-                          <p className="text-muted-foreground text-xs truncate" title={selectedNode.panorama_asset_id || selectedNode.panorama_url}>
-                            {selectedNode.panorama_asset_id ? `Asset ID: ${selectedNode.panorama_asset_id}` : "From backend"}
+                          <p
+                            className="text-muted-foreground text-xs truncate"
+                            title={
+                              selectedNode.panorama_asset_id ||
+                              selectedNode.panorama_url
+                            }
+                          >
+                            {selectedNode.panorama_asset_id
+                              ? `Asset ID: ${selectedNode.panorama_asset_id}`
+                              : "From backend"}
                           </p>
                         </div>
                       </div>
                       <MediaPicker
                         onSelect={(media) => {
                           if (media) {
-                            handleNodeUpdate("panorama_asset_id", media.asset_id);
+                            handleNodeUpdate(
+                              "panorama_asset_id",
+                              media.asset_id
+                            );
                             // Also update the panorama_url for immediate display
-                            graphStore.updateNode(selectedNode.id, { panorama_url: media.url });
+                            graphStore.updateNode(selectedNode.id, {
+                              panorama_url: media.url,
+                            });
                           } else {
                             handleNodeUpdate("panorama_asset_id", "");
-                            graphStore.updateNode(selectedNode.id, { panorama_url: undefined });
+                            graphStore.updateNode(selectedNode.id, {
+                              panorama_url: undefined,
+                            });
                           }
                         }}
                         acceptTypes={["image"]}
@@ -273,10 +297,14 @@ export function PropertiesPanel() {
                         if (media) {
                           handleNodeUpdate("panorama_asset_id", media.asset_id);
                           // Also update the panorama_url for immediate display
-                          graphStore.updateNode(selectedNode.id, { panorama_url: media.url });
+                          graphStore.updateNode(selectedNode.id, {
+                            panorama_url: media.url,
+                          });
                         } else {
                           handleNodeUpdate("panorama_asset_id", "");
-                          graphStore.updateNode(selectedNode.id, { panorama_url: undefined });
+                          graphStore.updateNode(selectedNode.id, {
+                            panorama_url: undefined,
+                          });
                         }
                       }}
                       acceptTypes={["image"]}

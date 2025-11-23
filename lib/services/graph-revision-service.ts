@@ -228,7 +228,7 @@ export class GraphRevisionService {
         nodeId,
         nodeData,
         keys: Object.keys(nodeData),
-        keysLength: Object.keys(nodeData).length
+        keysLength: Object.keys(nodeData).length,
       }); // Debug log
 
       // Check what type of update this is
@@ -270,7 +270,7 @@ export class GraphRevisionService {
         status: error.response?.status,
         statusText: error.response?.statusText,
         responseData: error.response?.data,
-        stack: error.stack
+        stack: error.stack,
       });
 
       throw new Error("Failed to update node");

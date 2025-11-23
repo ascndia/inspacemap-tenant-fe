@@ -53,11 +53,18 @@ export default function PanoramaViewer({
           // Set crossOrigin to allow canvas operations on local images
           img.crossOrigin = "anonymous";
           img.onload = () => {
-            console.log("Image loaded successfully:", selectedNode.panorama_url);
+            console.log(
+              "Image loaded successfully:",
+              selectedNode.panorama_url
+            );
             setImage(img);
           };
           img.onerror = (error) => {
-            console.error("Failed to load image:", selectedNode.panorama_url, error);
+            console.error(
+              "Failed to load image:",
+              selectedNode.panorama_url,
+              error
+            );
             setImage(null);
           };
           img.src = selectedNode.panorama_url;

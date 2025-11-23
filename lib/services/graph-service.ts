@@ -74,7 +74,9 @@ export class GraphService {
           connections:
             node.neighbors?.map((neighbor: any) => neighbor.target_node_id) ||
             [],
-          panorama_url: node.panorama_url?.replace("localhost:9000", "localhost:9002")?.replace("minio_dev:9000", "localhost:9002"), // Apply port fix for development
+          panorama_url: node.panorama_url
+            ?.replace("localhost:9000", "localhost:9002")
+            ?.replace("minio_dev:9000", "localhost:9002"), // Apply port fix for development
           label: node.area_name || `Node ${node.id.slice(-4)}`,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -238,11 +240,21 @@ export class GraphService {
       }
 
       // Keep other fields that match API (only if they have valid values)
-      if (nodeUpdates.panorama_asset_id !== undefined && nodeUpdates.panorama_asset_id !== "" && nodeUpdates.panorama_asset_id !== "null" && nodeUpdates.panorama_asset_id !== null) {
+      if (
+        nodeUpdates.panorama_asset_id !== undefined &&
+        nodeUpdates.panorama_asset_id !== "" &&
+        nodeUpdates.panorama_asset_id !== "null" &&
+        nodeUpdates.panorama_asset_id !== null
+      ) {
         apiUpdates.panorama_asset_id = nodeUpdates.panorama_asset_id;
       }
 
-      if (nodeUpdates.label !== undefined && nodeUpdates.label !== "" && nodeUpdates.label !== "null" && nodeUpdates.label !== null) {
+      if (
+        nodeUpdates.label !== undefined &&
+        nodeUpdates.label !== "" &&
+        nodeUpdates.label !== "null" &&
+        nodeUpdates.label !== null
+      ) {
         apiUpdates.label = nodeUpdates.label;
       }
 

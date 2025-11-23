@@ -484,7 +484,8 @@ export function MapCanvas2D({
           }
           hasPanorama={
             !!graph?.nodes.find((n) => n.id === contextMenu.nodeId)
-              ?.panorama_url || !!graph?.nodes.find((n) => n.id === contextMenu.nodeId)
+              ?.panorama_url ||
+            !!graph?.nodes.find((n) => n.id === contextMenu.nodeId)
               ?.panorama_asset_id
           }
         />

@@ -204,7 +204,9 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
       // Filter out undefined/null values and check if we have at least one valid field to update
       const validUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([key, value]) => value !== undefined && value !== null)
+        Object.entries(updates).filter(
+          ([key, value]) => value !== undefined && value !== null
+        )
       );
 
       if (Object.keys(validUpdates).length === 0) {

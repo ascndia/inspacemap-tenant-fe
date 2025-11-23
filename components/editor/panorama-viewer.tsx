@@ -27,6 +27,7 @@ export default function PanoramaViewer({
   const currentValuesRef = useRef({ rotation: 0, pitch: 0 });
   const onRotationChangeRef = useRef(onRotationChange);
   const onPitchChangeRef = useRef(onPitchChange);
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update refs when callbacks change
   useEffect(() => {
@@ -38,36 +39,70 @@ export default function PanoramaViewer({
   useEffect(() => {
     if (!containerRef.current || viewerRef.current) return;
 
-    // Initialize with empty image, we'll set it later
-    const viewer = new PanoViewer(containerRef.current, {
-      image: "",
-      projectionType: "equirectangular",
-    });
-
-    viewerRef.current = viewer;
-
-    // Handle view change events
-    const handleViewChange = (e: any) => {
-      const yaw = e.yaw;
-      const pitch = e.pitch;
-
-      // Only call callbacks if values actually changed significantly
-      if (Math.abs(yaw - currentValuesRef.current.rotation) > 0.1) {
-        onRotationChangeRef.current(yaw);
+    // Wait for container to be properly sized
+    const initializeViewer = () => {
+      const rect = containerRef.current!.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        // Container not ready yet, try again
+        setTimeout(initializeViewer, 100);
+        return;
       }
-      if (Math.abs(pitch - currentValuesRef.current.pitch) > 0.1) {
-        onPitchChangeRef.current(pitch);
-      }
+
+      // Initialize with empty image, we'll set it later
+      const viewer = new PanoViewer(containerRef.current!, {
+        image: "",
+        projectionType: "equirectangular",
+      });
+
+      viewerRef.current = viewer;
+
+      // Handle view change events
+      const handleViewChange = (e: any) => {
+        const yaw = e.yaw;
+        const pitch = e.pitch;
+
+        // Only call callbacks if values actually changed significantly
+        if (Math.abs(yaw - currentValuesRef.current.rotation) > 0.1) {
+          onRotationChangeRef.current(yaw);
+        }
+        if (Math.abs(pitch - currentValuesRef.current.pitch) > 0.1) {
+          onPitchChangeRef.current(pitch);
+        }
+      };
+
+      viewer.on("viewChange", handleViewChange);
+
+      return () => {
+        viewer.off("viewChange", handleViewChange);
+        viewer.destroy();
+        viewerRef.current = null;
+      };
     };
 
-    viewer.on("viewChange", handleViewChange);
-
-    return () => {
-      viewer.off("viewChange", handleViewChange);
-      viewer.destroy();
-      viewerRef.current = null;
-    };
+    initializeViewer();
   }, []); // Empty dependency array - only run once on mount
+
+  // Ensure viewer is properly sized after mount
+  useEffect(() => {
+    if (!viewerRef.current || !containerRef.current) return;
+
+    const resizeViewer = () => {
+      const rect = containerRef.current!.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const canvas = containerRef.current!.querySelector("canvas");
+        if (canvas) {
+          canvas.width = rect.width;
+          canvas.height = rect.height;
+          canvas.style.width = `${rect.width}px`;
+          canvas.style.height = `${rect.height}px`;
+        }
+      }
+    };
+
+    // Small delay to ensure DOM is fully rendered
+    const timeoutId = setTimeout(resizeViewer, 100);
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   // Update panorama source when node changes
   useEffect(() => {
@@ -88,17 +123,54 @@ export default function PanoramaViewer({
     }
   }, [selectedNode?.panorama_url]);
 
-  // Update current values ref when selectedNode changes
+  // Handle container resize with debouncing
   useEffect(() => {
-    if (selectedNode) {
-      currentValuesRef.current = {
-        rotation: selectedNode.rotation || 0,
-        pitch: selectedNode.pitch || 0,
-      };
-    }
-  }, [selectedNode?.rotation, selectedNode?.pitch]);
+    if (!viewerRef.current) return;
 
-  // Calculate navigation hotspots based on graph connections
+    const handleResize = () => {
+      // Clear existing timeout
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+
+      // Set new timeout to update viewer after resize is complete
+      resizeTimeoutRef.current = setTimeout(() => {
+        if (viewerRef.current && containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            // Resize the viewer canvas to match container
+            const canvas = containerRef.current.querySelector("canvas");
+            if (canvas) {
+              canvas.width = rect.width;
+              canvas.height = rect.height;
+              canvas.style.width = `${rect.width}px`;
+              canvas.style.height = `${rect.height}px`;
+            }
+
+            // Force viewer to update by reloading current image if it exists
+            const currentImage = viewerRef.current.getImage();
+            if (
+              currentImage &&
+              typeof currentImage === "object" &&
+              "src" in currentImage &&
+              currentImage.src
+            ) {
+              viewerRef.current.setImage(currentImage.src);
+            }
+          }
+        }
+      }, 300); // Wait 300ms after resize ends
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const calculateHotspots = useCallback(() => {
     if (!selectedNode || !graph?.nodes || !graph?.connections) return [];
 
@@ -270,8 +342,8 @@ export default function PanoramaViewer({
       <div className="flex-1 bg-black rounded-lg overflow-hidden mb-4 relative">
         <div
           ref={containerRef}
-          className="w-full h-full"
-          style={{ position: "relative" }}
+          className="absolute inset-0 w-full h-full"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         />
       </div>
       {!selectedNode && (

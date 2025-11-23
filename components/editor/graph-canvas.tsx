@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/resizable";
 import { CanvasToolbar } from "./canvas-toolbar";
 import { MapCanvas2D } from "./map-canvas-2d";
-import PanoramaViewer from "./panorama-viewer";
+import PanoramaViewer from "./panorama-viewer2";
 import { Button } from "@/components/ui/button";
 
 export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
@@ -401,7 +401,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">
       {/* Canvas Panel */}
-      <ResizablePanel defaultSize={showPanoramaViewer ? 75 : 100} minSize={50}>
+      <ResizablePanel defaultSize={showPanoramaViewer ? 60 : 100} minSize={30}>
         <div className="flex flex-col h-full">
           <CanvasToolbar
             currentTool={tool}
@@ -458,7 +458,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
           <ResizableHandle withHandle />
 
           {/* Panorama Viewer Panel */}
-          <ResizablePanel defaultSize={25} minSize={20}>
+          <ResizablePanel defaultSize={40} minSize={30}>
             <div className="h-full bg-background border-l p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">Panorama Viewer</h3>

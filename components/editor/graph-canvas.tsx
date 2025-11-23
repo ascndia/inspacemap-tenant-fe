@@ -429,7 +429,15 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
                 selectedNode={panoramaNode}
                 onRotationChange={handleRotationChange}
                 onPitchChange={handlePitchChange}
+                rotationSpeed={0.5}
                 isDraggingNode={isDraggingNode}
+                graph={graph}
+                onNavigateToNode={(nodeId) => {
+                  // Navigate to the selected node
+                  setSelectedNode(nodeId);
+                  // Also set as panorama node to keep it open
+                  setPanoramaNode(nodeId);
+                }}
               />
             </div>
           </ResizablePanel>

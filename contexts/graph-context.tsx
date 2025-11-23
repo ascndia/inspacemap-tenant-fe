@@ -908,7 +908,7 @@ export function GraphProvider({
 
     // Check for nodes without panoramas
     const nodesWithoutPanoramas = state.graph.nodes.filter(
-      (node) => !node.panoramaUrl
+      (node) => !node.panorama_url
     );
     if (nodesWithoutPanoramas.length > 0) {
       warnings.push(

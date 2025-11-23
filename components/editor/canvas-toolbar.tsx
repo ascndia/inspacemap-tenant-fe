@@ -1,6 +1,6 @@
 "use client";
 
-import { useGraph } from "@/contexts/graph-context";
+import { useGraphStore } from "@/stores/graph-store";
 import { Button } from "@/components/ui/button";
 import {
   MousePointer2,
@@ -45,7 +45,7 @@ export function CanvasToolbar({
   onRedo,
   onTogglePanoramaViewer,
 }: CanvasToolbarProps) {
-  const { state } = useGraph();
+  const { showPanoramaViewer, graph } = useGraphStore();
   return (
     <div className="flex items-center gap-2 p-2 bg-background border-b">
       <Button
@@ -55,6 +55,14 @@ export function CanvasToolbar({
         onClick={() => onToolChange("select")}
       >
         <MousePointer2 className="h-4 w-4" />
+      </Button>
+      <Button
+        variant={currentTool === "move" ? "default" : "ghost"}
+        size="sm"
+        title="Move Nodes"
+        onClick={() => onToolChange("move")}
+      >
+        <Move className="h-4 w-4" />
       </Button>
       <Button
         variant={currentTool === "add-node" ? "default" : "ghost"}
@@ -87,7 +95,7 @@ export function CanvasToolbar({
       <div className="h-6 w-px bg-border mx-2" />
 
       <Button
-        variant={state.ui.showPanoramaViewer ? "default" : "ghost"}
+        variant={showPanoramaViewer ? "default" : "ghost"}
         size="sm"
         title="Toggle Panorama Viewer"
         onClick={onTogglePanoramaViewer}
@@ -107,7 +115,7 @@ export function CanvasToolbar({
         acceptTypes={["image"]}
       />
 
-      {state.graph?.floorplan && onFloorplanUpdate && (
+      {graph?.floorplan && onFloorplanUpdate && (
         <MediaPicker
           onSelect={onFloorplanUpdate}
           trigger={

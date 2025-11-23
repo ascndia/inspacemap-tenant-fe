@@ -21,11 +21,23 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { mockVenues } from "@/lib/api";
 import { CreateFloorDialog } from "@/components/editor/create-floor-dialog";
 import { GraphRevisionService } from "@/lib/services/graph-revision-service";
 import { GraphRevisionDetail } from "@/types/graph";
 import { useToast } from "@/hooks/use-toast";
+import { venueService } from "@/lib/services/venue-service";
+import { VenueDetail } from "@/types/venue";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Edit } from "lucide-react";
 
 interface RevisionEditorPageProps {
   params: Promise<{
@@ -42,22 +54,41 @@ export default function RevisionEditorPage({
   const { toast } = useToast();
 
   const [revision, setRevision] = useState<GraphRevisionDetail | null>(null);
+  const [venue, setVenue] = useState<VenueDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [graphData, setGraphData] = useState<any>(null);
   const [floorId, setFloorId] = useState<string>("");
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showCreateFloorDialog, setShowCreateFloorDialog] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [showEditRevisionDialog, setShowEditRevisionDialog] = useState(false);
+  const [revisionNote, setRevisionNote] = useState("");
 
-  // Load revision data
+  // Load revision and venue data
   useEffect(() => {
-    const loadRevision = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
+
+        // Load venue data
+        const venueResponse = await venueService.getVenueById(id);
+        if (venueResponse.success && venueResponse.data) {
+          setVenue(venueResponse.data);
+        } else {
+          throw new Error("Failed to load venue data");
+        }
+
+        // Load revision data
         const revisionData = await GraphRevisionService.getRevisionDetail(
           revisionId
         );
         setRevision(revisionData);
+        setRevisionNote(revisionData.note || "");
+
+        // Load graph data for the venue
+        const graphResponse = await GraphRevisionService.getGraphData(id);
+        setGraphData(graphResponse);
 
         // Set active floor to the first floor if available
         if (revisionData.floors && revisionData.floors.length > 0) {
@@ -66,9 +97,9 @@ export default function RevisionEditorPage({
           setFloorId("");
         }
       } catch (err) {
-        console.error("Failed to load revision:", err);
-        setError("Failed to load revision");
-        // Fallback to mock data
+        console.error("Failed to load data:", err);
+        setError("Failed to load revision or venue data");
+        // Fallback to mock data for development
         setRevision({
           id: revisionId,
           venue_id: id,
@@ -79,16 +110,31 @@ export default function RevisionEditorPage({
           created_by: "Current User",
           floors: [],
         });
+        setVenue({
+          id: id,
+          organization_id: "org-1",
+          name: `Venue ${id}`,
+          slug: `venue-${id}`,
+          description: "Venue description",
+          address: "123 Main St",
+          city: "City",
+          province: "Province",
+          postal_code: "12345",
+          full_address: "123 Main St, City, Province 12345",
+          coordinates: { latitude: 0, longitude: 0 },
+          visibility: "public",
+          gallery: null,
+          pois: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    loadRevision();
+    loadData();
   }, [id, revisionId]);
-
-  // In a real app, fetch venue by ID
-  const venue = mockVenues.find((v) => v.id === id) || mockVenues[0];
 
   const getStatusBadge = () => {
     if (!revision) return null;
@@ -126,7 +172,7 @@ export default function RevisionEditorPage({
     if (!revision) return;
 
     try {
-      await GraphRevisionService.publishRevision(revisionId);
+      await GraphRevisionService.publishRevision(id); // Use venueId instead of revisionId
       toast({
         title: "Success",
         description: "Revision published successfully",
@@ -146,121 +192,116 @@ export default function RevisionEditorPage({
     }
   };
 
-  const handleFloorCreated = async () => {
-    // Reload revision data to get updated floors
+  const handleSaveRevisionNote = async () => {
+    if (!revision) return;
+
     try {
+      await GraphRevisionService.updateRevision(revisionId, {
+        note: revisionNote,
+      });
+      toast({
+        title: "Success",
+        description: "Revision note updated successfully",
+      });
+      setShowEditRevisionDialog(false);
+      // Reload revision to update the note
+      const updatedRevision = await GraphRevisionService.getRevisionDetail(
+        revisionId
+      );
+      setRevision(updatedRevision);
+    } catch (err) {
+      console.error("Failed to update revision note:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update revision note",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFloorCreated = async () => {
+    try {
+      // Reload revision data to get the updated list of floors
       const updatedRevision = await GraphRevisionService.getRevisionDetail(
         revisionId
       );
       setRevision(updatedRevision);
 
-      // Set the newly created floor as active
+      // Set the active floor to the newly created floor (last in the list)
       if (updatedRevision.floors && updatedRevision.floors.length > 0) {
         const newFloor =
           updatedRevision.floors[updatedRevision.floors.length - 1];
         setFloorId(newFloor.id);
       }
-    } catch (error) {
-      console.error("Failed to reload revision:", error);
+
+      toast({
+        title: "Success",
+        description: "Floor created successfully",
+      });
+    } catch (err) {
+      console.error("Failed to reload revision after floor creation:", err);
+      toast({
+        title: "Warning",
+        description: "Floor created but failed to refresh the view",
+        variant: "destructive",
+      });
     }
   };
 
-  // Mock initial graph data - in real implementation, this would come from the revision
-  const initialGraph = {
-    id: `graph-${revisionId}`,
-    venueId: id,
-    floorId,
-    name: `${venue.name} - ${revision?.note || "Revision"} - Floor ${floorId}`,
-    nodes: [
-      {
-        id: "node-1",
-        position: { x: 0, y: 0, z: 0 },
-        rotation: 0,
-        heading: 0,
-        fov: 75,
-        connections: ["node-2"],
-        label: "Entrance",
-        panoramaUrl: "/panoramas/lobby.jpg", // Mock URL
-        createdAt: new Date(),
-        updatedAt: new Date(),
+  // Build graph data for the selected floor
+  const getFloorGraphData = () => {
+    if (!graphData || !floorId || !revision) return null;
+
+    // Find the floor data from the revision
+    const floorData = revision.floors?.find((f) => f.id === floorId);
+    if (!floorData) return null;
+
+    // Get nodes and connections for this floor from graphData
+    // For now, return a basic structure - this will be enhanced when the API provides floor-specific data
+    return {
+      id: `graph-${revisionId}-${floorId}`,
+      venueId: id,
+      floorId,
+      name: `${venue?.name || "Venue"} - ${revision.note || "Revision"} - ${
+        floorData.name
+      }`,
+      nodes: [], // Will be populated from API
+      connections: [], // Will be populated from API
+      panoramas: [],
+      settings: {
+        gridSize: 20,
+        snapToGrid: true,
+        showGrid: true,
+        showLabels: true,
+        showConnections: true,
+        connectionStyle: "straight" as const,
+        nodeSize: 1,
+        autoSave: true,
+        collaboration: false,
+        floorplanOpacity: 0.5,
       },
-      {
-        id: "node-2",
-        position: { x: 3, y: 0, z: 2 },
-        rotation: 90,
-        heading: 90,
-        fov: 75,
-        connections: ["node-1", "node-3"],
-        label: "Lobby",
-        panoramaUrl: "/panoramas/lobby.jpg", // Mock URL
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "node-3",
-        position: { x: 6, y: 0, z: 0 },
-        rotation: 180,
-        heading: 180,
-        fov: 75,
-        connections: ["node-2"],
-        label: "Hallway",
-        panoramaUrl: "/panoramas/lobby.jpg", // Mock URL
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ],
-    connections: [
-      {
-        id: "conn-1",
-        fromNodeId: "node-1",
-        toNodeId: "node-2",
-        distance: 3.6,
-        bidirectional: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "conn-2",
-        fromNodeId: "node-2",
-        toNodeId: "node-3",
-        distance: 3.6,
-        bidirectional: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ],
-    panoramas: [],
-    settings: {
-      gridSize: 20,
-      snapToGrid: true,
-      showGrid: true,
-      showLabels: true,
-      showConnections: true,
-      connectionStyle: "straight" as const,
-      nodeSize: 1,
-      autoSave: true,
-      collaboration: false,
-      floorplanOpacity: 0.5,
-    },
-    version: 1,
-    isPublished: revision?.status === "published",
-    createdAt: new Date(),
-    updatedAt: new Date(),
+      version: 1,
+      isPublished: revision.status === "published",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
   };
 
   if (loading) {
     return (
       <div className="flex flex-col h-[calc(100vh-6rem)] gap-4 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
-        <p>Loading revision...</p>
+        <p>Loading revision and venue data...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !venue) {
     return (
       <div className="flex flex-col h-[calc(100vh-6rem)] gap-4 items-center justify-center">
-        <p className="text-destructive">{error}</p>
+        <p className="text-destructive">
+          {error || "Failed to load venue data"}
+        </p>
         <Link href={`/dashboard/venues/${id}/revision`}>
           <Button variant="outline">Back to Revisions</Button>
         </Link>
@@ -281,9 +322,18 @@ export default function RevisionEditorPage({
           <div className="flex items-center gap-2">
             <GitBranch className="h-5 w-5 text-muted-foreground" />
             <div>
-              <h1 className="text-lg font-semibold md:text-2xl">
-                {venue.name} - {revision?.note || "Revision"}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-semibold md:text-2xl">
+                  {venue.name} - {revision?.note || "Revision"}
+                </h1>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowEditRevisionDialog(true)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </div>
               <p className="text-sm text-muted-foreground">
                 Editing revision v{revision?.id.slice(-2) || "1"}
               </p>
@@ -357,7 +407,7 @@ export default function RevisionEditorPage({
           <GraphEditor
             venueId={id}
             floorId={floorId}
-            initialGraph={initialGraph}
+            initialGraph={getFloorGraphData()}
             revisionId={revisionId}
           />
         ) : (
@@ -400,6 +450,39 @@ export default function RevisionEditorPage({
         venueId={id}
         onFloorCreated={handleFloorCreated}
       />
+
+      {/* Edit Revision Dialog */}
+      <Dialog
+        open={showEditRevisionDialog}
+        onOpenChange={setShowEditRevisionDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Revision Note</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="revision-note">Revision Note</Label>
+              <Textarea
+                id="revision-note"
+                value={revisionNote}
+                onChange={(e) => setRevisionNote(e.target.value)}
+                placeholder="Enter a note for this revision..."
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditRevisionDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveRevisionNote}>Save Note</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

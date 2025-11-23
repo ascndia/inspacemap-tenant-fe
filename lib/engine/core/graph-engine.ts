@@ -137,7 +137,7 @@ export class GraphEngine {
     // Create node geometry
     const geometry = new THREE.SphereGeometry(0.1, 16, 16);
     const material = new THREE.MeshLambertMaterial({
-      color: node.panoramaUrl ? 0x4ade80 : 0x6b7280,
+      color: node.panorama_url ? 0x4ade80 : 0x6b7280,
       transparent: true,
       opacity: 0.8,
     });
@@ -161,9 +161,9 @@ export class GraphEngine {
       this.updateConnectionsForNode(nodeId);
     }
 
-    if (updates.panoramaUrl !== undefined) {
+    if (updates.panorama_url !== undefined) {
       const material = mesh.material as THREE.MeshLambertMaterial;
-      material.color.setHex(updates.panoramaUrl ? 0x4ade80 : 0x6b7280);
+      material.color.setHex(updates.panorama_url ? 0x4ade80 : 0x6b7280);
     }
   }
 

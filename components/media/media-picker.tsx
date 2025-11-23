@@ -36,6 +36,8 @@ interface MediaPickerProps {
   multiple?: boolean;
   acceptTypes?: string[];
   onUploadSuccess?: (media: MediaItem) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function MediaPicker({
@@ -45,14 +47,20 @@ export function MediaPicker({
   multiple = false,
   acceptTypes = ["image", "video"],
   onUploadSuccess,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: MediaPickerProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [media, setMedia] = useState<MediaItem[]>(mockMedia.data);
   const [loading, setLoading] = useState(false);
+
+  // Use external open state if provided, otherwise use internal
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange || setInternalOpen;
 
   // Load media when dialog opens
   useEffect(() => {

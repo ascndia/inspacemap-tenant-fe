@@ -324,7 +324,7 @@ function drawNodes(
       ? "#f59e0b" // Orange for connecting from
       : isHovered && isValidTarget
       ? "#10b981" // Green for valid target
-      : node.panoramaUrl
+      : node.panorama_url
       ? "#22c55e"
       : "#6b7280";
 

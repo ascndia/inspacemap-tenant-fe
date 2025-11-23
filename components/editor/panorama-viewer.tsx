@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { mediaService } from "@/lib/services/media-service";
+import { MediaItem } from "@/types/media";
 // Panorama Viewer Component
 export default function PanoramaViewer({
   selectedNode,
@@ -44,22 +46,32 @@ export default function PanoramaViewer({
 
   // Load panorama image
   useEffect(() => {
-    if (selectedNode?.panoramaUrl) {
-      const img = new Image();
-      // Remove crossOrigin for local images
-      img.onload = () => {
-        console.log("Image loaded successfully:", selectedNode.panoramaUrl);
-        setImage(img);
-      };
-      img.onerror = (error) => {
-        console.error("Failed to load image:", selectedNode.panoramaUrl, error);
+    const loadPanoramaImage = async () => {
+      if (selectedNode?.panorama_url) {
+        try {
+          const img = new Image();
+          // Set crossOrigin to allow canvas operations on local images
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            console.log("Image loaded successfully:", selectedNode.panorama_url);
+            setImage(img);
+          };
+          img.onerror = (error) => {
+            console.error("Failed to load image:", selectedNode.panorama_url, error);
+            setImage(null);
+          };
+          img.src = selectedNode.panorama_url;
+        } catch (error) {
+          console.error("Failed to load panorama image:", error);
+          setImage(null);
+        }
+      } else {
         setImage(null);
-      };
-      img.src = selectedNode.panoramaUrl;
-    } else {
-      setImage(null);
-    }
-  }, [selectedNode]);
+      }
+    };
+
+    loadPanoramaImage();
+  }, [selectedNode?.panorama_url]);
 
   // Helper function to calculate rotation matrices
   const getRotationMatrices = useCallback(

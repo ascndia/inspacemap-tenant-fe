@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect, useMemo } from "react";
-import { useGraph } from "@/contexts/graph-context";
+import { useGraph } from "@/providers/GraphProvider";
+import { useGraphStore } from "@/stores/graph-store";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -14,26 +15,37 @@ import { Button } from "@/components/ui/button";
 
 export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const graphStore = useGraphStore();
+  const graphProvider = useGraph();
+
+  // Extract values from store
   const {
-    state,
-    updateSettings,
+    graph,
+    selectedNodeId,
+    selectedConnectionId,
+    tool,
+    zoom,
+    panOffset,
+    showPanoramaViewer,
+    panoramaNodeId,
+    isLoading,
+    error,
+  } = graphStore;
+
+  // Extract functions from GraphProvider (with React Query integration)
+  const {
     addNode,
-    setSelectedNode,
-    updateNode,
     deleteNode,
+    updateNode,
     addConnection,
     deleteConnection,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    loadFloorplan,
-    updateFloorplan,
+    setSelectedNode,
     setTool,
-    setConnectingStart,
-    setConnectingEnd,
+    setZoom,
+    setPanOffset,
     togglePanoramaViewer,
-  } = useGraph();
+    setPanoramaNode,
+  } = graphProvider;
 
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
@@ -112,7 +124,9 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
   }, []);
 
   const handleToolChange = (tool: string) => {
-    setTool(tool as "select" | "add-node" | "connect" | "pan" | "zoom");
+    setTool(
+      tool as "select" | "move" | "add-node" | "connect" | "pan" | "zoom"
+    );
   };
 
   const handleZoomIn = useCallback(() => {
@@ -130,11 +144,11 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
   const handleCanvasClick = useCallback(
     (x: number, y: number) => {
-      if (state.ui.tool === "add-node") {
+      if (tool === "add-node") {
         addNode({ x, y, z: 0 });
       }
     },
-    [state.ui.tool, addNode]
+    [tool, addNode]
   );
 
   const handleNodeSelect = useCallback(
@@ -146,43 +160,38 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
   const handlePitchChange = useCallback(
     (pitch: number) => {
-      if (state.ui.panoramaNodeId) {
-        updateNode(state.ui.panoramaNodeId, { pitch });
+      if (panoramaNodeId) {
+        updateNode(panoramaNodeId, { pitch });
       }
     },
-    [state.ui.panoramaNodeId, updateNode]
+    [panoramaNodeId, updateNode]
   );
 
   const handleRotationChange = useCallback(
     (rotation: number) => {
-      if (state.ui.panoramaNodeId) {
-        updateNode(state.ui.panoramaNodeId, { rotation });
+      if (panoramaNodeId) {
+        updateNode(panoramaNodeId, { rotation });
       }
     },
-    [state.ui.panoramaNodeId, updateNode]
+    [panoramaNodeId, updateNode]
   );
 
-  const handleConnectionStart = useCallback(
-    (nodeId: string) => {
-      setConnectingStart(nodeId);
-    },
-    [setConnectingStart]
-  );
+  const handleConnectionStart = useCallback((nodeId: string) => {
+    graphStore.setConnectingStart(nodeId);
+  }, []);
 
   const handleConnectionComplete = useCallback(
     (fromNodeId: string, toNodeId: string) => {
       addConnection(fromNodeId, toNodeId);
-      setConnectingEnd();
+      graphStore.setConnectingEnd();
     },
-    [addConnection, setConnectingEnd]
+    [addConnection]
   );
 
-  const handleDeleteConnection = useCallback(
-    (connectionId: string) => {
-      deleteConnection(connectionId);
-    },
-    [deleteConnection]
-  );
+  const handleDeleteConnection = useCallback((connectionId: string) => {
+    // TODO: Implement deleteConnection in Zustand store
+    console.log("Delete connection not yet implemented");
+  }, []);
 
   const handleNodeUpdate = useCallback(
     (nodeId: string, updates: any) => {
@@ -193,7 +202,16 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
         setIsDraggingNode(true);
       }
 
-      updateNode(nodeId, updates);
+      // Filter out undefined/null values and check if we have at least one valid field to update
+      const validUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([key, value]) => value !== undefined && value !== null)
+      );
+
+      if (Object.keys(validUpdates).length === 0) {
+        return;
+      }
+
+      updateNode(nodeId, validUpdates);
 
       // Reset dragging state after a short delay to allow for smooth updates
       if (isPositionUpdate) {
@@ -203,88 +221,20 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     [updateNode, isDraggingNode]
   );
 
-  const handleFloorplanSelect = useCallback(
-    (media: any) => {
-      if (state.graph) {
-        const floorplan = {
-          id: `floorplan_${Date.now()}`,
-          venueId: state.graph.venueId,
-          floorId: state.graph.floorId,
-          name: media.name || "Floorplan",
-          fileUrl: media.url,
-          scale: 1, // Use consistent scale
-          bounds: {
-            width: 1000, // Default size, will be adjusted when image loads
-            height: 1000,
-            minX: -500,
-            minY: -500,
-            maxX: 500,
-            maxY: 500,
-          },
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        loadFloorplan(floorplan);
-      }
-    },
-    [state.graph, loadFloorplan]
-  );
+  const handleFloorplanSelect = useCallback((media: any) => {
+    // TODO: Implement floorplan selection in Zustand store
+    console.log("Floorplan selection not yet implemented");
+  }, []);
 
-  const handleFloorplanUpdate = useCallback(
-    async (media: any) => {
-      if (state.graph && updateFloorplan) {
-        try {
-          // Update floorplan URL in the backend
-          await updateFloorplan({
-            map_image_id: media.id, // Assuming media.id is the asset ID
-          });
+  const handleFloorplanUpdate = useCallback(async (media: any) => {
+    // TODO: Implement floorplan update in Zustand store
+    console.log("Floorplan update not yet implemented");
+  }, []);
 
-          // Update floorplan in local state with new image URL
-          const updatedFloorplan = {
-            ...state.graph.floorplan,
-            fileUrl: media.url,
-            name: media.name || state.graph.floorplan?.name || "Floorplan",
-            updatedAt: new Date(),
-            // Reset bounds to trigger recalculation
-            bounds: {
-              width: 1000,
-              height: 1000,
-              minX: -500,
-              minY: -500,
-              maxX: 500,
-              maxY: 500,
-            },
-          };
-
-          // Force reload the floorplan to trigger image bounds recalculation
-          loadFloorplan(updatedFloorplan);
-
-          // Add a small delay to ensure the image loads and bounds are recalculated
-          setTimeout(() => {
-            if (state.graph?.floorplan) {
-              // Trigger bounds recalculation by updating with current data
-              loadFloorplan({
-                ...updatedFloorplan,
-                updatedAt: new Date(),
-              });
-            }
-          }, 100);
-        } catch (error) {
-          console.error("Failed to update floorplan:", error);
-        }
-      }
-    },
-    [state.graph, updateFloorplan, loadFloorplan]
-  );
-
-  const selectedNode = state.graph?.nodes.find(
-    (n) => n.id === state.ui.selectedNodeId
-  );
+  const selectedNode = graph?.nodes.find((n) => n.id === selectedNodeId);
 
   const panoramaNode = useMemo(() => {
-    const node = state.graph?.nodes.find(
-      (n) => n.id === state.ui.panoramaNodeId
-    );
+    const node = graph?.nodes.find((n) => n.id === panoramaNodeId);
     return node
       ? {
           ...node,
@@ -292,37 +242,33 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
           id: node.id,
           rotation: node.rotation,
           pitch: node.pitch,
-          panoramaUrl: node.panoramaUrl,
+          panorama_url: node.panorama_url,
         }
       : null;
   }, [
-    state.ui.panoramaNodeId,
-    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId)?.rotation,
-    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId)?.pitch,
-    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId)
-      ?.panoramaUrl,
+    panoramaNodeId,
+    graph?.nodes.find((n) => n.id === panoramaNodeId)?.rotation,
+    graph?.nodes.find((n) => n.id === panoramaNodeId)?.pitch,
+    graph?.nodes.find((n) => n.id === panoramaNodeId)?.panorama_url,
   ]);
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">
       {/* Canvas Panel */}
-      <ResizablePanel
-        defaultSize={state.ui.showPanoramaViewer ? 75 : 100}
-        minSize={50}
-      >
+      <ResizablePanel defaultSize={showPanoramaViewer ? 75 : 100} minSize={50}>
         <div className="flex flex-col h-full">
           <CanvasToolbar
-            currentTool={state.ui.tool}
+            currentTool={tool}
             onToolChange={handleToolChange}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onResetView={handleResetView}
             onFloorplanSelect={handleFloorplanSelect}
             onFloorplanUpdate={handleFloorplanUpdate}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            onUndo={undo}
-            onRedo={redo}
+            canUndo={false} // TODO: Implement undo/redo in Zustand store
+            canRedo={false} // TODO: Implement undo/redo in Zustand store
+            onUndo={() => {}} // TODO: Implement undo/redo in Zustand store
+            onRedo={() => {}} // TODO: Implement undo/redo in Zustand store
             onTogglePanoramaViewer={togglePanoramaViewer}
           />
 
@@ -354,14 +300,13 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
           {/* Status Bar */}
           <div className="px-4 py-2 bg-background border-t text-xs text-muted-foreground">
-            {state.graph?.nodes.length || 0} Nodes •{" "}
-            {state.graph?.connections.length || 0} Connections • Tool:{" "}
-            {state.ui.tool}
+            {graph?.nodes.length || 0} Nodes • {graph?.connections.length || 0}{" "}
+            Connections • Tool: {tool}
           </div>
         </div>
       </ResizablePanel>
 
-      {state.ui.showPanoramaViewer && (
+      {showPanoramaViewer && (
         <>
           <ResizableHandle withHandle />
 

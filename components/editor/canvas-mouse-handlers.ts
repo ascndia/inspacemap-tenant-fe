@@ -133,8 +133,10 @@ export function createMouseHandlers(
         return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
       });
 
-      // Check if right-clicking on a connection
-      const clickedConnection = state.graph?.connections
+      // Only check for connection if no node was found (prioritize nodes over connections)
+      const clickedConnection = clickedNode
+        ? null
+        : state.graph?.connections
         ? getConnectionAtPoint(
             x,
             y,
@@ -194,8 +196,11 @@ export function createMouseHandlers(
 
     if (clickedNode) {
       if (state.ui.tool === "select") {
+        // In select mode, only select the node, don't start dragging
         onNodeSelect(clickedNode.id);
-        // Only allow dragging if node is not locked
+      } else if (state.ui.tool === "move") {
+        // In move mode, select and start dragging if node is not locked
+        onNodeSelect(clickedNode.id);
         if (!clickedNode.locked) {
           setIsDragging(true);
           setDragNode(clickedNode.id);
@@ -267,13 +272,19 @@ export function createMouseHandlers(
       return;
     }
 
+    // For dragging, we don't update the node position here anymore
+    // Position updates happen only when dragging ends (in handleMouseUp)
+    // This prevents excessive API calls during dragging
+  };
+
+  const handleMouseUp = () => {
+    // If we were dragging a node, update its final position
     if (isDragging && dragNode) {
-      // Update node position through context
       const node = state.graph?.nodes.find((n) => n.id === dragNode);
       if (node) {
         // Snap to grid if enabled
-        let newX = x - dragStart.x;
-        let newY = y - dragStart.y;
+        let newX = mousePosition.x - dragStart.x;
+        let newY = mousePosition.y - dragStart.y;
 
         if (state.ui.snapToGrid) {
           const gridSize = state.graph?.settings.gridSize || 20;
@@ -281,13 +292,11 @@ export function createMouseHandlers(
           newY = Math.round(newY / gridSize) * gridSize;
         }
 
-        // Update node position
+        // Update node position only when dragging ends
         onNodeUpdate(dragNode, { position: { x: newX, y: newY } });
       }
     }
-  };
 
-  const handleMouseUp = () => {
     setIsDragging(false);
     setDragNode(null);
     setIsPanning(false);

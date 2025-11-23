@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { GraphProvider } from "@/contexts/graph-context";
+import { GraphProvider } from "@/providers/GraphProvider";
 import { GraphCanvas } from "./graph-canvas";
 import { PropertiesPanel } from "./properties-panel";
 import {
@@ -20,57 +20,45 @@ import {
   Settings,
   Eye,
 } from "lucide-react";
-import { useGraph } from "@/contexts/graph-context";
+import { useGraphStore } from "@/stores/graph-store";
 
 function GraphEditorContent() {
-  const {
-    state,
-    validateGraph,
-    autoLayout,
-    findPath,
-    getGraphStats,
-    saveGraph,
-  } = useGraph();
+  const graphStore = useGraphStore();
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(true);
   const [pathPreview, setPathPreview] = useState<string[] | null>(null);
   const [pathStartNode, setPathStartNode] = useState<string | null>(null);
 
+  const { graph, selectedNodeId, isLoading, error } = graphStore;
+
   const handleValidate = () => {
-    const result = validateGraph();
-    console.log("Validation result:", result);
-    // TODO: Show validation results in UI
+    // TODO: Implement validation with Zustand store
+    console.log("Validation not yet implemented");
   };
 
   const handleAutoLayout = () => {
-    autoLayout();
+    // TODO: Implement auto layout with Zustand store
+    console.log("Auto layout not yet implemented");
   };
 
   const handlePathfinding = () => {
-    if (!state.ui.selectedNodeId || !pathStartNode) {
-      setPathStartNode(state.ui.selectedNodeId);
+    if (!selectedNodeId || !pathStartNode) {
+      setPathStartNode(selectedNodeId);
       return;
     }
 
-    const path = findPath(pathStartNode, state.ui.selectedNodeId);
-    if (path) {
-      setPathPreview(path.map((node) => node.id));
-    }
+    // TODO: Implement pathfinding with Zustand store
+    console.log("Pathfinding not yet implemented");
     setPathStartNode(null);
   };
 
   const handleShowStats = () => {
-    const stats = getGraphStats();
-    console.log("Graph statistics:", stats);
-    // TODO: Show stats in a dialog
+    // TODO: Implement stats with Zustand store
+    console.log("Stats not yet implemented");
   };
 
   const handleSave = async () => {
-    try {
-      await saveGraph();
-      console.log("Graph saved successfully");
-    } catch (error) {
-      console.error("Failed to save graph:", error);
-    }
+    // TODO: Implement save with Zustand store
+    console.log("Save not yet implemented");
   };
 
   const handleLoadFloorplan = () => {
@@ -97,7 +85,7 @@ function GraphEditorContent() {
               variant="outline"
               size="sm"
               onClick={handlePathfinding}
-              disabled={!state.ui.selectedNodeId}
+              disabled={!selectedNodeId}
             >
               <Route className="h-4 w-4 mr-2" />
               {pathStartNode ? "Find Path" : "Start Path"}
@@ -171,13 +159,7 @@ export function GraphEditor({
   revisionId,
 }: GraphEditorProps) {
   return (
-    <GraphProvider
-      initialGraph={initialGraph}
-      venueId={venueId}
-      revisionId={revisionId}
-      floorId={floorId}
-      autoSave={true}
-    >
+    <GraphProvider venueId={venueId} revisionId={revisionId} floorId={floorId}>
       <GraphEditorContent />
     </GraphProvider>
   );

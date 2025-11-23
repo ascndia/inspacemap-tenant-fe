@@ -501,7 +501,7 @@ export const useGraphStore = create<GraphStore>()(
           const panorama = state.panoramas.find((p) => p.id === panoramaId);
           if (!panorama) return;
 
-          get().updateNode(nodeId, { panoramaUrl: panorama.fileUrl });
+          get().updateNode(nodeId, { panorama_url: panorama.fileUrl });
         },
 
         // Settings
@@ -604,7 +604,7 @@ export const useGraphStore = create<GraphStore>()(
 
           // Check for nodes without panoramas
           const nodesWithoutPanoramas = state.nodes.filter(
-            (node) => !node.panoramaUrl
+            (node) => !node.panorama_url
           );
           if (nodesWithoutPanoramas.length > 0) {
             warnings.push(

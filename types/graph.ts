@@ -14,7 +14,8 @@ export interface GraphNode {
   heading: number; // Viewing direction (0-360°)
   fov: number; // Field of view (default 75°)
   connections: string[]; // Array of connected node IDs
-  panoramaUrl?: string; // Associated 360° image URL
+  panorama_asset_id?: string; // Associated 360° image asset ID
+  panorama_url?: string; // Associated 360° image URL (derived from asset_id)
   label?: string; // Optional display label
   locked?: boolean; // Whether the node is locked (cannot be moved)
   metadata?: Record<string, any>; // Additional custom data

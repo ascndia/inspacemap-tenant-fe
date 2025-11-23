@@ -45,10 +45,9 @@ export class GraphService {
           venueId: this.venueId,
           floorId: this.floorId,
           name: floorData.name || `Floor ${floorData.level_index}`,
-          fileUrl: floorData.map_image_url.replace(
-            "localhost:9000",
-            "localhost:9002"
-          ), // Apply port fix for development
+          fileUrl: floorData.map_image_url
+            ?.replace("localhost:9000", "localhost:9002")
+            ?.replace("minio_dev:9000", "localhost:9002"), // Apply port fix for development
           scale: 1, // Use consistent scale for all floorplans
           bounds: {
             width: floorData.map_width || 1000,
@@ -75,7 +74,7 @@ export class GraphService {
           connections:
             node.neighbors?.map((neighbor: any) => neighbor.target_node_id) ||
             [],
-          panoramaUrl: node.panorama_url,
+          panorama_url: node.panorama_url?.replace("localhost:9000", "localhost:9002")?.replace("minio_dev:9000", "localhost:9002"), // Apply port fix for development
           label: node.area_name || `Node ${node.id.slice(-4)}`,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -170,8 +169,8 @@ export class GraphService {
       };
 
       // Only include panorama_asset_id if it exists
-      if (attributes?.panoramaUrl) {
-        apiNodeData.panorama_asset_id = "placeholder-media-id"; // TODO: Map panorama URL to asset ID
+      if (attributes?.panorama_asset_id) {
+        apiNodeData.panorama_asset_id = attributes.panorama_asset_id;
       }
 
       console.log("Creating node with data:", apiNodeData); // Debug log
@@ -191,7 +190,7 @@ export class GraphService {
         heading: attributes?.heading || 0,
         fov: attributes?.fov || 75,
         connections: [],
-        panoramaUrl: attributes?.panoramaUrl,
+        panorama_asset_id: attributes?.panorama_asset_id,
         label: attributes?.label || `Node ${createdNode.id.slice(0, 4)}`,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -219,18 +218,50 @@ export class GraphService {
   /**
    * Update an existing node
    */
-  async updateNode(
-    nodeId: string,
-    updates: Partial<GraphNode>
-  ): Promise<GraphNode> {
+  async updateNode(nodeId: string, updates: Partial<GraphNode>): Promise<void> {
     try {
-      const updatedNode = await GraphRevisionService.updateNode(
+      // Transform updates to API format
+      const apiUpdates: any = {};
+
+      // Remove updatedAt from API request - API doesn't expect it
+      const { updatedAt, ...nodeUpdates } = updates;
+
+      // Map position to x, y
+      if (nodeUpdates.position) {
+        apiUpdates.x = nodeUpdates.position.x;
+        apiUpdates.y = nodeUpdates.position.y;
+      }
+
+      // Map rotation to rotation_offset
+      if (nodeUpdates.rotation !== undefined) {
+        apiUpdates.rotation_offset = nodeUpdates.rotation;
+      }
+
+      // Keep other fields that match API (only if they have valid values)
+      if (nodeUpdates.panorama_asset_id !== undefined && nodeUpdates.panorama_asset_id !== "" && nodeUpdates.panorama_asset_id !== "null" && nodeUpdates.panorama_asset_id !== null) {
+        apiUpdates.panorama_asset_id = nodeUpdates.panorama_asset_id;
+      }
+
+      if (nodeUpdates.label !== undefined && nodeUpdates.label !== "" && nodeUpdates.label !== "null" && nodeUpdates.label !== null) {
+        apiUpdates.label = nodeUpdates.label;
+      }
+
+      // Don't make API call if no valid fields to update
+      if (Object.keys(apiUpdates).length === 0) {
+        console.log("No valid API fields to update for node:", nodeId);
+        return;
+      }
+
+      console.log("Updating node:", nodeId, "with data:", apiUpdates); // Debug log
+      console.log("Original updates:", updates); // Debug log
+      console.log("Node updates after filtering:", nodeUpdates); // Debug log
+
+      await GraphRevisionService.updateNode(
         this.revisionId,
         this.floorId,
         nodeId,
-        { ...updates, updatedAt: new Date() }
+        apiUpdates
       );
-      return updatedNode;
     } catch (error) {
       console.error("Failed to update node:", error);
       throw error;

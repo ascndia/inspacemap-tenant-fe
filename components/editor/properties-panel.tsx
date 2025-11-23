@@ -12,25 +12,109 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGraph } from "@/contexts/graph-context";
+import { useGraph } from "@/providers/GraphProvider";
+import { useGraphStore } from "@/stores/graph-store";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useMemo } from "react";
+import { mediaService } from "@/lib/services/media-service";
+import { MediaItem } from "@/types/media";
+import { MediaPicker } from "@/components/media/media-picker";
+import { ImageIcon } from "lucide-react";
 
 export function PropertiesPanel() {
-  const {
-    selectedNode,
-    selectedConnection,
-    updateNode,
-    updateSettings,
-    state,
-    autoLayout,
-    getGraphStats,
-  } = useGraph();
+  const graphStore = useGraphStore();
+  const graphProvider = useGraph();
 
-  const graphStats = getGraphStats();
+  const selectedNodeId = graphStore.selectedNodeId;
+  const selectedConnectionId = graphStore.selectedConnectionId;
+  const graph = graphStore.graph;
 
-  const handleNodeUpdate = (field: string, value: any) => {
+  // Get selected node using selector
+  const selectedNode = useMemo(() => {
+    if (!graph || !selectedNodeId) return null;
+    return graph.nodes.find((n) => n.id === selectedNodeId) || null;
+  }, [graph, selectedNodeId]);
+
+  // Get selected connection using selector
+  const selectedConnection = useMemo(() => {
+    if (!graph || !selectedConnectionId) return null;
+    return graph.connections.find((c) => c.id === selectedConnectionId) || null;
+  }, [graph, selectedConnectionId]);
+
+  const [panoramaMedia, setPanoramaMedia] = useState<MediaItem[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+
+  // Calculate graph stats
+  const graphStats = useMemo(() => {
+    if (!graph) return null;
+
+    const nodeCount = graph.nodes.length;
+    const connectionCount = graph.connections.length;
+    const isolatedNodes = graph.nodes.filter(
+      (node) => node.connections.length === 0
+    ).length;
+    const connectedComponents = 1; // Simplified calculation
+    const averageDegree = nodeCount > 0 ? (connectionCount * 2) / nodeCount : 0;
+    const maxDegree = Math.max(
+      ...graph.nodes.map((node) => node.connections.length)
+    );
+    const totalDistance = graph.connections.reduce(
+      (sum, conn) => sum + conn.distance,
+      0
+    );
+    const averageDistance =
+      connectionCount > 0 ? totalDistance / connectionCount : 0;
+    const hasPanoramas = graph.nodes.filter(
+      (node) => node.panorama_url || node.panorama_asset_id
+    ).length;
+    const missingPanoramas = nodeCount - hasPanoramas;
+    const density =
+      nodeCount > 1 ? (connectionCount * 2) / (nodeCount * (nodeCount - 1)) : 0;
+    const diameter = 1; // Simplified calculation
+
+    return {
+      nodeCount,
+      connectionCount,
+      isolatedNodes,
+      connectedComponents,
+      averageDegree,
+      maxDegree,
+      totalDistance,
+      averageDistance,
+      hasPanoramas,
+      missingPanoramas,
+      density,
+      diameter,
+      clusteringCoefficient: 0, // Not implemented
+    };
+  }, [graph]);
+
+  // Load panorama media assets
+  useEffect(() => {
+    const loadPanoramaMedia = async () => {
+      try {
+        setLoadingMedia(true);
+        const response = await mediaService.getMedia();
+        // Filter for panorama category
+        const panoramas = response.data.filter(
+          (item) => item.category === "panorama"
+        );
+        setPanoramaMedia(panoramas);
+      } catch (error) {
+        console.error("Failed to load panorama media:", error);
+      } finally {
+        setLoadingMedia(false);
+      }
+    };
+
+    loadPanoramaMedia();
+  }, []);
+
+  const handleNodeUpdate = async (field: string, value: any) => {
     if (!selectedNode) return;
+
+    console.log("handleNodeUpdate called with:", { field, value }); // Debug log
 
     const updates: any = {};
     if (field === "position") {
@@ -38,20 +122,47 @@ export function PropertiesPanel() {
     } else if (field === "rotation") {
       updates.rotation = value;
     } else if (field === "heading") {
-      updates.heading = value;
+      // Heading is client-side only for panorama viewing, don't send to API
+      graphStore.updateNode(selectedNode.id, { heading: value });
+      return;
     } else if (field === "fov") {
-      updates.fov = value;
+      // FOV is client-side only for panorama viewing, don't send to API
+      graphStore.updateNode(selectedNode.id, { fov: value });
+      return;
     } else if (field === "label") {
-      updates.label = value;
-    } else if (field === "panoramaUrl") {
-      updates.panoramaUrl = value;
+      if (value && value.trim() !== "") {
+        updates.label = value;
+      }
+    } else if (field === "panorama_asset_id") {
+      // Only update if we have a valid asset ID, otherwise don't send the field
+      if (value && value.trim() !== "" && value !== "null" && value !== null && value !== undefined) {
+        updates.panorama_asset_id = value;
+      }
     }
 
-    updateNode(selectedNode.id, updates);
+    console.log("Updates object:", updates); // Debug log
+
+    // Only proceed if we have at least one field to update
+    if (Object.keys(updates).length === 0) {
+      console.log("No updates to send, returning early"); // Debug log
+      return;
+    }
+
+    try {
+      await graphProvider.updateNode(selectedNode.id, updates);
+    } catch (error) {
+      console.error("Failed to update node:", error);
+    }
   };
 
   const handleSettingsUpdate = (field: string, value: any) => {
-    updateSettings({ [field]: value });
+    // TODO: Implement settings update in Zustand store
+    console.log("Settings update not implemented yet:", field, value);
+  };
+
+  const autoLayout = () => {
+    // TODO: Implement auto layout
+    console.log("Auto layout not implemented yet");
   };
 
   return (
@@ -122,24 +233,63 @@ export function PropertiesPanel() {
 
                 <div className="space-y-2">
                   <Label>Panorama Image</Label>
-                  <Select
-                    value={selectedNode.panoramaUrl || ""}
-                    onValueChange={(value) =>
-                      handleNodeUpdate("panoramaUrl", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select image..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* This would be populated from media library */}
-                      <SelectItem value="lobby">lobby_360.jpg</SelectItem>
-                      <SelectItem value="hall">hallway_360.jpg</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm" className="w-full mt-2">
-                    Upload New
-                  </Button>
+                  {selectedNode.panorama_asset_id || selectedNode.panorama_url ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/20">
+                        <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 text-sm">
+                          <p className="font-medium">
+                            {selectedNode.panorama_asset_id ? "Panorama Selected" : "Panorama Loaded"}
+                          </p>
+                          <p className="text-muted-foreground text-xs truncate" title={selectedNode.panorama_asset_id || selectedNode.panorama_url}>
+                            {selectedNode.panorama_asset_id ? `Asset ID: ${selectedNode.panorama_asset_id}` : "From backend"}
+                          </p>
+                        </div>
+                      </div>
+                      <MediaPicker
+                        onSelect={(media) => {
+                          if (media) {
+                            handleNodeUpdate("panorama_asset_id", media.asset_id);
+                            // Also update the panorama_url for immediate display
+                            graphStore.updateNode(selectedNode.id, { panorama_url: media.url });
+                          } else {
+                            handleNodeUpdate("panorama_asset_id", "");
+                            graphStore.updateNode(selectedNode.id, { panorama_url: undefined });
+                          }
+                        }}
+                        acceptTypes={["image"]}
+                        trigger={
+                          <Button variant="outline" className="w-full">
+                            Change Panorama
+                          </Button>
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <MediaPicker
+                      onSelect={(media) => {
+                        if (media) {
+                          handleNodeUpdate("panorama_asset_id", media.asset_id);
+                          // Also update the panorama_url for immediate display
+                          graphStore.updateNode(selectedNode.id, { panorama_url: media.url });
+                        } else {
+                          handleNodeUpdate("panorama_asset_id", "");
+                          graphStore.updateNode(selectedNode.id, { panorama_url: undefined });
+                        }
+                      }}
+                      acceptTypes={["image"]}
+                      trigger={
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                        >
+                          Select Panorama
+                        </Button>
+                      }
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -218,7 +368,7 @@ export function PropertiesPanel() {
               <Label>Grid Size</Label>
               <Input
                 type="number"
-                value={state.graph?.settings.gridSize || 20}
+                value={graph?.settings.gridSize || 20}
                 onChange={(e) =>
                   handleSettingsUpdate("gridSize", parseInt(e.target.value))
                 }
@@ -227,7 +377,7 @@ export function PropertiesPanel() {
             <div className="space-y-2">
               <Label>Snap to Grid</Label>
               <Select
-                value={state.ui.snapToGrid ? "on" : "off"}
+                value={graph?.settings.snapToGrid ?? true ? "on" : "off"}
                 onValueChange={(value) =>
                   handleSettingsUpdate("snapToGrid", value === "on")
                 }
@@ -244,7 +394,7 @@ export function PropertiesPanel() {
             <div className="space-y-2">
               <Label>Show Grid</Label>
               <Select
-                value={state.ui.showGrid ? "on" : "off"}
+                value={graph?.settings.showGrid ?? true ? "on" : "off"}
                 onValueChange={(value) =>
                   handleSettingsUpdate("showGrid", value === "on")
                 }
@@ -261,7 +411,7 @@ export function PropertiesPanel() {
             <div className="space-y-2">
               <Label>Auto Save</Label>
               <Select
-                value={state.graph?.settings.autoSave ? "on" : "off"}
+                value={graph?.settings.autoSave ?? true ? "on" : "off"}
                 onValueChange={(value) =>
                   handleSettingsUpdate("autoSave", value === "on")
                 }
@@ -278,13 +428,10 @@ export function PropertiesPanel() {
             <div className="space-y-2">
               <Label>
                 Floorplan Opacity:{" "}
-                {Math.round(
-                  (state.graph?.settings.floorplanOpacity || 0.5) * 100
-                )}
-                %
+                {Math.round((graph?.settings.floorplanOpacity || 0.5) * 100)}%
               </Label>
               <Slider
-                value={[state.graph?.settings.floorplanOpacity || 0.5]}
+                value={[graph?.settings.floorplanOpacity || 0.5]}
                 onValueChange={([value]) =>
                   handleSettingsUpdate("floorplanOpacity", value)
                 }

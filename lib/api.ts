@@ -407,13 +407,13 @@ export const deleteRevision = async (
   return response.data;
 };
 
-export const updateRevision = async (
-  revisionId: string,
-  data: { note: string }
-): Promise<any> => {
-  const response = await api.put(`/editor/revisions/${revisionId}`, data);
-  return response.data;
-};
+// export const updateRevision = async (
+//   revisionId: string,
+//   data: { note: string }
+// ): Promise<any> => {
+//   const response = await api.put(`/editor/revisions/${revisionId}`, data);
+//   return response.data;
+// };
 
 // Graph API functions
 export const getGraphData = async (venueId: string): Promise<any> => {
@@ -438,11 +438,26 @@ export const updateGraphNode = async (
   floorId: string,
   nodeId: string,
   nodeData: any
-): Promise<any> => {
-  const response = await api.put(`/editor/nodes/${nodeId}`, {
-    ...nodeData,
-    floor_id: floorId,
-  });
+): Promise<{ success: boolean; data: string }> => {
+  const response = await api.put(`/editor/nodes/${nodeId}`, nodeData);
+  return response.data;
+};
+
+export const updateRevision = async (
+  revisionId: string,
+  revisionData: { note: string }
+): Promise<{ success: boolean; data: string }> => {
+  const response = await api.put(
+    `/editor/revisions/${revisionId}`,
+    revisionData
+  );
+  return response.data;
+};
+
+export const publishRevision = async (
+  venueId: string
+): Promise<{ success: boolean; data: string }> => {
+  const response = await api.post(`/editor/${venueId}/publish`);
   return response.data;
 };
 

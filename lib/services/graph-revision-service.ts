@@ -48,7 +48,14 @@ export class GraphRevisionService {
         note
       );
       return response.data.id;
-    } catch (error) {
+    } catch (error: any) {
+      // Handle 400 errors as validation messages (e.g., "draft already exists")
+      if (error.response?.status === 400) {
+        console.warn("Draft creation validation error:", error.response.data);
+        throw new Error(
+          error.response.data?.error || "Cannot create draft revision"
+        );
+      }
       console.error("Failed to create draft revision:", error);
       throw new Error("Failed to create draft revision");
     }
@@ -92,7 +99,15 @@ export class GraphRevisionService {
     try {
       const response: DeleteRevisionResponse = await deleteRevision(revisionId);
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      // Handle 400 errors as validation messages (e.g., "only draft revisions can be deleted")
+      if (error.response?.status === 400) {
+        console.warn(
+          "Revision deletion validation error:",
+          error.response.data
+        );
+        throw new Error(error.response.data?.error || "Cannot delete revision");
+      }
       console.error("Failed to delete revision:", error);
       throw new Error("Failed to delete revision");
     }
@@ -104,14 +119,21 @@ export class GraphRevisionService {
   static async updateRevision(
     revisionId: string,
     updateData: { note: string }
-  ): Promise<GraphRevision> {
+  ): Promise<string> {
     try {
-      const response: UpdateRevisionResponse = await updateRevision(
-        revisionId,
-        updateData
-      );
+      const response = await updateRevision(revisionId, updateData);
+      if (!response.success) {
+        throw new Error(response.error || "Failed to update revision");
+      }
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      // Handle 400 errors as validation messages
+      if (error.response?.status === 400) {
+        console.warn("Revision update validation error:", error.response.data);
+        throw new Error(
+          error.response.data?.error || "Invalid revision update"
+        );
+      }
       console.error("Failed to update revision:", error);
       throw new Error("Failed to update revision");
     }
@@ -133,11 +155,24 @@ export class GraphRevisionService {
   /**
    * Publish a draft revision (placeholder - backend implementation needed)
    */
-  static async publishRevision(revisionId: string): Promise<void> {
-    // TODO: Implement when backend API is available
-    console.log("Publishing revision:", revisionId);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  static async publishRevision(venueId: string): Promise<string> {
+    try {
+      const response = await publishRevision(venueId);
+      if (!response.success) {
+        throw new Error(response.error || "Failed to publish revision");
+      }
+      return response.data;
+    } catch (error: any) {
+      // Handle 400 errors as validation messages (e.g., "no draft revision found to publish")
+      if (error.response?.status === 400) {
+        console.warn("Revision publish validation error:", error.response.data);
+        throw new Error(
+          error.response.data?.error || "Cannot publish revision"
+        );
+      }
+      console.error("Failed to publish revision:", error);
+      throw new Error("Failed to publish revision");
+    }
   }
 
   /**
@@ -185,41 +220,59 @@ export class GraphRevisionService {
     floorId: string,
     nodeId: string,
     nodeData: any
-  ): Promise<any> {
+  ): Promise<void> {
     try {
+      console.log("GraphRevisionService.updateNode called with:", {
+        revisionId,
+        floorId,
+        nodeId,
+        nodeData,
+        keys: Object.keys(nodeData),
+        keysLength: Object.keys(nodeData).length
+      }); // Debug log
+
       // Check what type of update this is
-      if (
-        nodeData.position &&
-        Object.keys(nodeData).length === 2 &&
-        nodeData.updatedAt
-      ) {
+      const keys = Object.keys(nodeData);
+
+      if (keys.length === 2 && keys.includes("x") && keys.includes("y")) {
         // Position update
-        const response = await updateNodePosition(
-          nodeId,
-          nodeData.position.x,
-          nodeData.position.y
-        );
-        return response.data;
-      } else if (
-        nodeData.rotation !== undefined &&
-        Object.keys(nodeData).length === 2 &&
-        nodeData.updatedAt
-      ) {
+        console.log("Using position update path"); // Debug log
+        await updateNodePosition(nodeId, nodeData.x, nodeData.y);
+      } else if (keys.length === 1 && keys.includes("rotation_offset")) {
         // Calibration update
-        const response = await calibrateNode(nodeId, nodeData.rotation);
-        return response.data;
+        console.log("Using calibration update path"); // Debug log
+        await calibrateNode(nodeId, nodeData.rotation_offset);
       } else {
         // General update - use the generic endpoint
+        console.log("Using general update path with nodeData:", nodeData); // Debug log
         const response = await updateGraphNode(
           revisionId,
           floorId,
           nodeId,
           nodeData
         );
-        return response.data;
+        if (!response.success) {
+          throw new Error(response.error || "Failed to update node");
+        }
       }
-    } catch (error) {
-      console.error("Failed to update node:", error);
+    } catch (error: any) {
+      // Handle 400 errors as validation messages, not system errors
+      if (error.response?.status === 400) {
+        console.warn("Node update validation error:", error.response.data);
+        throw new Error(error.response.data?.error || "Invalid node update");
+      }
+
+      // Log detailed error information for debugging
+      console.error("Failed to update node:", {
+        nodeId,
+        nodeData,
+        error: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        stack: error.stack
+      });
+
       throw new Error("Failed to update node");
     }
   }

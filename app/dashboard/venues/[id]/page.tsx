@@ -22,6 +22,8 @@ import {
   Edit,
   GitBranch,
   Loader2,
+  GalleryVertical,
+  Map,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -341,15 +343,30 @@ export default function VenueDetailPage() {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Link href={`/dashboard/venues/${id}/gallery`}>
-                  <Button variant="outline" className="w-full justify-start">
-                    <MapPin className="mr-2 h-4 w-4" />
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start cursor-pointer"
+                  >
+                    <GalleryVertical className="mr-2 h-4 w-4" />
                     Gallery
                   </Button>
                 </Link>
                 <Link href={`/dashboard/venues/${id}/floor`}>
-                  <Button variant="outline" className="w-full justify-start">
-                    <MapPin className="mr-2 h-4 w-4" />
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start cursor-pointer"
+                  >
+                    <Map className="mr-2 h-4 w-4" />
                     Floor Plans
+                  </Button>
+                </Link>
+                <Link href={`/dashboard/venues/${id}/revision`}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start cursor-pointer"
+                  >
+                    <GitBranch className="mr-2 h-4 w-4" />
+                    Revisions
                   </Button>
                 </Link>
               </div>

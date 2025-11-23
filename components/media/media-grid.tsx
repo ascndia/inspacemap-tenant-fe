@@ -216,7 +216,7 @@ export function MediaGrid({
                         <Edit className="mr-2 h-4 w-4" />
                         Rename
                       </DropdownMenuItem>
-                      {canAccess({ permission: "media:delete" }) && (
+                      {canAccess("media:delete") && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -395,7 +395,7 @@ function MediaItem({
                   <Edit className="mr-2 h-4 w-4" />
                   Rename
                 </DropdownMenuItem>
-                {canAccess({ permission: "media:delete" }) && (
+                {canAccess("media:delete") && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

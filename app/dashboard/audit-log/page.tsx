@@ -17,12 +17,12 @@ import { InsufficientAuthority } from "@/components/auth/insufficient-authority"
 export default function AuditLogPage() {
   return (
     <RoleGuard
-      role={["owner", "admin"]}
+      role={["Owner", "Admin"]}
       fallback={
         <InsufficientAuthority
           title="Audit Log Access Required"
           description="Only organization administrators can view and monitor audit logs to ensure security and compliance."
-          requiredRole={["owner", "admin"]}
+          requiredRole={["Owner", "Admin"]}
         />
       }
     >

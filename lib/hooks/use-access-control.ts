@@ -77,6 +77,6 @@ export function useAccessControl(options: AccessControlOptions = {}) {
     isOwner: user?.role === "owner",
     isEditor: user?.role === "editor",
     isViewer: user?.role === "viewer",
-    isAdmin: user?.role === "admin",
+    isAdmin: user?.role === "owner" || user?.role === "editor",
   };
 }

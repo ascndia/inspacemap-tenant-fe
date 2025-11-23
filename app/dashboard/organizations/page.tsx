@@ -23,12 +23,12 @@ export default function OrganizationPage() {
 
   return (
     <RoleGuard
-      role={["owner", "admin"]}
+      role={["Owner", "Admin"]}
       fallback={
         <InsufficientAuthority
           title="Organization Management Access Required"
           description="Only organization owners and administrators can manage organization settings, members, and billing information."
-          requiredRole={["owner", "admin"]}
+          requiredRole={["Owner", "Admin"]}
         />
       }
     >

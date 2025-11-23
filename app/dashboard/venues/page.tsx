@@ -23,7 +23,7 @@ export default function VenuesPage() {
     <div className="flex flex-col h-[calc(100vh-6rem)] gap-4">
       <div className="flex items-center justify-between shrink-0">
         <h1 className="text-lg font-semibold md:text-2xl">My Venues</h1>
-        {canAccess({ permission: "venue:create" }) && (
+        {canAccess("venue:create") && (
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Venue

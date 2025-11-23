@@ -15,6 +15,11 @@ export interface AuthState {
   logout: () => void;
   loadFromStorage: () => void;
   hasPermission: (permission: string) => boolean;
+  hasRole: (role: string) => boolean;
+  hasAnyRole: (roles: string[]) => boolean;
+  isTokenExpired: () => boolean;
+  getTokenExpiry: () => Date | null;
+  inspectJWT: () => any;
 }
 
 export interface LoginRequest {

@@ -268,7 +268,10 @@ export function MediaUpload({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{file.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {(file.size / (1024 * 1024)).toFixed(1)} MB
+                      {file.size
+                        ? (file.size / (1024 * 1024)).toFixed(1)
+                        : "0.0"}{" "}
+                      MB
                     </p>
                     {uploadStatus && (
                       <div className="mt-1">
@@ -335,7 +338,10 @@ export function MediaUpload({
                   <div className="flex-1">
                     <p className="font-medium text-sm">{media.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {(media.file_size / (1024 * 1024)).toFixed(1)} MB
+                      {media.file_size
+                        ? (media.file_size / (1024 * 1024)).toFixed(1)
+                        : "0.0"}{" "}
+                      MB
                     </p>
                   </div>
                 </div>

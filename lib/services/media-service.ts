@@ -40,8 +40,20 @@ export const mediaService = {
   }): Promise<MediaListResponse> => {
     try {
       console.log("Fetching media from backend...");
-      const response = await api.get("/media", { params });
-      console.log("Backend media response:", response.data);
+      // Convert page-based pagination to offset-based pagination for backend
+      const backendParams = {
+        ...params,
+        offset: params?.page ? (params.page - 1) * (params.limit || 50) : 0,
+      };
+      // Remove page from params since backend uses offset
+      delete backendParams.page;
+
+      console.log("Backend params (converted to offset):", backendParams);
+      console.log("Making API call to /media with params:", backendParams);
+      const response = await api.get("/media", { params: backendParams });
+      console.log("Raw backend response:", response);
+      console.log("Backend response status:", response.status);
+      console.log("Backend response data:", response.data);
 
       // Handle backend response structure: { success: true, data: { assets: [...], total: number } }
       console.log(
@@ -52,6 +64,9 @@ export const mediaService = {
         "Is assets an array?",
         Array.isArray(response.data?.data?.assets)
       );
+      console.log("Full response.data.data:", response.data?.data);
+      console.log("Total from backend:", response.data?.data?.total);
+      console.log("Assets length:", response.data?.data?.assets?.length);
 
       if (
         response.data?.data?.assets &&
@@ -68,20 +83,23 @@ export const mediaService = {
           (asset: any) => ({
             id: asset.id,
             asset_id: asset.id, // Use id as asset_id for compatibility
-            name: asset.FileName,
-            file_name: asset.FileName,
-            file_type: asset.MimeType,
-            file_size: asset.SizeInBytes,
-            category: asset.Type,
+            name: asset.FileName || "Unnamed",
+            file_name: asset.FileName || asset.name || "unnamed",
+            file_type: asset.MimeType || "application/octet-stream",
+            file_size:
+              typeof asset.SizeInBytes === "number" && !isNaN(asset.SizeInBytes)
+                ? asset.SizeInBytes
+                : 0,
+            category: asset.Type || "panorama",
             url: asset.PublicURL?.replace("localhost:9000", "localhost:9002"),
             thumbnail_url:
               asset.ThumbnailURL?.replace("localhost:9000", "localhost:9002") ||
               asset.PublicURL?.replace("localhost:9000", "localhost:9002"),
-            width: asset.Width,
-            height: asset.Height,
-            uploaded_at: asset.UploadedAt,
+            width: asset.Width || 0,
+            height: asset.Height || 0,
+            uploaded_at: asset.UploadedAt || new Date().toISOString(),
             uploaded_by: "User", // Backend doesn't provide this in the response
-            organization_id: asset.OrganizationID,
+            organization_id: asset.OrganizationID || "org-1",
           })
         );
 
@@ -90,11 +108,11 @@ export const mediaService = {
           data: transformedAssets,
           pagination: {
             page: params?.page || 1,
-            limit: params?.limit || 20,
+            limit: params?.limit || 50,
             total: response.data.data.total || transformedAssets.length,
             total_pages: Math.ceil(
               (response.data.data.total || transformedAssets.length) /
-                (params?.limit || 20)
+                (params?.limit || 50)
             ),
           },
         };

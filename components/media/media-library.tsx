@@ -21,6 +21,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface MediaLibraryProps {
   mode?: "manage" | "select";
@@ -40,10 +49,14 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 50;
 
   const { user, token } = useAuthStore();
 
-  // Load media on component mount
+  // Load media on component mount and when page changes
   useEffect(() => {
     console.log("MediaLibrary: Component mounted, checking auth", {
       hasToken: !!token,
@@ -62,16 +75,36 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
       try {
         setLoading(true);
         setError(null);
-        console.log("MediaLibrary: Calling mediaService.getMedia()");
-        const response = await mediaService.getMedia();
+        console.log(
+          "MediaLibrary: Calling mediaService.getMedia() with pagination",
+          {
+            page: currentPage,
+            limit: itemsPerPage,
+          }
+        );
+        const response = await mediaService.getMedia({
+          page: currentPage,
+          limit: itemsPerPage,
+        });
         console.log("MediaLibrary: API call successful", response);
-        const mediaData =
-          (response as any).data?.data || (response as any).data || [];
-        setMedia(Array.isArray(mediaData) ? mediaData : []);
+
+        if (response && response.data) {
+          setMedia(response.data);
+          setTotalPages(response.pagination?.total_pages || 1);
+          setTotalItems(response.pagination?.total || response.data.length);
+        } else {
+          // Fallback to mock data
+          setMedia(mockMedia.data);
+          setTotalPages(1);
+          setTotalItems(mockMedia.data.length);
+          setError("Using demo data - API not available");
+        }
       } catch (err: any) {
         console.error("MediaLibrary: API call failed, using mock data:", err);
         // Fall back to mock data for development
         setMedia(mockMedia.data);
+        setTotalPages(1);
+        setTotalItems(mockMedia.data.length);
         setError("Using demo data - API not available");
       } finally {
         setLoading(false);
@@ -79,7 +112,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
     };
 
     loadMedia();
-  }, [user, token]);
+  }, [user, token, currentPage]);
 
   const handleUploadSuccess = (uploadedItems: MediaItem[]) => {
     setMedia((prev) => [...uploadedItems, ...prev]);
@@ -94,6 +127,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
       ...prev,
       [filterType]: value,
     }));
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   return (
@@ -112,19 +146,67 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
 
           {activeTab === "library" && (
             <div className="flex items-center gap-4">
+              {/* Pagination Info */}
+              {!loading && !error && totalItems > 0 && (
+                <div className="text-sm text-muted-foreground">
+                  Showing{" "}
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}{" "}
+                  to {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
+                  {totalItems} items
+                </div>
+              )}
+
+              {/* Page Navigation */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 px-2"
+                  >
+                    ‹ Prev
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                    className="h-8 px-2"
+                  >
+                    Next ›
+                  </Button>
+                </div>
+              )}
+
               {/* Search Bar */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder="Search media..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1); // Reset to first page when search changes
+                  }}
                   className="pl-10 w-64"
                 />
               </div>
 
               {/* Sort */}
-              <Select value={sortBy} onValueChange={setSortBy}>
+              <Select
+                value={sortBy}
+                onValueChange={(value) => {
+                  setSortBy(value);
+                  setCurrentPage(1); // Reset to first page when sort changes
+                }}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue />
                 </SelectTrigger>
@@ -242,16 +324,101 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
                   </div>
                 </div>
               ) : (
-                <MediaGrid
-                  searchQuery={searchQuery}
-                  filters={selectedFilters}
-                  sortBy={sortBy}
-                  viewMode={viewMode}
-                  mode={mode}
-                  onSelect={onSelect}
-                  media={media}
-                  onDeleteSuccess={handleDeleteSuccess}
-                />
+                <div>
+                  <MediaGrid
+                    searchQuery={searchQuery}
+                    filters={selectedFilters}
+                    sortBy={sortBy}
+                    viewMode={viewMode}
+                    mode={mode}
+                    onSelect={onSelect}
+                    media={media}
+                    onDeleteSuccess={handleDeleteSuccess}
+                  />
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-6">
+                      <div className="text-sm text-muted-foreground">
+                        Showing{" "}
+                        {Math.min(
+                          (currentPage - 1) * itemsPerPage + 1,
+                          totalItems
+                        )}{" "}
+                        to {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
+                        {totalItems} items
+                      </div>
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() =>
+                                setCurrentPage(Math.max(1, currentPage - 1))
+                              }
+                              className={
+                                currentPage === 1
+                                  ? "pointer-events-none opacity-50"
+                                  : "cursor-pointer"
+                              }
+                            />
+                          </PaginationItem>
+
+                          {/* Page numbers */}
+                          {(() => {
+                            const pages = [];
+                            const maxPages = Math.min(5, totalPages);
+                            for (let i = 0; i < maxPages; i++) {
+                              let pageNum;
+                              if (totalPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (currentPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (currentPage >= totalPages - 2) {
+                                pageNum = totalPages - 4 + i;
+                              } else {
+                                pageNum = currentPage - 2 + i;
+                              }
+
+                              pages.push(
+                                <PaginationItem key={pageNum}>
+                                  <PaginationLink
+                                    onClick={() => setCurrentPage(pageNum)}
+                                    isActive={currentPage === pageNum}
+                                    className="cursor-pointer"
+                                  >
+                                    {pageNum}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            }
+                            return pages;
+                          })()}
+
+                          {totalPages > 5 && currentPage < totalPages - 2 && (
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          )}
+
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() =>
+                                setCurrentPage(
+                                  Math.min(totalPages, currentPage + 1)
+                                )
+                              }
+                              className={
+                                currentPage === totalPages
+                                  ? "pointer-events-none opacity-50"
+                                  : "cursor-pointer"
+                              }
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -57,6 +57,7 @@ export function MediaPicker({
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [media, setMedia] = useState<MediaItem[]>(mockMedia.data);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("library");
 
   // Use external open state if provided, otherwise use internal
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
@@ -73,7 +74,10 @@ export function MediaPicker({
   const loadMedia = async () => {
     try {
       setLoading(true);
-      const response = await mediaService.getMedia();
+      const response = await mediaService.getMedia({
+        page: 1,
+        limit: 50,
+      });
       if (response.data) {
         setMedia(response.data);
       }
@@ -89,8 +93,8 @@ export function MediaPicker({
   const filteredMedia = useMemo(() => {
     return media.filter((item) => {
       const matchesSearch = item.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
+        ? item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        : false;
 
       // Map file_type to display type
       const itemType = item.file_type.startsWith("image/")
@@ -215,7 +219,11 @@ export function MediaPicker({
           </div>
 
           {/* Media Content */}
-          <Tabs defaultValue="library" className="flex-1 flex flex-col">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="flex-1 flex flex-col"
+          >
             <TabsList className="mx-6 mt-4">
               <TabsTrigger value="library">Media Library</TabsTrigger>
               <TabsTrigger value="upload">Upload New</TabsTrigger>
@@ -272,11 +280,35 @@ export function MediaPicker({
             <TabsContent value="upload" className="flex-1 mt-0 px-6 pb-6">
               <div className="max-w-md mx-auto">
                 <MediaUpload
-                  onUploadSuccess={(uploadedItems) => {
+                  onUploadSuccess={async (uploadedItems) => {
+                    // Immediately add uploaded items to show them right away
                     setMedia((prev) => [...uploadedItems, ...prev]);
                     onUploadSuccess?.(uploadedItems[0]); // For single selection, pass the first item
-                    // Switch back to library tab
-                    // Note: This would need to be handled differently in a real app
+
+                    // Switch to library tab immediately
+                    setActiveTab("library");
+
+                    // Reload media from backend after a short delay to ensure backend has processed the upload
+                    setTimeout(async () => {
+                      try {
+                        setLoading(true);
+                        const response = await mediaService.getMedia({
+                          page: 1,
+                          limit: 50,
+                        });
+                        if (response.data && response.data.length > 0) {
+                          setMedia(response.data);
+                        }
+                      } catch (error) {
+                        console.error(
+                          "Failed to reload media after upload:",
+                          error
+                        );
+                        // Keep the uploaded items in local state as fallback
+                      } finally {
+                        setLoading(false);
+                      }
+                    }, 1000); // Wait 1 second for backend processing
                   }}
                   accept={acceptTypes.map((type) => `${type}/*`).join(",")}
                 />
@@ -333,7 +365,7 @@ function MediaItemCard({
 
   // Format file size
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
+    if (!bytes || bytes === 0) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -357,7 +389,7 @@ function MediaItemCard({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{item.name}</p>
+          <p className="font-medium truncate">{item.name || "Unnamed"}</p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{formatFileSize(item.file_size)}</span>
             <Badge variant="outline" className="text-xs">
@@ -408,8 +440,11 @@ function MediaItemCard({
       </div>
 
       <div className="p-3">
-        <p className="font-medium text-sm truncate mb-1" title={item.name}>
-          {item.name}
+        <p
+          className="font-medium text-sm truncate mb-1"
+          title={item.name || "Unnamed"}
+        >
+          {item.name || "Unnamed"}
         </p>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatFileSize(item.file_size)}</span>

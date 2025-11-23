@@ -3,7 +3,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { mockMedia } from "@/lib/api";
 import { MapPin, MoreVertical, Edit, Eye, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
@@ -17,6 +16,7 @@ import { useEffect, useState } from "react";
 import { venueService } from "@/lib/services/venue-service";
 import type { Venue } from "@/types/venue";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { replaceMinioPort } from "@/lib/utils";
 
 interface VenueListProps {
   refreshTrigger?: number;
@@ -61,11 +61,6 @@ export function VenueList({ refreshTrigger }: VenueListProps) {
     fetchVenues();
   }, [refreshTrigger]);
 
-  const getCoverImage = (coverImageId?: string) => {
-    if (!coverImageId) return null;
-    return mockMedia.data.find((media) => media.id === coverImageId);
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-12rem)]">
@@ -97,42 +92,61 @@ export function VenueList({ refreshTrigger }: VenueListProps) {
 
   return (
     <ScrollArea className="h-[calc(100vh-12rem)]">
-      <div className="flex flex-col gap-2 pr-4">
-        {safeVenues.map((venue) => {
-          const coverImage = getCoverImage(venue.coverImageId);
-          return (
-            <Link key={venue.id} href={`/dashboard/venues/${venue.id}`}>
-              <div className="flex flex-col gap-2 rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center overflow-hidden">
-                      {coverImage ? (
-                        <Image
-                          src={coverImage.url}
-                          alt={venue.name}
-                          width={40}
-                          height={40}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <MapPin className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold leading-none">
-                        {venue.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {venue.city}
-                      </p>
-                    </div>
+      <div className="flex flex-col gap-4 pr-4">
+        {safeVenues.map((venue) => (
+          <Link key={venue.id} href={`/dashboard/venues/${venue.id}`}>
+            <div className="group relative rounded-xl border bg-card overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer">
+              {/* Cover Image */}
+              <div className="relative h-32 bg-linear-to-br from-primary/10 to-primary/5">
+                {venue.cover_image_url ? (
+                  <Image
+                    src={replaceMinioPort(venue.cover_image_url)}
+                    alt={venue.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <MapPin className="h-8 w-8 text-muted-foreground/50" />
                   </div>
+                )}
+
+                {/* Overlay gradient */}
+                <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+
+                {/* Status badges */}
+                <div className="absolute top-3 left-3 flex gap-2">
+                  <Badge
+                    variant={
+                      venue.visibility === "public" ? "default" : "secondary"
+                    }
+                    className="text-xs font-medium"
+                  >
+                    {venue.visibility}
+                  </Badge>
+                  {venue.is_live && (
+                    <Badge
+                      variant="default"
+                      className="text-xs font-medium bg-green-600 hover:bg-green-700"
+                    >
+                      Live
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Menu button */}
+                <div className="absolute top-3 right-3">
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       asChild
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 bg-white/90 hover:bg-white shadow-sm"
+                      >
                         <MoreVertical className="h-4 w-4" />
                         <span className="sr-only">Menu</span>
                       </Button>
@@ -153,22 +167,34 @@ export function VenueList({ refreshTrigger }: VenueListProps) {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <Badge
-                    variant={
-                      venue.visibility === "public" ? "default" : "secondary"
-                    }
-                  >
-                    {venue.visibility}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {venue.is_live ? "Live" : "Offline"}
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg leading-tight mb-1 truncate">
+                      {venue.name}
+                    </h3>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{venue.city}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional info */}
+                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Updated recently</span>
+                  <span className="flex items-center gap-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    Active
                   </span>
                 </div>
               </div>
-            </Link>
-          );
-        })}
+            </div>
+          </Link>
+        ))}
       </div>
     </ScrollArea>
   );

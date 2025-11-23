@@ -31,6 +31,7 @@ export interface Venue {
   city: string;
   visibility: "public" | "private" | "unlisted";
   is_live: boolean;
+  cover_image_url?: string;
 }
 
 export interface VenueListResponse {

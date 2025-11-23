@@ -367,6 +367,16 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     [graphProvider, graph, graphStore]
   );
 
+  const handleNavigateToNode = useCallback(
+    (nodeId: string) => {
+      // Navigate to the selected node
+      setSelectedNode(nodeId);
+      // Also set as panorama node to keep it open
+      setPanoramaNode(nodeId);
+    },
+    [setSelectedNode, setPanoramaNode]
+  );
+
   const selectedNode = graph?.nodes.find((n) => n.id === selectedNodeId);
 
   const panoramaNode = useMemo(() => {
@@ -474,12 +484,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
                 rotationSpeed={0.5}
                 isDraggingNode={isDraggingNode}
                 graph={graph}
-                onNavigateToNode={(nodeId) => {
-                  // Navigate to the selected node
-                  setSelectedNode(nodeId);
-                  // Also set as panorama node to keep it open
-                  setPanoramaNode(nodeId);
-                }}
+                onNavigateToNode={handleNavigateToNode}
               />
             </div>
           </ResizablePanel>

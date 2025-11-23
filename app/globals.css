@@ -146,3 +146,19 @@
   -ms-user-select: none;
   user-select: none;
 }
+
+/* Panorama viewer hotspot overlays */
+.hotspot-overlay {
+  position: absolute;
+  z-index: 10;
+  pointer-events: auto;
+  transition: transform 0.2s ease;
+}
+
+.hotspot-overlay:hover {
+  transform: scale(1.1);
+}
+
+.hotspot-overlay:active {
+  transform: scale(0.95);
+}

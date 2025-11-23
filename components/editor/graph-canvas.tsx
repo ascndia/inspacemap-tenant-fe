@@ -207,7 +207,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
   }, []);
 
   const handleNodeUpdate = useCallback(
-    (nodeId: string, updates: any) => {
+    (nodeId: string, updates: any, isDragging = false) => {
       // Check if this is a position update (dragging)
       const isPositionUpdate = updates.position !== undefined;
 
@@ -226,6 +226,14 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
         return;
       }
 
+      // For position updates during dragging, only update local state for visual feedback
+      if (isPositionUpdate && isDragging) {
+        // Update Zustand store directly for immediate visual feedback
+        graphStore.updateNode(nodeId, validUpdates);
+        return;
+      }
+
+      // For final updates or non-position updates, sync with backend
       updateNode(nodeId, validUpdates);
 
       // Reset dragging state after a short delay to allow for smooth updates
@@ -233,7 +241,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
         setTimeout(() => setIsDraggingNode(false), 100);
       }
     },
-    [updateNode, isDraggingNode]
+    [updateNode, isDraggingNode, graphStore]
   );
 
   const handleFloorplanSelect = useCallback(

@@ -31,7 +31,7 @@ export interface MouseHandlerParams {
   zoom: number;
   onNodeSelect: (nodeId: string) => void;
   onCanvasClick: (x: number, y: number) => void;
-  onNodeUpdate: (nodeId: string, updates: any) => void;
+  onNodeUpdate: (nodeId: string, updates: any, isDragging?: boolean) => void;
   onPanChange: (panOffset: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
   onConnectionStart?: (nodeId: string) => void;
@@ -272,28 +272,37 @@ export function createMouseHandlers(
       return;
     }
 
-    // For dragging, we don't update the node position here anymore
-    // Position updates happen only when dragging ends (in handleMouseUp)
-    // This prevents excessive API calls during dragging
-  };
-
-  const handleMouseUp = () => {
-    // If we were dragging a node, update its final position
+    // Handle node dragging for real-time visual feedback
     if (isDragging && dragNode) {
       const node = state.graph?.nodes.find((n) => n.id === dragNode);
-      if (node) {
-        // Snap to grid if enabled
-        let newX = mousePosition.x - dragStart.x;
-        let newY = mousePosition.y - dragStart.y;
+      if (node && !node.locked) {
+        // Calculate new position
+        let newX = x - dragStart.x;
+        let newY = y - dragStart.y;
 
+        // Snap to grid if enabled
         if (state.ui.snapToGrid) {
           const gridSize = state.graph?.settings.gridSize || 20;
           newX = Math.round(newX / gridSize) * gridSize;
           newY = Math.round(newY / gridSize) * gridSize;
         }
 
-        // Update node position only when dragging ends
-        onNodeUpdate(dragNode, { position: { x: newX, y: newY } });
+        // Update node position in real-time for visual feedback (isDragging = true)
+        onNodeUpdate(dragNode, { position: { x: newX, y: newY } }, true);
+      }
+    }
+  };
+
+  const handleMouseUp = () => {
+    // If we were dragging a node, sync final position with backend
+    if (isDragging && dragNode) {
+      const node = state.graph?.nodes.find((n) => n.id === dragNode);
+      if (node) {
+        // Get current position from the node (already updated during dragging)
+        const finalPosition = node.position;
+
+        // Sync with backend (isDragging = false to trigger API call)
+        onNodeUpdate(dragNode, { position: finalPosition }, false);
       }
     }
 

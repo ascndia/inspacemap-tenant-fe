@@ -33,10 +33,17 @@ import {
 
 interface MediaLibraryProps {
   mode?: "manage" | "select";
+  multiple?: boolean;
   onSelect?: (media: any) => void;
+  onConfirmSelection?: () => void;
 }
 
-export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
+export function MediaLibrary({
+  mode = "manage",
+  multiple = false,
+  onSelect,
+  onConfirmSelection,
+}: MediaLibraryProps) {
   const [activeTab, setActiveTab] = useState("library");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -53,6 +60,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [mediaCounts, setMediaCounts] = useState({ images: 0, videos: 0 });
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
   const itemsPerPage = 50;
 
   const { user, token } = useAuthStore();
@@ -190,6 +198,32 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
     setCurrentPage(1); // Reset to first page when filters change
   };
 
+  const handleMediaSelect = (mediaItem: MediaItem) => {
+    if (multiple) {
+      setSelectedMedia((prev) => {
+        const isSelected = prev.some((item) => item.id === mediaItem.id);
+        if (isSelected) {
+          return prev.filter((item) => item.id !== mediaItem.id);
+        } else {
+          return [...prev, mediaItem];
+        }
+      });
+    } else {
+      onSelect?.(mediaItem);
+    }
+  };
+
+  const handleConfirmSelection = () => {
+    if (multiple && selectedMedia.length > 0) {
+      onSelect?.(selectedMedia);
+      onConfirmSelection?.();
+    }
+  };
+
+  const isMediaSelected = (mediaId: string) => {
+    return selectedMedia.some((item) => item.id === mediaId);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <Tabs
@@ -198,27 +232,35 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
         className="flex-1 flex flex-col"
       >
         {/* Header with Search and Controls */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <TabsList>
-            <TabsTrigger value="library">Library</TabsTrigger>
-            <TabsTrigger value="upload">Upload</TabsTrigger>
-          </TabsList>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border-b gap-4">
+          <div className="flex items-center gap-4">
+            <TabsList className="shrink-0">
+              <TabsTrigger value="library">Library</TabsTrigger>
+              <TabsTrigger value="upload">Upload</TabsTrigger>
+            </TabsList>
+
+            {mode === "select" && multiple && selectedMedia.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                {selectedMedia.length} item
+                {selectedMedia.length !== 1 ? "s" : ""} selected
+              </div>
+            )}
+          </div>
 
           {activeTab === "library" && (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
               {/* Pagination Info */}
               {!loading && !error && totalItems > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  Showing{" "}
-                  {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}{" "}
-                  to {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
-                  {totalItems} items
+                <div className="text-sm text-muted-foreground shrink-0">
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}-
+                  {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
+                  {totalItems}
                 </div>
               )}
 
               {/* Page Navigation */}
               {totalPages > 1 && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   <Button
                     variant="outline"
                     size="sm"
@@ -228,7 +270,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
                   >
                     ‹ Prev
                   </Button>
-                  <span className="text-sm text-muted-foreground px-2">
+                  <span className="text-sm text-muted-foreground px-2 min-w-[60px] text-center">
                     {currentPage} / {totalPages}
                   </span>
                   <Button
@@ -246,56 +288,57 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
               )}
 
               {/* Search Bar */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-initial min-w-0">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder="Search media..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
-                    setCurrentPage(1); // Reset to first page when search changes
+                    setCurrentPage(1);
                   }}
-                  className="pl-10 w-64"
+                  className="pl-10 w-full sm:w-64"
                 />
               </div>
 
-              {/* Sort */}
-              <Select
-                value={sortBy}
-                onValueChange={(value) => {
-                  setSortBy(value);
-                  setCurrentPage(1); // Reset to first page when sort changes
-                }}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest</SelectItem>
-                  <SelectItem value="oldest">Oldest</SelectItem>
-                  <SelectItem value="name">Name A-Z</SelectItem>
-                  <SelectItem value="size">Size</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Sort and View Mode */}
+              <div className="flex items-center gap-2 shrink-0">
+                <Select
+                  value={sortBy}
+                  onValueChange={(value) => {
+                    setSortBy(value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest</SelectItem>
+                    <SelectItem value="oldest">Oldest</SelectItem>
+                    <SelectItem value="name">Name A-Z</SelectItem>
+                    <SelectItem value="size">Size</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              {/* View Mode */}
-              <div className="flex border rounded-md">
-                <Button
-                  variant={viewMode === "grid" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("grid")}
-                  className="rounded-r-none"
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("list")}
-                  className="rounded-l-none"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={viewMode === "grid" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("grid")}
+                    className="rounded-r-none"
+                  >
+                    <Grid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === "list" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("list")}
+                    className="rounded-l-none"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -392,7 +435,9 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
                     sortBy={sortBy}
                     viewMode={viewMode}
                     mode={mode}
-                    onSelect={onSelect}
+                    multiple={multiple}
+                    selectedMedia={selectedMedia}
+                    onSelect={handleMediaSelect}
                     media={media}
                     onDeleteSuccess={handleDeleteSuccess}
                   />
@@ -504,8 +549,20 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
 
       {mode === "select" && (
         <DialogFooter className="border-t p-4">
-          <Button variant="outline">Cancel</Button>
-          <Button onClick={() => onSelect?.(null)}>Select</Button>
+          <Button variant="outline" onClick={() => onConfirmSelection?.()}>
+            Cancel
+          </Button>
+          {multiple ? (
+            <Button
+              onClick={handleConfirmSelection}
+              disabled={selectedMedia.length === 0}
+            >
+              Select {selectedMedia.length} item
+              {selectedMedia.length !== 1 ? "s" : ""}
+            </Button>
+          ) : (
+            <Button onClick={() => onSelect?.(null)}>Select</Button>
+          )}
         </DialogFooter>
       )}
     </div>

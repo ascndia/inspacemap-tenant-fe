@@ -41,6 +41,8 @@ interface MediaGridProps {
   sortBy?: string;
   viewMode?: "grid" | "list";
   mode?: "manage" | "select";
+  multiple?: boolean;
+  selectedMedia?: MediaItem[];
   onSelect?: (media: MediaItem) => void;
   media?: MediaItem[];
   onDeleteSuccess?: (deletedMediaId: string) => void;
@@ -52,6 +54,8 @@ export function MediaGrid({
   sortBy = "newest",
   viewMode = "grid",
   mode = "manage",
+  multiple = false,
+  selectedMedia = [],
   onSelect,
   media = [],
   onDeleteSuccess,
@@ -121,9 +125,24 @@ export function MediaGrid({
             filteredAndSortedMedia.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                className={`flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors ${
+                  mode === "select" &&
+                  multiple &&
+                  selectedMedia.some((selected) => selected.id === item.id)
+                    ? "ring-2 ring-primary bg-primary/5"
+                    : ""
+                }`}
+                onClick={() => mode === "select" && onSelect?.(item)}
               >
-                {mode === "select" && <Checkbox className="shrink-0" />}
+                {mode === "select" && multiple && (
+                  <Checkbox
+                    checked={selectedMedia.some(
+                      (selected) => selected.id === item.id
+                    )}
+                    onChange={() => onSelect?.(item)}
+                    className="shrink-0"
+                  />
+                )}
 
                 <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center shrink-0">
                   {item.file_type && item.file_type.startsWith("video/") ? (
@@ -206,6 +225,10 @@ export function MediaGrid({
                 key={item.id}
                 item={item}
                 mode={mode}
+                multiple={multiple}
+                isSelected={selectedMedia.some(
+                  (selected) => selected.id === item.id
+                )}
                 onSelect={onSelect}
                 onDeleteClick={handleDeleteClick}
               />
@@ -227,14 +250,29 @@ export function MediaGrid({
 interface MediaItemProps {
   item: MediaItem;
   mode: "manage" | "select";
+  multiple?: boolean;
+  isSelected?: boolean;
   onSelect?: (media: MediaItem) => void;
   onDeleteClick: (media: MediaItem) => void;
 }
 
-function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
+function MediaItem({
+  item,
+  mode,
+  multiple = false,
+  isSelected = false,
+  onSelect,
+  onDeleteClick,
+}: MediaItemProps) {
   return (
     <Dialog>
-      <div className="group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all">
+      <div
+        className={`group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all ${
+          mode === "select" && multiple && isSelected
+            ? "ring-2 ring-primary"
+            : ""
+        }`}
+      >
         <div className="aspect-square bg-muted relative">
           {item.thumbnail_url || item.url ? (
             <img
@@ -253,8 +291,19 @@ function MediaItem({ item, mode, onSelect, onDeleteClick }: MediaItemProps) {
             </div>
           )}
 
-          {/* Selection overlay for select mode */}
-          {mode === "select" && (
+          {/* Selection checkbox for multiple select mode */}
+          {mode === "select" && multiple && (
+            <div className="absolute top-2 left-2">
+              <Checkbox
+                checked={isSelected}
+                onChange={() => onSelect?.(item)}
+                className="bg-background/80 backdrop-blur-sm"
+              />
+            </div>
+          )}
+
+          {/* Selection overlay for single select mode */}
+          {mode === "select" && !multiple && (
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <Button
                 size="sm"

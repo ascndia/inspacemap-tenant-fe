@@ -126,6 +126,8 @@ export function MediaGrid({
               <div
                 key={item.id}
                 className={`flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors ${
+                  mode === "select" ? "cursor-pointer" : ""
+                } ${
                   mode === "select" &&
                   multiple &&
                   selectedMedia.some((selected) => selected.id === item.id)
@@ -135,13 +137,18 @@ export function MediaGrid({
                 onClick={() => mode === "select" && onSelect?.(item)}
               >
                 {mode === "select" && multiple && (
-                  <Checkbox
-                    checked={selectedMedia.some(
-                      (selected) => selected.id === item.id
-                    )}
-                    onChange={() => onSelect?.(item)}
-                    className="shrink-0"
-                  />
+                  <div className="pointer-events-auto z-10">
+                    <Checkbox
+                      checked={selectedMedia.some(
+                        (selected) => selected.id === item.id
+                      )}
+                      onCheckedChange={(e) => {
+                        e.stopPropagation();
+                        onSelect?.(item);
+                      }}
+                      className="shrink-0"
+                    />
+                  </div>
                 )}
 
                 <div className="w-12 h-12 bg-muted rounded-md flex items-center justify-center shrink-0">
@@ -171,9 +178,26 @@ export function MediaGrid({
                   <Badge variant="outline" className="text-xs">
                     {item.category}
                   </Badge>
+                  {mode === "select" && !multiple && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect?.(item);
+                      }}
+                      className="ml-2"
+                    >
+                      Select
+                    </Button>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -268,10 +292,13 @@ function MediaItem({
     <Dialog>
       <div
         className={`group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all ${
+          mode === "select" ? "cursor-pointer" : ""
+        } ${
           mode === "select" && multiple && isSelected
             ? "ring-2 ring-primary"
             : ""
         }`}
+        onClick={() => mode === "select" && onSelect?.(item)}
       >
         <div className="aspect-square bg-muted relative">
           {item.thumbnail_url || item.url ? (
@@ -293,10 +320,13 @@ function MediaItem({
 
           {/* Selection checkbox for multiple select mode */}
           {mode === "select" && multiple && (
-            <div className="absolute top-2 left-2">
+            <div className="absolute top-2 left-2 z-10 pointer-events-auto">
               <Checkbox
                 checked={isSelected}
-                onChange={() => onSelect?.(item)}
+                onCheckedChange={(e) => {
+                  e.stopPropagation();
+                  onSelect?.(item);
+                }}
                 className="bg-background/80 backdrop-blur-sm"
               />
             </div>
@@ -307,7 +337,10 @@ function MediaItem({
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <Button
                 size="sm"
-                onClick={() => onSelect?.(item)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect?.(item);
+                }}
                 className="bg-primary hover:bg-primary/90"
               >
                 Select
@@ -319,7 +352,11 @@ function MediaItem({
           {mode === "manage" && (
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
               <DialogTrigger asChild>
-                <Button size="sm" variant="secondary">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Maximize2 className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
@@ -329,7 +366,12 @@ function MediaItem({
           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="icon" variant="secondary" className="h-6 w-6">
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="h-6 w-6"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreHorizontal className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>

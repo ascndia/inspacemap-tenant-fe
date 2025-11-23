@@ -30,6 +30,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { useAccessControl } from "@/lib/hooks/use-access-control";
 
 interface MediaLibraryProps {
   mode?: "manage" | "select";
@@ -64,6 +65,7 @@ export function MediaLibrary({
   const itemsPerPage = 50;
 
   const { user, token } = useAuthStore();
+  const { canAccess } = useAccessControl();
 
   const getDateFilter = (dateFilter: string): string => {
     const now = new Date();
@@ -236,7 +238,9 @@ export function MediaLibrary({
           <div className="flex items-center gap-4">
             <TabsList className="shrink-0">
               <TabsTrigger value="library">Library</TabsTrigger>
-              <TabsTrigger value="upload">Upload</TabsTrigger>
+              {canAccess("media:upload") && (
+                <TabsTrigger value="upload">Upload</TabsTrigger>
+              )}
             </TabsList>
 
             {mode === "select" && multiple && selectedMedia.length > 0 && (
@@ -530,21 +534,26 @@ export function MediaLibrary({
           </div>
         </TabsContent>
 
-        <TabsContent value="upload" className="mt-0 p-4">
-          <div className="max-w-2xl mx-auto">
-            <MediaUpload
-              onUploadSuccess={(uploadedItems) => {
-                setMedia((prev) => [...uploadedItems, ...prev]);
-                setActiveTab("library");
-              }}
-            />
-            <div className="mt-8 flex justify-center">
-              <Button variant="outline" onClick={() => setActiveTab("library")}>
-                Back to Library
-              </Button>
+        {canAccess("media:upload") && (
+          <TabsContent value="upload" className="mt-0 p-4">
+            <div className="max-w-2xl mx-auto">
+              <MediaUpload
+                onUploadSuccess={(uploadedItems) => {
+                  setMedia((prev) => [...uploadedItems, ...prev]);
+                  setActiveTab("library");
+                }}
+              />
+              <div className="mt-8 flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveTab("library")}
+                >
+                  Back to Library
+                </Button>
+              </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
       </Tabs>
 
       {mode === "select" && (

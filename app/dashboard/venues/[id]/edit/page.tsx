@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { VenueDetail, UpdateVenueRequest } from "@/types/venue";
 import type { Media } from "@/types/media";
 import { replaceMinioPort } from "@/lib/utils";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 
 export default function VenueEditPage({
   params,
@@ -243,264 +244,261 @@ export default function VenueEditPage({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!venue) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Venue not found</p>
-        <Link href="/dashboard/venues">
-          <Button className="mt-4">Back to Venues</Button>
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <Link href={`/dashboard/venues/${id}`}>
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold md:text-2xl">
-            Edit {venue.name}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Modify venue details and settings
+    <PermissionGuard
+      permission="venue:update"
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <p className="text-muted-foreground">
+            You don't have permission to edit venues
           </p>
+          <Link href="/dashboard/venues">
+            <Button className="mt-4">Back to Venues</Button>
+          </Link>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/venues/${id}`}>Cancel</Link>
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center gap-4">
+          <Link href={`/dashboard/venues/${id}`}>
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="flex-1">
+            <h1 className="text-lg font-semibold md:text-2xl">
+              Edit {venue?.name || "Venue"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Modify venue details and settings
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href={`/dashboard/venues/${id}`}>Cancel</Link>
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {/* Cover Image Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ImageIcon className="h-5 w-5" />
-            Cover Image
-          </CardTitle>
-          <CardDescription>
-            Set a cover image for your venue. This will be displayed prominently
-            in venue listings and details.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {coverImage ? (
-            <div className="space-y-4">
-              <div className="relative w-full max-w-md">
-                <Image
-                  src={coverImage.url}
-                  alt="Cover image"
-                  width={400}
-                  height={200}
-                  className="w-full h-32 object-cover rounded-lg border"
-                />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 h-6 w-6"
-                  onClick={handleRemoveCoverImage}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+        {/* Cover Image Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Cover Image
+            </CardTitle>
+            <CardDescription>
+              Set a cover image for your venue. This will be displayed
+              prominently in venue listings and details.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {coverImage ? (
+              <div className="space-y-4">
+                <div className="relative w-full max-w-md">
+                  <Image
+                    src={coverImage.url}
+                    alt="Cover image"
+                    width={400}
+                    height={200}
+                    className="w-full h-32 object-cover rounded-lg border"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6"
+                    onClick={handleRemoveCoverImage}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <MediaPicker
+                    onSelect={handleCoverImageSelect}
+                    selectedMediaId={formData.cover_image_id as string}
+                    multiple={false}
+                    acceptTypes={["image"]}
+                    trigger={
+                      <Button variant="outline">
+                        <ImageIcon className="mr-2 h-4 w-4" />
+                        Change Image
+                      </Button>
+                    }
+                  />
+                </div>
               </div>
-              <div className="flex gap-2">
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground mb-4">
+                  No cover image selected
+                </p>
                 <MediaPicker
                   onSelect={handleCoverImageSelect}
-                  selectedMediaId={formData.cover_image_id}
+                  selectedMediaId={formData.cover_image_id as string}
                   multiple={false}
                   acceptTypes={["image"]}
                   trigger={
-                    <Button variant="outline">
+                    <Button>
                       <ImageIcon className="mr-2 h-4 w-4" />
-                      Change Image
+                      Select Cover Image
                     </Button>
                   }
                 />
               </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-muted-foreground/25 rounded-lg">
-              <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground mb-4">
-                No cover image selected
-              </p>
-              <MediaPicker
-                onSelect={handleCoverImageSelect}
-                selectedMediaId={formData.cover_image_id}
-                multiple={false}
-                acceptTypes={["image"]}
-                trigger={
-                  <Button>
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Select Cover Image
-                  </Button>
-                }
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>
-              Update the core details of your venue.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Venue Name</Label>
-              <Input
-                id="name"
-                value={formData.name || ""}
-                onChange={(e) => handleInputChange("name", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={formData.address || ""}
-                onChange={(e) => handleInputChange("address", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Enter venue description..."
-                className="min-h-[100px]"
-                value={formData.description || ""}
-                onChange={(e) =>
-                  handleInputChange("description", e.target.value)
-                }
-              />
-            </div>
+            )}
           </CardContent>
         </Card>
 
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Basic Information</CardTitle>
+              <CardDescription>
+                Update the core details of your venue.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Venue Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name || ""}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={formData.address || ""}
+                  onChange={(e) => handleInputChange("address", e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Enter venue description..."
+                  className="min-h-[100px]"
+                  value={formData.description || ""}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+              <CardDescription>
+                Configure venue settings and preferences.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="visibility">Visibility</Label>
+                <Select
+                  value={formData.visibility}
+                  onValueChange={(value: "public" | "private" | "unlisted") =>
+                    handleInputChange("visibility", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="private">Private</SelectItem>
+                    <SelectItem value="unlisted">Unlisted</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={formData.city || ""}
+                  onChange={(e) => handleInputChange("city", e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="province">Province</Label>
+                <Input
+                  id="province"
+                  value={formData.province || ""}
+                  onChange={(e) =>
+                    handleInputChange("province", e.target.value)
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="postal_code">Postal Code</Label>
+                <Input
+                  id="postal_code"
+                  value={formData.postal_code || ""}
+                  onChange={(e) =>
+                    handleInputChange("postal_code", e.target.value)
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Settings</CardTitle>
+            <CardTitle>Location</CardTitle>
             <CardDescription>
-              Configure venue settings and preferences.
+              Update the geographical location of your venue.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="visibility">Visibility</Label>
-              <Select
-                value={formData.visibility}
-                onValueChange={(value: "public" | "private" | "unlisted") =>
-                  handleInputChange("visibility", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                  <SelectItem value="unlisted">Unlisted</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                value={formData.city || ""}
-                onChange={(e) => handleInputChange("city", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="province">Province</Label>
-              <Input
-                id="province"
-                value={formData.province || ""}
-                onChange={(e) => handleInputChange("province", e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="postal_code">Postal Code</Label>
-              <Input
-                id="postal_code"
-                value={formData.postal_code || ""}
-                onChange={(e) =>
-                  handleInputChange("postal_code", e.target.value)
-                }
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="latitude">Latitude</Label>
+                <Input
+                  id="latitude"
+                  type="number"
+                  step="any"
+                  value={formData.coordinates?.latitude || ""}
+                  onChange={(e) =>
+                    handleCoordinatesChange(
+                      "latitude",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="longitude">Longitude</Label>
+                <Input
+                  id="longitude"
+                  type="number"
+                  step="any"
+                  value={formData.coordinates?.longitude || ""}
+                  onChange={(e) =>
+                    handleCoordinatesChange(
+                      "longitude",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Location</CardTitle>
-          <CardDescription>
-            Update the geographical location of your venue.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="latitude">Latitude</Label>
-              <Input
-                id="latitude"
-                type="number"
-                step="any"
-                value={formData.coordinates?.latitude || ""}
-                onChange={(e) =>
-                  handleCoordinatesChange(
-                    "latitude",
-                    parseFloat(e.target.value) || 0
-                  )
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="longitude">Longitude</Label>
-              <Input
-                id="longitude"
-                type="number"
-                step="any"
-                value={formData.coordinates?.longitude || ""}
-                onChange={(e) =>
-                  handleCoordinatesChange(
-                    "longitude",
-                    parseFloat(e.target.value) || 0
-                  )
-                }
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </PermissionGuard>
   );
 }

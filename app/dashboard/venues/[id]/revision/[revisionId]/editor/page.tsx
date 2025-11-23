@@ -38,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Edit } from "lucide-react";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 
 interface RevisionEditorPageProps {
   params: Promise<{
@@ -382,231 +383,284 @@ export default function RevisionEditorPage({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] gap-4">
-      {/* Header Controls */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <Link href={`/dashboard/venues/${id}/revision`}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <GitBranch className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <div className="flex items-center gap-2">
+    <PermissionGuard
+      permission="venue:update"
+      fallback={
+        <div className="flex flex-col h-[calc(100vh-6rem)] gap-4">
+          <div className="flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-4">
+              <Link href={`/dashboard/venues/${id}/revision`}>
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div className="flex-1">
                 <h1 className="text-lg font-semibold md:text-2xl">
-                  {venue.name} - {revision?.note || "Revision"}
+                  Graph Editor
                 </h1>
+                <p className="text-sm text-muted-foreground">
+                  Edit navigation graph revisions for this venue
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-background">
+            <div className="flex flex-col h-full items-center justify-center p-8 text-center">
+              <div className="max-w-md space-y-4">
+                <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-muted-foreground"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Access Denied</h3>
+                  <p className="text-muted-foreground">
+                    You don't have permission to edit graph revisions for this
+                    venue.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <div className="flex flex-col h-[calc(100vh-6rem)] gap-4">
+        {/* Header Controls */}
+        <div className="flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4">
+            <Link href={`/dashboard/venues/${id}/revision`}>
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="flex items-center gap-2">
+              <GitBranch className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-semibold md:text-2xl">
+                    {venue.name} - {revision?.note || "Revision"}
+                  </h1>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowEditRevisionDialog(true)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Editing revision v{revision?.id.slice(-2) || "1"}
+                </p>
+              </div>
+              {getStatusBadge()}
+            </div>
+            <div className="flex items-center gap-2">
+              {revision?.floors && revision.floors.length > 0 ? (
+                <Select value={floorId} onValueChange={setFloorId}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="Select floor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {revision.floors.map((floor) => (
+                      <SelectItem key={floor.id} value={floor.id}>
+                        {floor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreateFloorDialog(true)}
+                >
+                  Create First Floor
+                </Button>
+              )}
+              {revision?.floors && revision.floors.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowEditRevisionDialog(true)}
+                  onClick={() => setShowCreateFloorDialog(true)}
                 >
-                  <Edit className="h-4 w-4" />
+                  + Add Floor
                 </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Editing revision v{revision?.id.slice(-2) || "1"}
-              </p>
+              )}
             </div>
-            {getStatusBadge()}
           </div>
           <div className="flex items-center gap-2">
-            {revision?.floors && revision.floors.length > 0 ? (
-              <Select value={floorId} onValueChange={setFloorId}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Select floor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {revision.floors.map((floor) => (
-                    <SelectItem key={floor.id} value={floor.id}>
-                      {floor.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
+            <Button variant="outline">
+              <Upload className="mr-2 h-4 w-4" />
+              Load Floorplan
+            </Button>
+            <Button
+              variant={isPreviewMode ? "default" : "outline"}
+              onClick={() => setIsPreviewMode(!isPreviewMode)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              {isPreviewMode ? "Edit Mode" : "Preview 3D"}
+            </Button>
+            <Button variant="outline">
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
+            {revision?.status === "draft" && (
+              <Button variant="default" onClick={handlePublishWithValidation}>
+                Publish Revision
+              </Button>
+            )}
+            <Button onClick={handleSave}>
+              <Save className="mr-2 h-4 w-4" />
+              Save Revision
+            </Button>
+          </div>
+        </div>
+
+        {/* Editor Workspace */}
+        <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-background">
+          {revision?.floors && revision.floors.length > 0 && floorId ? (
+            <GraphEditor
+              venueId={id}
+              floorId={floorId}
+              initialGraph={getFloorGraphData()}
+              revisionId={revisionId}
+            />
+          ) : (
+            <div className="flex flex-col h-full items-center justify-center p-8 text-center">
+              <div className="max-w-md space-y-4">
+                <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-muted-foreground"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">No Floors Yet</h3>
+                  <p className="text-muted-foreground">
+                    Start building your navigation graph by creating your first
+                    floor.
+                  </p>
+                </div>
+                <Button onClick={() => setShowCreateFloorDialog(true)}>
+                  Create First Floor
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Create Floor Dialog */}
+        <CreateFloorDialog
+          open={showCreateFloorDialog}
+          onOpenChange={setShowCreateFloorDialog}
+          venueId={id}
+          onFloorCreated={handleFloorCreated}
+        />
+
+        {/* Edit Revision Dialog */}
+        <Dialog
+          open={showEditRevisionDialog}
+          onOpenChange={setShowEditRevisionDialog}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Revision Note</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="revision-note">Revision Note</Label>
+                <Textarea
+                  id="revision-note"
+                  value={revisionNote}
+                  onChange={(e) => setRevisionNote(e.target.value)}
+                  placeholder="Enter a note for this revision..."
+                  rows={4}
+                />
+              </div>
+            </div>
+            <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setShowCreateFloorDialog(true)}
+                onClick={() => setShowEditRevisionDialog(false)}
               >
-                Create First Floor
+                Cancel
               </Button>
-            )}
-            {revision?.floors && revision.floors.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCreateFloorDialog(true)}
-              >
-                + Add Floor
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Upload className="mr-2 h-4 w-4" />
-            Load Floorplan
-          </Button>
-          <Button
-            variant={isPreviewMode ? "default" : "outline"}
-            onClick={() => setIsPreviewMode(!isPreviewMode)}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            {isPreviewMode ? "Edit Mode" : "Preview 3D"}
-          </Button>
-          <Button variant="outline">
-            <Share2 className="mr-2 h-4 w-4" />
-            Share
-          </Button>
-          {revision?.status === "draft" && (
-            <Button variant="default" onClick={handlePublishWithValidation}>
-              Publish Revision
-            </Button>
-          )}
-          <Button onClick={handleSave}>
-            <Save className="mr-2 h-4 w-4" />
-            Save Revision
-          </Button>
-        </div>
-      </div>
+              <Button onClick={handleSaveRevisionNote}>Save Note</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Editor Workspace */}
-      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-background">
-        {revision?.floors && revision.floors.length > 0 && floorId ? (
-          <GraphEditor
-            venueId={id}
-            floorId={floorId}
-            initialGraph={getFloorGraphData()}
-            revisionId={revisionId}
-          />
-        ) : (
-          <div className="flex flex-col h-full items-center justify-center p-8 text-center">
-            <div className="max-w-md space-y-4">
-              <div className="w-16 h-16 mx-auto bg-muted rounded-full flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-muted-foreground"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                </svg>
-              </div>
+        {/* Publish Revision Dialog */}
+        <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Publish Graph Changes</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                This will make the current draft live for all users. A new draft
+                will be created for future edits.
+              </p>
+            </DialogHeader>
+            <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-semibold">No Floors Yet</h3>
-                <p className="text-muted-foreground">
-                  Start building your navigation graph by creating your first
-                  floor.
+                <Label htmlFor="publish-note">Release Notes (Optional)</Label>
+                <Textarea
+                  id="publish-note"
+                  value={publishNote}
+                  onChange={(e) => setPublishNote(e.target.value)}
+                  placeholder="Describe the changes in this version..."
+                  rows={3}
+                  maxLength={255}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {publishNote.length}/255 characters
                 </p>
               </div>
-              <Button onClick={() => setShowCreateFloorDialog(true)}>
-                Create First Floor
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowPublishDialog(false)}
+                disabled={isPublishing}
+              >
+                Cancel
               </Button>
-            </div>
-          </div>
-        )}
+              <Button
+                onClick={handleConfirmPublish}
+                disabled={isPublishing}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isPublishing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  "Publish Changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* Create Floor Dialog */}
-      <CreateFloorDialog
-        open={showCreateFloorDialog}
-        onOpenChange={setShowCreateFloorDialog}
-        venueId={id}
-        onFloorCreated={handleFloorCreated}
-      />
-
-      {/* Edit Revision Dialog */}
-      <Dialog
-        open={showEditRevisionDialog}
-        onOpenChange={setShowEditRevisionDialog}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Revision Note</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="revision-note">Revision Note</Label>
-              <Textarea
-                id="revision-note"
-                value={revisionNote}
-                onChange={(e) => setRevisionNote(e.target.value)}
-                placeholder="Enter a note for this revision..."
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowEditRevisionDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveRevisionNote}>Save Note</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Publish Revision Dialog */}
-      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Publish Graph Changes</DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              This will make the current draft live for all users. A new draft
-              will be created for future edits.
-            </p>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="publish-note">Release Notes (Optional)</Label>
-              <Textarea
-                id="publish-note"
-                value={publishNote}
-                onChange={(e) => setPublishNote(e.target.value)}
-                placeholder="Describe the changes in this version..."
-                rows={3}
-                maxLength={255}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {publishNote.length}/255 characters
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowPublishDialog(false)}
-              disabled={isPublishing}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmPublish}
-              disabled={isPublishing}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isPublishing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Publishing...
-                </>
-              ) : (
-                "Publish Changes"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </PermissionGuard>
   );
 }

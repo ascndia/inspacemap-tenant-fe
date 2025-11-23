@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus } from "lucide-react";
 import { useState } from "react";
+import { useAccessControl } from "@/lib/hooks/use-access-control";
 
 export default function VenuesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { canAccess } = useAccessControl();
 
   const handleVenueCreated = () => {
     // Trigger a refresh of the venue list
@@ -21,10 +23,12 @@ export default function VenuesPage() {
     <div className="flex flex-col h-[calc(100vh-6rem)] gap-4">
       <div className="flex items-center justify-between shrink-0">
         <h1 className="text-lg font-semibold md:text-2xl">My Venues</h1>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Venue
-        </Button>
+        {canAccess({ permission: "venue:create" }) && (
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Venue
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">

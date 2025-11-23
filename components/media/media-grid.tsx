@@ -30,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DeleteMediaDialog } from "./delete-media-dialog";
+import { useAccessControl } from "@/lib/hooks/use-access-control";
 
 interface MediaGridProps {
   searchQuery?: string;
@@ -62,6 +63,7 @@ export function MediaGrid({
 }: MediaGridProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mediaToDelete, setMediaToDelete] = useState<MediaItem | null>(null);
+  const { canAccess } = useAccessControl();
 
   const handleDeleteClick = (mediaItem: MediaItem) => {
     setMediaToDelete(mediaItem);
@@ -214,14 +216,18 @@ export function MediaGrid({
                         <Edit className="mr-2 h-4 w-4" />
                         Rename
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => handleDeleteClick(item)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
+                      {canAccess({ permission: "media:delete" }) && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => handleDeleteClick(item)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -288,6 +294,7 @@ function MediaItem({
   onSelect,
   onDeleteClick,
 }: MediaItemProps) {
+  const { canAccess } = useAccessControl();
   return (
     <Dialog>
       <div
@@ -388,14 +395,18 @@ function MediaItem({
                   <Edit className="mr-2 h-4 w-4" />
                   Rename
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => onDeleteClick(item)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
+                {canAccess({ permission: "media:delete" }) && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => onDeleteClick(item)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

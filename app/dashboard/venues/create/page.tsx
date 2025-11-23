@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { VenueDetailsStep } from "@/components/venues/create-venue/venue-details-step";
 import { VenueGalleryStep } from "@/components/venues/create-venue/venue-gallery-step";
+import { PermissionGuard } from "@/components/auth/permission-guard";
 
 const STEPS = [
   {
@@ -83,112 +84,130 @@ export default function CreateVenuePage() {
   const progress = ((currentStep + 1) / STEPS.length) * 100;
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/dashboard/venues")}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Venues
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Create New Venue</h1>
+    <PermissionGuard
+      permission="venue:create"
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
           <p className="text-muted-foreground">
-            Set up your venue in two simple steps
+            You don't have permission to create venues
           </p>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/dashboard/venues")}
+            className="mt-4"
+          >
+            Back to Venues
+          </Button>
         </div>
-      </div>
+      }
+    >
+      <div className="flex flex-col gap-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/dashboard/venues")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Venues
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Create New Venue</h1>
+            <p className="text-muted-foreground">
+              Set up your venue in two simple steps
+            </p>
+          </div>
+        </div>
 
-      {/* Progress Indicator */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
-            {STEPS.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                    index <= currentStep
-                      ? "bg-primary border-primary text-primary-foreground"
-                      : "border-muted-foreground/30 text-muted-foreground"
-                  }`}
-                >
-                  {index < currentStep ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <span className="text-sm font-medium">{index + 1}</span>
-                  )}
-                </div>
-                <div className="ml-3 hidden sm:block">
-                  <p
-                    className={`text-sm font-medium ${
+        {/* Progress Indicator */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-4">
+              {STEPS.map((step, index) => (
+                <div key={step.id} className="flex items-center">
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
                       index <= currentStep
-                        ? "text-foreground"
-                        : "text-muted-foreground"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : "border-muted-foreground/30 text-muted-foreground"
                     }`}
                   >
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {step.description}
-                  </p>
+                    {index < currentStep ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <span className="text-sm font-medium">{index + 1}</span>
+                    )}
+                  </div>
+                  <div className="ml-3 hidden sm:block">
+                    <p
+                      className={`text-sm font-medium ${
+                        index <= currentStep
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {step.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {step.description}
+                    </p>
+                  </div>
+                  {index < STEPS.length - 1 && (
+                    <div
+                      className={`w-12 h-px mx-4 ${
+                        index < currentStep
+                          ? "bg-primary"
+                          : "bg-muted-foreground/30"
+                      }`}
+                    />
+                  )}
                 </div>
-                {index < STEPS.length - 1 && (
-                  <div
-                    className={`w-12 h-px mx-4 ${
-                      index < currentStep
-                        ? "bg-primary"
-                        : "bg-muted-foreground/30"
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
+            <Progress value={progress} className="w-full" />
+          </CardContent>
+        </Card>
+
+        {/* Step Content */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{STEPS[currentStep].title}</CardTitle>
+            <CardDescription>{STEPS[currentStep].description}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {currentStep === 0 && (
+              <VenueDetailsStep data={venueData} onUpdate={updateVenueData} />
+            )}
+            {currentStep === 1 && (
+              <VenueGalleryStep data={venueData} onUpdate={updateVenueData} />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Navigation */}
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Previous
+          </Button>
+
+          <div className="flex gap-2">
+            {currentStep === STEPS.length - 1 ? (
+              <Button onClick={handleSave}>Create Venue</Button>
+            ) : (
+              <Button onClick={handleNext}>
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
-          <Progress value={progress} className="w-full" />
-        </CardContent>
-      </Card>
-
-      {/* Step Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{STEPS[currentStep].title}</CardTitle>
-          <CardDescription>{STEPS[currentStep].description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {currentStep === 0 && (
-            <VenueDetailsStep data={venueData} onUpdate={updateVenueData} />
-          )}
-          {currentStep === 1 && (
-            <VenueGalleryStep data={venueData} onUpdate={updateVenueData} />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentStep === 0}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Previous
-        </Button>
-
-        <div className="flex gap-2">
-          {currentStep === STEPS.length - 1 ? (
-            <Button onClick={handleSave}>Create Venue</Button>
-          ) : (
-            <Button onClick={handleNext}>
-              Next
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          )}
         </div>
       </div>
-    </div>
+    </PermissionGuard>
   );
 }

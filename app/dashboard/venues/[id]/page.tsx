@@ -31,10 +31,12 @@ import type { VenueDetail } from "@/types/venue";
 import type { Media } from "@/types/media";
 import { replaceMinioPort } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAccessControl } from "@/lib/hooks/use-access-control";
 
 export default function VenueDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { canAccess } = useAccessControl();
 
   const [venue, setVenue] = useState<VenueDetail | null>(null);
   const [coverImage, setCoverImage] = useState<Media | null>(null);
@@ -158,12 +160,14 @@ export default function VenueDetailPage() {
               See Revisions
             </Button>
           </Link>
-          <Link href={`/dashboard/venues/${id}/edit`}>
-            <Button>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Venue
-            </Button>
-          </Link>
+          {canAccess("venue:update") && (
+            <Link href={`/dashboard/venues/${id}/edit`}>
+              <Button>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Venue
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 

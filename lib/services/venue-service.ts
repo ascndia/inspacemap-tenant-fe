@@ -5,6 +5,7 @@ import type {
   CreateVenueRequest,
   CreateVenueResponse,
   VenueDetailResponse,
+  UpdateVenueRequest,
   AddGalleryItemsRequest,
   UpdateGalleryItemRequest,
   ReorderGalleryRequest,
@@ -296,9 +297,36 @@ export const venueService = {
   /**
    * Update venue
    */
-  updateVenue: async (id: string, data: Partial<Venue>): Promise<Venue> => {
-    const response = await api.put(`/venues/${id}`, data);
-    return response.data.data;
+  updateVenue: async (
+    id: string,
+    data: UpdateVenueRequest
+  ): Promise<VenueDetailResponse> => {
+    try {
+      console.log("Updating venue:", id, data);
+      const response = await api.put(`/venues/${id}`, data);
+      console.log("Update venue response:", response.data);
+
+      if (response.data?.success) {
+        return response.data;
+      } else {
+        console.warn("Update venue response unexpected:", response.data);
+        return {
+          success: false,
+          error: "Invalid response structure",
+        };
+      }
+    } catch (error: any) {
+      console.warn("Update venue failed:", error);
+      console.warn("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      return {
+        success: false,
+        error: error.message || "Failed to update venue",
+      };
+    }
   },
 
   /**

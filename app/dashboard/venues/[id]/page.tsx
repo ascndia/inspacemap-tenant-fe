@@ -26,7 +26,10 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { venueService } from "@/lib/services/venue-service";
+import { mediaService } from "@/lib/services/media-service";
 import type { VenueDetail } from "@/types/venue";
+import type { Media } from "@/types/media";
+import { replaceMinioPort } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function VenueDetailPage() {
@@ -34,6 +37,7 @@ export default function VenueDetailPage() {
   const id = params.id as string;
 
   const [venue, setVenue] = useState<VenueDetail | null>(null);
+  const [coverImage, setCoverImage] = useState<Media | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +50,53 @@ export default function VenueDetailPage() {
 
         if (response.success && response.data) {
           setVenue(response.data);
+
+          // Load cover image if exists
+          const venueData = response.data;
+          let coverImageId = venueData.cover_image_id;
+          let coverImageUrl = venueData.cover_image_url;
+
+          // If no direct cover_image_id, check gallery for featured image
+          if (
+            !coverImageId &&
+            venueData.gallery &&
+            venueData.gallery.length > 0
+          ) {
+            const coverItem = venueData.gallery.find(
+              (item) => item.is_featured
+            );
+            if (coverItem) {
+              coverImageId = coverItem.media_asset_id;
+            }
+          }
+
+          // Load cover image
+          if (coverImageUrl) {
+            // Create basic media object from URL with port replacement
+            const processedUrl = replaceMinioPort(coverImageUrl);
+            const basicMedia: Media = {
+              id: coverImageId || "cover-image",
+              name: "Cover Image",
+              url: processedUrl,
+              file_type: "image/jpeg",
+              file_size: 0,
+              created_at: venueData.created_at,
+              updated_at: venueData.updated_at,
+            };
+            setCoverImage(basicMedia);
+          } else if (coverImageId) {
+            // Fetch from media service
+            try {
+              const mediaResponse = await mediaService.getMediaById(
+                coverImageId
+              );
+              if (mediaResponse.success && mediaResponse.data) {
+                setCoverImage(mediaResponse.data);
+              }
+            } catch (error) {
+              console.warn("Failed to load cover image:", error);
+            }
+          }
         } else {
           throw new Error(response.error || "Failed to fetch venue details");
         }
@@ -61,11 +112,6 @@ export default function VenueDetailPage() {
       fetchVenueDetail();
     }
   }, [id]);
-
-  const getCoverImage = (coverImageId?: string) => {
-    if (!coverImageId) return null;
-    return mockMedia.data.find((media) => media.id === coverImageId);
-  };
 
   if (loading) {
     return (
@@ -83,11 +129,6 @@ export default function VenueDetailPage() {
       </Alert>
     );
   }
-
-  const coverImage = getCoverImage(
-    venue.gallery?.find((item) => item.is_featured)?.media_asset_id ||
-      venue.gallery?.[0]?.media_asset_id
-  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -167,6 +208,34 @@ export default function VenueDetailPage() {
                   {venue.full_address || "No address provided"}
                 </p>
               </div>
+              {(venue.city || venue.province || venue.postal_code) && (
+                <div className="grid grid-cols-3 gap-4">
+                  {venue.city && (
+                    <div>
+                      <h3 className="font-medium">City</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {venue.city}
+                      </p>
+                    </div>
+                  )}
+                  {venue.province && (
+                    <div>
+                      <h3 className="font-medium">Province</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {venue.province}
+                      </p>
+                    </div>
+                  )}
+                  {venue.postal_code && (
+                    <div>
+                      <h3 className="font-medium">Postal Code</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {venue.postal_code}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               {venue.description && (
                 <div>
                   <h3 className="font-medium">Description</h3>
@@ -210,6 +279,53 @@ export default function VenueDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Gallery Preview */}
+          {venue.gallery && venue.gallery.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  Gallery Preview
+                </CardTitle>
+                <CardDescription>
+                  Recent images from this venue's gallery
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {venue.gallery.slice(0, 4).map((item, index) => (
+                    <div key={item.id || index} className="relative group">
+                      <div className="aspect-square relative overflow-hidden rounded-lg border">
+                        <Image
+                          src={replaceMinioPort(
+                            item.media_url || item.url || ""
+                          )}
+                          alt={`Gallery item ${index + 1}`}
+                          fill
+                          className="object-cover transition-transform group-hover:scale-105"
+                        />
+                        {item.is_featured && (
+                          <Badge className="absolute top-2 right-2 text-xs">
+                            Featured
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {venue.gallery.length > 4 && (
+                  <div className="mt-4 text-center">
+                    <Link href={`/dashboard/venues/${id}/gallery`}>
+                      <Button variant="outline">
+                        View All {venue.gallery.length} Images
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -272,6 +388,10 @@ export default function VenueDetailPage() {
                 <span className="font-medium">{venue.pois?.length || 0}</span>
               </div>
               <div className="flex justify-between text-sm">
+                <span>Cover Image:</span>
+                <span className="font-medium">{coverImage ? "Yes" : "No"}</span>
+              </div>
+              <div className="flex justify-between text-sm">
                 <span>Visibility:</span>
                 <Badge
                   variant={
@@ -281,6 +401,18 @@ export default function VenueDetailPage() {
                 >
                   {venue.visibility}
                 </Badge>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Created:</span>
+                <span className="font-medium text-xs">
+                  {new Date(venue.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Last Updated:</span>
+                <span className="font-medium text-xs">
+                  {new Date(venue.updated_at).toLocaleDateString()}
+                </span>
               </div>
             </CardContent>
           </Card>

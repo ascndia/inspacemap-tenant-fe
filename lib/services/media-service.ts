@@ -7,6 +7,7 @@ import type {
   MediaListResponse,
 } from "@/types/media";
 import { mockMedia } from "@/lib/api";
+import { replaceMinioPort } from "@/lib/utils";
 
 export const mediaService = {
   /**
@@ -94,10 +95,10 @@ export const mediaService = {
                 ? asset.SizeInBytes
                 : 0,
             category: asset.Type || "panorama",
-            url: asset.PublicURL?.replace("localhost:9000", "localhost:9002"),
+            url: replaceMinioPort(asset.PublicURL),
             thumbnail_url:
-              asset.ThumbnailURL?.replace("localhost:9000", "localhost:9002") ||
-              asset.PublicURL?.replace("localhost:9000", "localhost:9002"),
+              replaceMinioPort(asset.ThumbnailURL) ||
+              replaceMinioPort(asset.PublicURL),
             width: asset.Width || 0,
             height: asset.Height || 0,
             uploaded_at: asset.UploadedAt || new Date().toISOString(),
@@ -201,7 +202,7 @@ export const mediaService = {
         // Fix MinIO URL for frontend access (replace internal hostname with external)
         let uploadUrl = initData.upload_url;
         if (uploadUrl.includes("minio_dev:9000")) {
-          uploadUrl = uploadUrl.replace("minio_dev:9000", "localhost:9002");
+          uploadUrl = replaceMinioPort(uploadUrl);
           console.log("Fixed MinIO URL for frontend:", uploadUrl);
         }
 
@@ -278,16 +279,10 @@ export const mediaService = {
 
         // Fix URLs in the returned media item
         if (mediaItem.url?.includes("minio_dev:9000")) {
-          mediaItem.url = mediaItem.url.replace(
-            "minio_dev:9000",
-            "localhost:9002"
-          );
+          mediaItem.url = replaceMinioPort(mediaItem.url);
         }
         if (mediaItem.thumbnail_url?.includes("minio_dev:9000")) {
-          mediaItem.thumbnail_url = mediaItem.thumbnail_url.replace(
-            "minio_dev:9000",
-            "localhost:9002"
-          );
+          mediaItem.thumbnail_url = replaceMinioPort(mediaItem.thumbnail_url);
         }
 
         return mediaItem;

@@ -16,6 +16,8 @@ export interface VenueDetail {
   full_address: string;
   coordinates: VenueCoordinates;
   visibility: "public" | "private" | "unlisted";
+  cover_image_id?: string;
+  cover_image_url?: string;
   gallery: VenueGalleryItem[] | null;
   pois: any[] | null; // POI structure not specified yet
   created_at: string;
@@ -101,8 +103,16 @@ export interface CreateVenueResponse {
   error?: string;
 }
 
-export interface VenueDetailResponse {
-  success: boolean;
-  data?: VenueDetail;
-  error?: string;
+export interface UpdateVenueRequest {
+  name?: string;
+  slug?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  postal_code?: string;
+  coordinates?: VenueCoordinates;
+  visibility?: "public" | "private" | "unlisted";
+  cover_image_id?: string | null;
+  gallery?: VenueGalleryItem[];
 }

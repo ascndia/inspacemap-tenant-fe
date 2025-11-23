@@ -72,59 +72,12 @@ export function MediaGrid({
     }
   };
 
-  // Filter and sort media
+  // Filter and sort media (only sort, filtering and search are done on backend)
   const filteredAndSortedMedia = useMemo(() => {
     let filtered = media.filter((item) => {
       // Skip invalid items
       if (!item || !item.id || !item.file_name || !item.file_type) {
         return false;
-      }
-
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        if (
-          !item.file_name.toLowerCase().includes(query) &&
-          !item.name?.toLowerCase().includes(query)
-        ) {
-          return false;
-        }
-      }
-
-      // Type/Category filter
-      if (filters.type !== "all" && item.category !== filters.type) {
-        return false;
-      }
-
-      // Date filter
-      if (filters.date !== "all") {
-        const itemDate = new Date(item.uploaded_at);
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - itemDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        switch (filters.date) {
-          case "7days":
-            if (diffDays > 7) return false;
-            break;
-          case "30days":
-            if (diffDays > 30) return false;
-            break;
-          case "90days":
-            if (diffDays > 90) return false;
-            break;
-          case "year":
-            if (diffDays > 365) return false;
-            break;
-        }
-      }
-
-      // Tags filter
-      if (filters.tags.length > 0 && item.tags) {
-        const hasMatchingTag = filters.tags.some((tag) =>
-          item.tags?.includes(tag)
-        );
-        if (!hasMatchingTag) return false;
       }
 
       return true;
@@ -152,7 +105,7 @@ export function MediaGrid({
     });
 
     return filtered;
-  }, [searchQuery, filters, sortBy, media]);
+  }, [sortBy, media]);
 
   return (
     <>

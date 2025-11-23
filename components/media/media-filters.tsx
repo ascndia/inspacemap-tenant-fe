@@ -14,11 +14,16 @@ interface MediaFiltersProps {
     tags: string[];
   };
   onFilterChange: (filterType: string, value: string | string[]) => void;
+  mediaCounts?: {
+    images: number;
+    videos: number;
+  };
 }
 
 export function MediaFilters({
   selectedFilters,
   onFilterChange,
+  mediaCounts = { images: 0, videos: 0 },
 }: MediaFiltersProps) {
   const availableTags = [
     "#venue",
@@ -60,7 +65,7 @@ export function MediaFilters({
               <ImageIcon className="mr-2 h-4 w-4" />
               Images
               <Badge variant="secondary" className="ml-auto text-xs">
-                12
+                {mediaCounts.images}
               </Badge>
             </Button>
             <Button
@@ -71,7 +76,7 @@ export function MediaFilters({
               <Video className="mr-2 h-4 w-4" />
               Videos
               <Badge variant="secondary" className="ml-auto text-xs">
-                3
+                {mediaCounts.videos}
               </Badge>
             </Button>
           </div>

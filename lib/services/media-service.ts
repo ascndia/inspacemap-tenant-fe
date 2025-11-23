@@ -34,6 +34,9 @@ export const mediaService = {
     page?: number;
     limit?: number;
     category?: string;
+    type?: string;
+    mime_type?: string;
+    uploaded_after?: string;
     search?: string;
     venue_id?: string;
     floor_id?: string;

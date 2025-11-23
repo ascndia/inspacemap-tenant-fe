@@ -52,9 +52,42 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [mediaCounts, setMediaCounts] = useState({ images: 0, videos: 0 });
   const itemsPerPage = 50;
 
   const { user, token } = useAuthStore();
+
+  const getDateFilter = (dateFilter: string): string => {
+    const now = new Date();
+    switch (dateFilter) {
+      case "7days":
+        now.setDate(now.getDate() - 7);
+        break;
+      case "30days":
+        now.setDate(now.getDate() - 30);
+        break;
+      case "90days":
+        now.setDate(now.getDate() - 90);
+        break;
+      case "year":
+        now.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        return "";
+    }
+    return now.toISOString();
+  };
+
+  const getMimeTypeFilter = (typeFilter: string): string => {
+    switch (typeFilter) {
+      case "image":
+        return "image/%";
+      case "video":
+        return "video/%";
+      default:
+        return "";
+    }
+  };
 
   // Load media on component mount and when page changes
   useEffect(() => {
@@ -76,15 +109,33 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
         setLoading(true);
         setError(null);
         console.log(
-          "MediaLibrary: Calling mediaService.getMedia() with pagination",
+          "MediaLibrary: Calling mediaService.getMedia() with pagination and filters",
           {
             page: currentPage,
             limit: itemsPerPage,
+            mime_type:
+              selectedFilters.type !== "all"
+                ? getMimeTypeFilter(selectedFilters.type)
+                : undefined,
+            uploaded_after:
+              selectedFilters.date !== "all"
+                ? getDateFilter(selectedFilters.date)
+                : undefined,
+            search: searchQuery || undefined,
           }
         );
         const response = await mediaService.getMedia({
           page: currentPage,
           limit: itemsPerPage,
+          mime_type:
+            selectedFilters.type !== "all"
+              ? getMimeTypeFilter(selectedFilters.type)
+              : undefined,
+          uploaded_after:
+            selectedFilters.date !== "all"
+              ? getDateFilter(selectedFilters.date)
+              : undefined,
+          search: searchQuery || undefined,
         });
         console.log("MediaLibrary: API call successful", response);
 
@@ -92,6 +143,15 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
           setMedia(response.data);
           setTotalPages(response.pagination?.total_pages || 1);
           setTotalItems(response.pagination?.total || response.data.length);
+
+          // Calculate media counts from current data (this is approximate since we only have current page data)
+          const images = response.data.filter((item) =>
+            item.file_type?.startsWith("image/")
+          ).length;
+          const videos = response.data.filter((item) =>
+            item.file_type?.startsWith("video/")
+          ).length;
+          setMediaCounts({ images, videos });
         } else {
           // Fallback to mock data
           setMedia(mockMedia.data);
@@ -112,7 +172,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
     };
 
     loadMedia();
-  }, [user, token, currentPage]);
+  }, [user, token, currentPage, selectedFilters, searchQuery]);
 
   const handleUploadSuccess = (uploadedItems: MediaItem[]) => {
     setMedia((prev) => [...uploadedItems, ...prev]);
@@ -252,6 +312,7 @@ export function MediaLibrary({ mode = "manage", onSelect }: MediaLibraryProps) {
               <MediaFilters
                 selectedFilters={selectedFilters}
                 onFilterChange={handleFilterChange}
+                mediaCounts={mediaCounts}
               />
 
               {/* Active Filters */}

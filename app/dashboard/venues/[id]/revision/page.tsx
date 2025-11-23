@@ -418,14 +418,16 @@ export default function VenueRevisionsPage({
                             <Edit className="mr-1 h-3 w-3" />
                             Edit Note
                           </Button>
-                          <Link
-                            href={`/dashboard/venues/${venueId}/revision/${revision.id}/editor`}
-                          >
-                            <Button variant="outline" size="sm">
-                              <Eye className="mr-1 h-3 w-3" />
-                              Open Editor
-                            </Button>
-                          </Link>
+                          {revision.isDraft && (
+                            <Link
+                              href={`/dashboard/venues/${venueId}/revision/${revision.id}/editor`}
+                            >
+                              <Button variant="outline" size="sm">
+                                <Eye className="mr-1 h-3 w-3" />
+                                Open Editor
+                              </Button>
+                            </Link>
+                          )}
                           {revision.isDraft && (
                             <Button
                               variant="outline"

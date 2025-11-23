@@ -63,6 +63,9 @@ export default function RevisionEditorPage({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showEditRevisionDialog, setShowEditRevisionDialog] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [publishNote, setPublishNote] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Load revision and venue data
   useEffect(() => {
@@ -189,6 +192,75 @@ export default function RevisionEditorPage({
         description: "Failed to publish revision",
         variant: "destructive",
       });
+    }
+  };
+
+  // Enhanced publish function with validation and note
+  const handlePublishWithValidation = async () => {
+    if (!revision || !venue) return;
+
+    // Validation: Check if there are floors with nodes
+    const hasValidFloors = revision.floors && revision.floors.length > 0;
+    const hasNodes =
+      hasValidFloors &&
+      revision.floors.some((floor) => {
+        // For now, we can't check nodes from revision data, so we'll assume it's valid
+        // In a real implementation, you'd check the graph data
+        return true; // TODO: Implement proper node validation
+      });
+
+    if (!hasValidFloors) {
+      toast({
+        title: "Cannot Publish",
+        description: "Revision must have at least one floor defined",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!hasNodes) {
+      toast({
+        title: "Cannot Publish",
+        description: "Revision must have navigation nodes defined",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setShowPublishDialog(true);
+  };
+
+  const handleConfirmPublish = async () => {
+    if (!revision || !venue) return;
+
+    setIsPublishing(true);
+    try {
+      // Call publish API with note
+      await GraphRevisionService.publishRevision(id, publishNote || undefined);
+
+      toast({
+        title: "Success",
+        description:
+          "Revision published successfully! A new draft has been created for future edits.",
+      });
+
+      // Close dialog and redirect to revisions page
+      setShowPublishDialog(false);
+      setPublishNote("");
+
+      // Redirect to revisions page after a short delay
+      setTimeout(() => {
+        window.location.href = `/dashboard/venues/${id}/revision`;
+      }, 1500);
+    } catch (err: any) {
+      console.error("Failed to publish revision:", err);
+      toast({
+        title: "Publish Failed",
+        description: err.message || "Failed to publish revision",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -390,7 +462,7 @@ export default function RevisionEditorPage({
             Share
           </Button>
           {revision?.status === "draft" && (
-            <Button variant="default" onClick={handlePublish}>
+            <Button variant="default" onClick={handlePublishWithValidation}>
               Publish Revision
             </Button>
           )}
@@ -480,6 +552,58 @@ export default function RevisionEditorPage({
               Cancel
             </Button>
             <Button onClick={handleSaveRevisionNote}>Save Note</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Publish Revision Dialog */}
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Publish Graph Changes</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              This will make the current draft live for all users. A new draft
+              will be created for future edits.
+            </p>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="publish-note">Release Notes (Optional)</Label>
+              <Textarea
+                id="publish-note"
+                value={publishNote}
+                onChange={(e) => setPublishNote(e.target.value)}
+                placeholder="Describe the changes in this version..."
+                rows={3}
+                maxLength={255}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {publishNote.length}/255 characters
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPublishDialog(false)}
+              disabled={isPublishing}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmPublish}
+              disabled={isPublishing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                "Publish Changes"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

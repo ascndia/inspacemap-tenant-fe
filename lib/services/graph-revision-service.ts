@@ -6,6 +6,7 @@ import {
   getRevisionDetail,
   deleteRevision,
   updateRevision,
+  publishRevision,
   getGraphData,
   createGraphNode,
   updateGraphNode,
@@ -155,9 +156,12 @@ export class GraphRevisionService {
   /**
    * Publish a draft revision (placeholder - backend implementation needed)
    */
-  static async publishRevision(venueId: string): Promise<string> {
+  static async publishRevision(
+    venueId: string,
+    note?: string
+  ): Promise<string> {
     try {
-      const response = await publishRevision(venueId);
+      const response = await publishRevision(venueId, note);
       if (!response.success) {
         throw new Error(response.error || "Failed to publish revision");
       }

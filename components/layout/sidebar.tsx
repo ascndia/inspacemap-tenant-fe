@@ -9,7 +9,6 @@ import {
   Building2,
   MapPin,
   ImageIcon,
-  Network,
   User,
   Settings,
   LogOut,
@@ -49,11 +48,6 @@ const sidebarItems = [
     title: "Media Library",
     href: "/dashboard/media",
     icon: ImageIcon,
-  },
-  {
-    title: "Graph Editor",
-    href: "/dashboard/graph-editor",
-    icon: Network,
   },
   {
     title: "Audit Log",

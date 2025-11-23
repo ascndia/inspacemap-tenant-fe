@@ -42,8 +42,21 @@ export function PropertiesPanel() {
     return graph.connections.find((c) => c.id === selectedConnectionId) || null;
   }, [graph, selectedConnectionId]);
 
+  const [rotationValue, setRotationValue] = useState(0);
+  const [headingValue, setHeadingValue] = useState(0);
+  const [fovValue, setFovValue] = useState(60);
+
   const [panoramaMedia, setPanoramaMedia] = useState<MediaItem[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+
+  // Sync local state with selected node
+  useEffect(() => {
+    if (selectedNode) {
+      setRotationValue(selectedNode.rotation);
+      setHeadingValue(selectedNode.heading);
+      setFovValue(selectedNode.fov);
+    }
+  }, [selectedNode]);
 
   // Calculate graph stats
   const graphStats = useMemo(() => {
@@ -330,11 +343,17 @@ export function PropertiesPanel() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Rotation: {selectedNode.rotation}°</Label>
+                  <Label>Rotation: {rotationValue}°</Label>
                   <Slider
-                    value={[selectedNode.rotation]}
-                    onValueChange={([value]) =>
-                      handleNodeUpdate("rotation", value)
+                    value={[rotationValue]}
+                    onValueChange={([value]) => {
+                      setRotationValue(value);
+                      graphStore.updateNode(selectedNode.id, {
+                        rotation: value,
+                      });
+                    }}
+                    onPointerUp={() =>
+                      handleNodeUpdate("rotation", rotationValue)
                     }
                     min={0}
                     max={360}
@@ -344,12 +363,15 @@ export function PropertiesPanel() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Heading: {selectedNode.heading}°</Label>
+                  <Label>Heading: {headingValue}°</Label>
                   <Slider
-                    value={[selectedNode.heading]}
-                    onValueChange={([value]) =>
-                      handleNodeUpdate("heading", value)
-                    }
+                    value={[headingValue]}
+                    onValueChange={([value]) => {
+                      setHeadingValue(value);
+                      graphStore.updateNode(selectedNode.id, {
+                        heading: value,
+                      });
+                    }}
                     min={0}
                     max={360}
                     step={1}
@@ -358,10 +380,13 @@ export function PropertiesPanel() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>FOV: {selectedNode.fov}°</Label>
+                  <Label>FOV: {fovValue}°</Label>
                   <Slider
-                    value={[selectedNode.fov]}
-                    onValueChange={([value]) => handleNodeUpdate("fov", value)}
+                    value={[fovValue]}
+                    onValueChange={([value]) => {
+                      setFovValue(value);
+                      graphStore.updateNode(selectedNode.id, { fov: value });
+                    }}
                     min={30}
                     max={120}
                     step={1}

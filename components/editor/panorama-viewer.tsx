@@ -33,6 +33,8 @@ export default function PanoramaViewer({
     startY: 0,
     startRotation: 0,
     startPitch: 0,
+    initialRotation: 0,
+    initialPitch: 0,
   });
 
   // Use refs for current rotation/pitch values (for real-time rendering)
@@ -559,18 +561,17 @@ export default function PanoramaViewer({
     };
   }, []);
 
-  const handleMouseDown = useCallback(
-    (event: React.MouseEvent) => {
-      setIsDragging(true);
-      dragStateRef.current = {
-        startX: event.clientX,
-        startY: event.clientY,
-        startRotation: rotation,
-        startPitch: pitch,
-      };
-    },
-    [rotation, pitch]
-  );
+  const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    setIsDragging(true);
+    dragStateRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startRotation: currentRotationRef.current,
+      startPitch: currentPitchRef.current,
+      initialRotation: currentRotationRef.current,
+      initialPitch: currentPitchRef.current,
+    };
+  }, []);
 
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
@@ -615,10 +616,21 @@ export default function PanoramaViewer({
       animationFrameRef.current = null;
     }
 
-    // Don't set state here - refs are already updated during drag
-    // Just notify parent components of final values
-    onRotationChange(currentRotationRef.current);
-    onPitchChange(currentPitchRef.current);
+    // Only update node if rotation or pitch actually changed
+    const hasRotationChanged =
+      Math.abs(
+        currentRotationRef.current - dragStateRef.current.initialRotation
+      ) > 0.1;
+    const hasPitchChanged =
+      Math.abs(currentPitchRef.current - dragStateRef.current.initialPitch) >
+      0.1;
+
+    if (hasRotationChanged) {
+      onRotationChange(currentRotationRef.current);
+    }
+    if (hasPitchChanged) {
+      onPitchChange(currentPitchRef.current);
+    }
   }, [onRotationChange, onPitchChange]);
 
   const handleRotationChange = (newRotation: number) => {

@@ -56,9 +56,13 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="w-full lg:grid lg:min-h-[600px] lg:grid-cols-2 xl:min-h-[800px]">
+    <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
       <div className="flex items-center justify-center py-12">
-        <form onSubmit={handleSubmit} className="mx-auto grid w-[350px] gap-6">
+        <form
+          onSubmit={handleSubmit}
+          className="mx-auto grid w-[350px] gap-6"
+          suppressHydrationWarning={true}
+        >
           <div className="grid gap-2 text-center">
             <div className="flex justify-center mb-4">
               <div className="p-3 rounded-full bg-primary/10">

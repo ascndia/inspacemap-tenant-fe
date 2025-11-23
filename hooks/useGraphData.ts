@@ -315,6 +315,58 @@ export function useDeleteConnection() {
   });
 }
 
+// Update Floorplan Mutation
+export function useUpdateFloorplan() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      venueId,
+      revisionId,
+      floorId,
+      floorplanData,
+    }: {
+      venueId: string;
+      revisionId: string;
+      floorId: string;
+      floorplanData: {
+        map_image_id?: string;
+        pixels_per_meter?: number;
+        map_width?: number;
+        map_height?: number;
+      };
+    }) => {
+      const graphService = new GraphService(venueId, revisionId, floorId);
+      await graphService.updateFloorplan(floorplanData);
+      return floorplanData;
+    },
+    onSuccess: (floorplanData, variables) => {
+      // Update the cache directly instead of invalidating
+      queryClient.setQueryData(
+        graphKeys.floor(
+          variables.venueId,
+          variables.revisionId,
+          variables.floorId
+        ),
+        (oldData: GraphData | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            floorplan: oldData.floorplan
+              ? {
+                  ...oldData.floorplan,
+                  ...floorplanData,
+                  updatedAt: new Date(),
+                }
+              : undefined,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      );
+    },
+  });
+}
+
 // Auto-save Hook
 export function useAutoSave(
   venueId: string,

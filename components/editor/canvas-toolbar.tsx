@@ -13,6 +13,7 @@ import {
   Link,
   Eye,
   Edit,
+  Grid3X3,
 } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
 
@@ -29,6 +30,7 @@ interface CanvasToolbarProps {
   onUndo: () => void;
   onRedo: () => void;
   onTogglePanoramaViewer?: () => void;
+  onToggleGrid?: () => void;
 }
 
 export function CanvasToolbar({
@@ -44,6 +46,7 @@ export function CanvasToolbar({
   onUndo,
   onRedo,
   onTogglePanoramaViewer,
+  onToggleGrid,
 }: CanvasToolbarProps) {
   const { showPanoramaViewer, graph } = useGraphStore();
   return (
@@ -104,6 +107,15 @@ export function CanvasToolbar({
       </Button>
 
       <div className="h-6 w-px bg-border mx-2" />
+
+      <Button
+        variant={graph?.settings?.showGrid ? "default" : "ghost"}
+        size="sm"
+        title="Toggle Grid"
+        onClick={onToggleGrid}
+      >
+        <Grid3X3 className="h-4 w-4" />
+      </Button>
 
       <MediaPicker
         onSelect={onFloorplanSelect}

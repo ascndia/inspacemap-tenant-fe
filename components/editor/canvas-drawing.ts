@@ -139,17 +139,20 @@ function drawGrid(
   ctx.strokeStyle = "#e0e0e0";
   ctx.lineWidth = 1 / zoom;
 
-  for (let x = -500; x <= 500; x += gridSize) {
+  // Draw more grid lines for better coverage
+  const gridRange = 2000; // Increased from 500 to 2000
+
+  for (let x = -gridRange; x <= gridRange; x += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(x, -500);
-    ctx.lineTo(x, 500);
+    ctx.moveTo(x, -gridRange);
+    ctx.lineTo(x, gridRange);
     ctx.stroke();
   }
 
-  for (let y = -500; y <= 500; y += gridSize) {
+  for (let y = -gridRange; y <= gridRange; y += gridSize) {
     ctx.beginPath();
-    ctx.moveTo(-500, y);
-    ctx.lineTo(500, y);
+    ctx.moveTo(-gridRange, y);
+    ctx.lineTo(gridRange, y);
     ctx.stroke();
   }
 }

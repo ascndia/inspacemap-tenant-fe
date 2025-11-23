@@ -142,6 +142,19 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     setCanvasPanOffset({ x: 0, y: 0 });
   }, []);
 
+  const handleToggleGrid = useCallback(() => {
+    if (graph) {
+      const updatedGraph = {
+        ...graph,
+        settings: {
+          ...graph.settings,
+          showGrid: !graph.settings.showGrid,
+        },
+      };
+      graphStore.setGraph(updatedGraph);
+    }
+  }, [graph, graphStore]);
+
   const handleCanvasClick = useCallback(
     (x: number, y: number) => {
       if (tool === "add-node") {
@@ -223,15 +236,92 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
     [updateNode, isDraggingNode]
   );
 
-  const handleFloorplanSelect = useCallback((media: any) => {
-    // TODO: Implement floorplan selection in Zustand store
-    console.log("Floorplan selection not yet implemented");
-  }, []);
+  const handleFloorplanSelect = useCallback(
+    async (media: any) => {
+      if (!graphProvider.updateFloorplan) return;
 
-  const handleFloorplanUpdate = useCallback(async (media: any) => {
-    // TODO: Implement floorplan update in Zustand store
-    console.log("Floorplan update not yet implemented");
-  }, []);
+      try {
+        // Update floorplan with selected media
+        await graphProvider.updateFloorplan({
+          map_image_id: media.asset_id,
+          // You might want to add width/height from media if available
+          map_width: media.width || 1000,
+          map_height: media.height || 1000,
+        });
+
+        // Update the graph store to reflect the new floorplan
+        if (graph) {
+          const updatedGraph = {
+            ...graph,
+            floorplan: {
+              id: `floorplan-${graph.floorId}`,
+              venueId: graph.venueId,
+              floorId: graph.floorId,
+              name: `Floorplan for ${graph.floorId}`,
+              fileUrl: media.url,
+              scale: 1,
+              bounds: {
+                width: media.width || 1000,
+                height: media.height || 1000,
+                minX: -(media.width || 1000) / 2,
+                minY: -(media.height || 1000) / 2,
+                maxX: (media.width || 1000) / 2,
+                maxY: (media.height || 1000) / 2,
+              },
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          };
+          graphStore.setGraph(updatedGraph);
+        }
+      } catch (error) {
+        console.error("Failed to update floorplan:", error);
+      }
+    },
+    [graphProvider, graph, graphStore]
+  );
+
+  const handleFloorplanUpdate = useCallback(
+    async (media: any) => {
+      if (!graphProvider.updateFloorplan) return;
+
+      try {
+        // Update floorplan with selected media
+        await graphProvider.updateFloorplan({
+          map_image_id: media.asset_id,
+          // You might want to add width/height from media if available
+          map_width: media.width || 1000,
+          map_height: media.height || 1000,
+        });
+
+        // Update the graph store to reflect the updated floorplan
+        if (graph?.floorplan) {
+          const updatedFloorplan = {
+            ...graph.floorplan,
+            fileUrl: media.url,
+            bounds: {
+              width: media.width || 1000,
+              height: media.height || 1000,
+              minX: -(media.width || 1000) / 2,
+              minY: -(media.height || 1000) / 2,
+              maxX: (media.width || 1000) / 2,
+              maxY: (media.height || 1000) / 2,
+            },
+            updatedAt: new Date(),
+          };
+
+          const updatedGraph = {
+            ...graph,
+            floorplan: updatedFloorplan,
+          };
+          graphStore.setGraph(updatedGraph);
+        }
+      } catch (error) {
+        console.error("Failed to update floorplan:", error);
+      }
+    },
+    [graphProvider, graph, graphStore]
+  );
 
   const selectedNode = graph?.nodes.find((n) => n.id === selectedNodeId);
 
@@ -272,6 +362,7 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
             onUndo={() => {}} // TODO: Implement undo/redo in Zustand store
             onRedo={() => {}} // TODO: Implement undo/redo in Zustand store
             onTogglePanoramaViewer={togglePanoramaViewer}
+            onToggleGrid={handleToggleGrid}
           />
 
           {/* Canvas */}

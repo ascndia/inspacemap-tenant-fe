@@ -9,6 +9,7 @@ import {
   useDeleteNode,
   useAddConnection,
   useDeleteConnection,
+  useUpdateFloorplan,
 } from "@/hooks/useGraphData";
 import { useGraphStore } from "../stores/graph-store";
 import { GraphNode, Vector3, GraphData } from "@/types/graph";
@@ -100,6 +101,7 @@ export function useGraph() {
   const deleteNodeMutation = useDeleteNode();
   const addConnectionMutation = useAddConnection();
   const deleteConnectionMutation = useDeleteConnection();
+  const updateFloorplanMutation = useUpdateFloorplan();
 
   return {
     // State from Zustand store
@@ -168,6 +170,24 @@ export function useGraph() {
           revisionId: revisionId || "",
           floorId: floorId || "",
           connectionId,
+        });
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    updateFloorplan: async (floorplanData: {
+      map_image_id?: string;
+      pixels_per_meter?: number;
+      map_width?: number;
+      map_height?: number;
+    }) => {
+      try {
+        await updateFloorplanMutation.mutateAsync({
+          venueId: venueId || "",
+          revisionId: revisionId || "",
+          floorId: floorId || "",
+          floorplanData,
         });
       } catch (error) {
         throw error;

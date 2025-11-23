@@ -162,8 +162,17 @@ export function PropertiesPanel() {
   };
 
   const handleSettingsUpdate = (field: string, value: any) => {
-    // TODO: Implement settings update in Zustand store
-    console.log("Settings update not implemented yet:", field, value);
+    if (!graph) return;
+
+    const updatedGraph = {
+      ...graph,
+      settings: {
+        ...graph.settings,
+        [field]: value,
+      },
+    };
+
+    graphStore.setGraph(updatedGraph);
   };
 
   const autoLayout = () => {

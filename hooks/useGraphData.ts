@@ -88,6 +88,7 @@ export function useUpdateNode() {
         ),
         (oldData: GraphData | undefined) => {
           if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
           return {
             ...oldData,
             nodes: oldData.nodes.map((node) =>
@@ -95,6 +96,7 @@ export function useUpdateNode() {
                 ? { ...node, ...variables.updates }
                 : node
             ),
+            settings: currentGraph?.settings || oldData.settings,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -135,9 +137,11 @@ export function useAddNode() {
         ),
         (oldData: GraphData | undefined) => {
           if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
           return {
             ...oldData,
             nodes: [...oldData.nodes, newNode],
+            settings: currentGraph?.settings || oldData.settings,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -176,6 +180,7 @@ export function useDeleteNode() {
         ),
         (oldData: GraphData | undefined) => {
           if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
           return {
             ...oldData,
             nodes: oldData.nodes.filter((node) => node.id !== deletedNodeId),
@@ -184,6 +189,7 @@ export function useDeleteNode() {
                 conn.fromNodeId !== deletedNodeId &&
                 conn.toNodeId !== deletedNodeId
             ),
+            settings: currentGraph?.settings || oldData.settings,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -227,6 +233,7 @@ export function useAddConnection() {
         ),
         (oldData: GraphData | undefined) => {
           if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
           return {
             ...oldData,
             connections: [...oldData.connections, newConnection],
@@ -243,6 +250,7 @@ export function useAddConnection() {
               }
               return node;
             }),
+            settings: currentGraph?.settings || oldData.settings,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -283,6 +291,7 @@ export function useDeleteConnection() {
         ),
         (oldData: GraphData | undefined) => {
           if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
           const deletedConnection = oldData.connections.find(
             (c) => c.id === deletedConnectionId
           );
@@ -307,6 +316,7 @@ export function useDeleteConnection() {
               }
               return node;
             }),
+            settings: currentGraph?.settings || oldData.settings,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -350,6 +360,7 @@ export function useUpdateFloorplan() {
         ),
         (oldData: GraphData | undefined) => {
           if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
           return {
             ...oldData,
             floorplan: oldData.floorplan
@@ -359,6 +370,7 @@ export function useUpdateFloorplan() {
                   updatedAt: new Date(),
                 }
               : undefined,
+            settings: currentGraph?.settings || oldData.settings,
             updatedAt: new Date().toISOString(),
           };
         }

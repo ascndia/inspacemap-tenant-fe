@@ -25,7 +25,7 @@ export class GraphService {
    */
   async loadGraph(): Promise<GraphData> {
     try {
-      const response = await GraphRevisionService.getGraphData(this.venueId);
+      const response = await GraphRevisionService.getGraphData(this.revisionId);
 
       // Find the specific floor data
       const floorData = response.floors?.find(
@@ -178,7 +178,6 @@ export class GraphService {
       console.log("Creating node with data:", apiNodeData); // Debug log
 
       const createdNode = await GraphRevisionService.createNode(
-        this.revisionId,
         this.floorId,
         apiNodeData
       );
@@ -268,12 +267,7 @@ export class GraphService {
       console.log("Original updates:", updates); // Debug log
       console.log("Node updates after filtering:", nodeUpdates); // Debug log
 
-      await GraphRevisionService.updateNode(
-        this.revisionId,
-        this.floorId,
-        nodeId,
-        apiUpdates
-      );
+      await GraphRevisionService.updateNode(this.floorId, nodeId, apiUpdates);
     } catch (error) {
       console.error("Failed to update node:", error);
       throw error;
@@ -285,11 +279,7 @@ export class GraphService {
    */
   async deleteNode(nodeId: string): Promise<void> {
     try {
-      await GraphRevisionService.deleteNode(
-        this.revisionId,
-        this.floorId,
-        nodeId
-      );
+      await GraphRevisionService.deleteNode(this.floorId, nodeId);
     } catch (error) {
       console.error("Failed to delete node:", error);
       throw error;
@@ -311,7 +301,6 @@ export class GraphService {
       };
 
       const createdConnection = await GraphRevisionService.createConnection(
-        this.revisionId,
         this.floorId,
         connectionData
       );

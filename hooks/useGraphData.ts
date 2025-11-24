@@ -275,10 +275,28 @@ export function useDeleteConnection() {
       floorId: string;
       connectionId: string;
     }) => {
-      // Note: This needs to be implemented in GraphService
-      // For now, we'll use the GraphRevisionService directly
-      const graphService = new GraphService(venueId, revisionId, floorId);
-      // await graphService.deleteConnection(connectionId);
+      // Get the current graph data to find the connection
+      const graphData = queryClient.getQueryData(
+        graphKeys.floor(venueId, revisionId, floorId)
+      ) as GraphData | undefined;
+
+      if (!graphData) {
+        throw new Error("Graph data not found");
+      }
+
+      const connection = graphData.connections.find(
+        (c) => c.id === connectionId
+      );
+      if (!connection) {
+        throw new Error("Connection not found");
+      }
+
+      // Use GraphRevisionService to delete the connection
+      await GraphRevisionService.deleteConnection(
+        connection.fromNodeId,
+        connection.toNodeId
+      );
+
       return connectionId;
     },
     onSuccess: (deletedConnectionId, variables) => {

@@ -416,13 +416,12 @@ export const deleteRevision = async (
 // };
 
 // Graph API functions
-export const getGraphData = async (venueId: string): Promise<any> => {
-  const response = await api.get(`/editor/${venueId}`);
+export const getGraphData = async (revisionId: string): Promise<any> => {
+  const response = await api.get(`/editor/${revisionId}`);
   return response.data;
 };
 
 export const createGraphNode = async (
-  revisionId: string,
   floorId: string,
   nodeData: any
 ): Promise<any> => {
@@ -434,12 +433,13 @@ export const createGraphNode = async (
 };
 
 export const updateGraphNode = async (
-  revisionId: string,
   floorId: string,
   nodeId: string,
   nodeData: any
 ): Promise<{ success: boolean; data: string }> => {
-  const response = await api.put(`/editor/nodes/${nodeId}`, nodeData);
+  const response = await api.put(`/editor/nodes/${nodeId}`, {
+    ...nodeData,
+  });
   return response.data;
 };
 
@@ -488,7 +488,6 @@ export const calibrateNode = async (
 };
 
 export const deleteGraphNode = async (
-  revisionId: string,
   floorId: string,
   nodeId: string
 ): Promise<any> => {
@@ -497,11 +496,12 @@ export const deleteGraphNode = async (
 };
 
 export const createGraphConnection = async (
-  revisionId: string,
   floorId: string,
   connectionData: any
 ): Promise<any> => {
-  const response = await api.post(`/editor/connections`, connectionData);
+  const response = await api.post(`/editor/connections`, {
+    ...connectionData,
+  });
   return response.data;
 };
 
@@ -510,7 +510,10 @@ export const deleteGraphConnection = async (
   toNodeId: string
 ): Promise<any> => {
   const response = await api.delete(`/editor/connections`, {
-    params: { from_node_id: fromNodeId, to_node_id: toNodeId },
+    params: {
+      from_node_id: fromNodeId,
+      to_node_id: toNodeId,
+    },
   });
   return response.data;
 };
@@ -524,12 +527,10 @@ export const updateFloor = async (
 };
 
 export const createFloor = async (
-  venueId: string,
+  revisionId: string,
   floorData: any
 ): Promise<any> => {
-  const response = await api.post(`/editor/floors`, floorData, {
-    params: { venue_id: venueId },
-  });
+  const response = await api.post(`/editor/${revisionId}/floors`, floorData);
   return response.data;
 };
 
@@ -538,8 +539,8 @@ export const deleteFloor = async (floorId: string): Promise<any> => {
   return response.data;
 };
 
-export const getFloors = async (venueId: string): Promise<any> => {
-  const response = await api.get(`/editor/${venueId}/floors`);
+export const getFloors = async (revisionId: string): Promise<any> => {
+  const response = await api.get(`/editor/${revisionId}/floors`);
   return response.data;
 };
 

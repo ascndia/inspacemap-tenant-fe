@@ -19,14 +19,14 @@ import { toast } from "sonner";
 interface CreateFloorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  venueId: string;
+  revisionId: string;
   onFloorCreated: () => void;
 }
 
 export function CreateFloorDialog({
   open,
   onOpenChange,
-  venueId,
+  revisionId,
   onFloorCreated,
 }: CreateFloorDialogProps) {
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,7 @@ export function CreateFloorDialog({
 
     setLoading(true);
     try {
-      await GraphRevisionService.createFloor(venueId, {
+      await GraphRevisionService.createFloor(revisionId, {
         name: formData.name,
         level_index: formData.level_index,
         map_image_id: formData.map_image_id || undefined,

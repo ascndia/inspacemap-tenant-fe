@@ -61,7 +61,6 @@ export default function RevisionEditorPage({
   const [graphData, setGraphData] = useState<any>(null);
   const [floorId, setFloorId] = useState<string>("");
   const [showCreateFloorDialog, setShowCreateFloorDialog] = useState(false);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [showEditRevisionDialog, setShowEditRevisionDialog] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
   const [showPublishDialog, setShowPublishDialog] = useState(false);
@@ -91,7 +90,10 @@ export default function RevisionEditorPage({
         setRevisionNote(revisionData.note || "");
 
         // Load graph data for the venue
-        const graphResponse = await GraphRevisionService.getGraphData(id);
+        const graphResponse = await GraphRevisionService.getGraphData(
+          revisionId
+        );
+        console.log("Graph response:", graphResponse);
         setGraphData(graphResponse);
 
         // Set active floor to the first floor if available
@@ -151,50 +153,6 @@ export default function RevisionEditorPage({
     }
     return <Badge variant="outline">Archived</Badge>;
   };
-
-  const handleSave = async () => {
-    if (!revision) return;
-
-    try {
-      // The graph context will handle saving to the backend
-      // We can also save revision metadata if needed
-      toast({
-        title: "Success",
-        description: "Revision saved successfully",
-      });
-    } catch (err) {
-      console.error("Failed to save revision:", err);
-      toast({
-        title: "Error",
-        description: "Failed to save revision",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // const handlePublish = async () => {
-  //   if (!revision) return;
-
-  //   try {
-  //     await GraphRevisionService.publishRevision(id); // Use venueId instead of revisionId
-  //     toast({
-  //       title: "Success",
-  //       description: "Revision published successfully",
-  //     });
-  //     // Reload revision to update status
-  //     const updatedRevision = await GraphRevisionService.getRevisionDetail(
-  //       revisionId
-  //     );
-  //     setRevision(updatedRevision);
-  //   } catch (err) {
-  //     console.error("Failed to publish revision:", err);
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to publish revision",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
 
   // Enhanced publish function with validation and note
   const handlePublishWithValidation = async () => {
@@ -448,12 +406,9 @@ export default function RevisionEditorPage({
               </Button>
             </Link>
             <div className="flex items-center gap-2">
-              <GitBranch className="h-5 w-5 text-muted-foreground" />
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-semibold md:text-2xl">
-                    {venue.name} - {revision?.note || "Revision"}
-                  </h1>
+                  <h1 className="font-semibold">{venue.name}</h1>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -502,18 +457,7 @@ export default function RevisionEditorPage({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline">
-              <Upload className="mr-2 h-4 w-4" />
-              Load Floorplan
-            </Button>
-            <Button
-              variant={isPreviewMode ? "default" : "outline"}
-              onClick={() => setIsPreviewMode(!isPreviewMode)}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              {isPreviewMode ? "Edit Mode" : "Preview 3D"}
-            </Button>
-            <Button variant="outline">
+            <Button disabled variant="outline">
               <Share2 className="mr-2 h-4 w-4" />
               Share
             </Button>
@@ -522,10 +466,6 @@ export default function RevisionEditorPage({
                 Publish Revision
               </Button>
             )}
-            <Button onClick={handleSave}>
-              <Save className="mr-2 h-4 w-4" />
-              Save Revision
-            </Button>
           </div>
         </div>
 
@@ -575,7 +515,7 @@ export default function RevisionEditorPage({
         <CreateFloorDialog
           open={showCreateFloorDialog}
           onOpenChange={setShowCreateFloorDialog}
-          venueId={id}
+          revisionId={revisionId}
           onFloorCreated={handleFloorCreated}
         />
 

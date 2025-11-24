@@ -43,7 +43,7 @@ export const mediaService = {
     floor_id?: string;
   }): Promise<MediaListResponse> => {
     try {
-      console.log("Fetching media from backend...");
+      // console.log("Fetching media from backend...");
       // Convert page-based pagination to offset-based pagination for backend
       const backendParams = {
         ...params,
@@ -52,35 +52,35 @@ export const mediaService = {
       // Remove page from params since backend uses offset
       delete backendParams.page;
 
-      console.log("Backend params (converted to offset):", backendParams);
-      console.log("Making API call to /media with params:", backendParams);
+      // console.log("Backend params (converted to offset):", backendParams);
+      // console.log("Making API call to /media with params:", backendParams);
       const response = await api.get("/media", { params: backendParams });
-      console.log("Raw backend response:", response);
-      console.log("Backend response status:", response.status);
-      console.log("Backend response data:", response.data);
+      // console.log("Raw backend response:", response);
+      // console.log("Backend response status:", response.status);
+      // console.log("Backend response data:", response.data);
 
       // Handle backend response structure: { success: true, data: { assets: [...], total: number } }
-      console.log(
-        "Checking response.data.data.assets:",
-        response.data?.data?.assets
-      );
-      console.log(
-        "Is assets an array?",
-        Array.isArray(response.data?.data?.assets)
-      );
-      console.log("Full response.data.data:", response.data?.data);
-      console.log("Total from backend:", response.data?.data?.total);
-      console.log("Assets length:", response.data?.data?.assets?.length);
+      // console.log(
+      //   "Checking response.data.data.assets:",
+      //   response.data?.data?.assets
+      // );
+      // console.log(
+      //   "Is assets an array?",
+      //   Array.isArray(response.data?.data?.assets)
+      // );
+      // console.log("Full response.data.data:", response.data?.data);
+      // console.log("Total from backend:", response.data?.data?.total);
+      // console.log("Assets length:", response.data?.data?.assets?.length);
 
       if (
         response.data?.data?.assets &&
         Array.isArray(response.data.data.assets)
       ) {
-        console.log(
-          "Processing media array with",
-          response.data.data.assets.length,
-          "items"
-        );
+        // console.log(
+        //   "Processing media array with",
+        //   response.data.data.assets.length,
+        //   "items"
+        // );
 
         // Transform backend assets to frontend MediaItem format
         const transformedAssets = response.data.data.assets.map(
@@ -121,7 +121,7 @@ export const mediaService = {
           },
         };
 
-        console.log("Transformed to frontend format:", result);
+        // console.log("Transformed to frontend format:", result);
         return result;
       } else {
         console.warn(

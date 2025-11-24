@@ -182,15 +182,15 @@ export class GraphRevisionService {
   /**
    * Get graph data for a venue (all floors and their nodes/connections)
    */
-  static async getGraphData(venueId: string): Promise<any> {
+  static async getGraphData(revisionId: string): Promise<any> {
     try {
-      const response = await getGraphData(venueId);
+      const response = await getGraphData(revisionId);
       return response.data;
     } catch (error) {
       console.error("Failed to fetch graph data:", error);
       // Return empty graph as fallback
       return {
-        venue_id: venueId,
+        venue_id: "unknown",
         venue_name: "Unknown Venue",
         last_updated: new Date().toISOString(),
         start_node_id: "00000000-0000-0000-0000-000000000000",
@@ -202,13 +202,9 @@ export class GraphRevisionService {
   /**
    * Create a new node in the graph
    */
-  static async createNode(
-    revisionId: string,
-    floorId: string,
-    nodeData: any
-  ): Promise<any> {
+  static async createNode(floorId: string, nodeData: any): Promise<any> {
     try {
-      const response = await createGraphNode(revisionId, floorId, nodeData);
+      const response = await createGraphNode(floorId, nodeData);
       return response.data;
     } catch (error) {
       console.error("Failed to create node:", error);
@@ -220,14 +216,12 @@ export class GraphRevisionService {
    * Update an existing node in the graph
    */
   static async updateNode(
-    revisionId: string,
     floorId: string,
     nodeId: string,
     nodeData: any
   ): Promise<void> {
     try {
       console.log("GraphRevisionService.updateNode called with:", {
-        revisionId,
         floorId,
         nodeId,
         nodeData,
@@ -249,14 +243,9 @@ export class GraphRevisionService {
       } else {
         // General update - use the generic endpoint
         console.log("Using general update path with nodeData:", nodeData); // Debug log
-        const response = await updateGraphNode(
-          revisionId,
-          floorId,
-          nodeId,
-          nodeData
-        );
+        const response = await updateGraphNode(floorId, nodeId, nodeData);
         if (!response.success) {
-          throw new Error(response.error || "Failed to update node");
+          throw new Error("Failed to update node");
         }
       }
     } catch (error: any) {
@@ -284,13 +273,9 @@ export class GraphRevisionService {
   /**
    * Delete a node from the graph
    */
-  static async deleteNode(
-    revisionId: string,
-    floorId: string,
-    nodeId: string
-  ): Promise<any> {
+  static async deleteNode(floorId: string, nodeId: string): Promise<any> {
     try {
-      const response = await deleteGraphNode(revisionId, floorId, nodeId);
+      const response = await deleteGraphNode(floorId, nodeId);
       return response.data;
     } catch (error) {
       console.error("Failed to delete node:", error);
@@ -302,16 +287,11 @@ export class GraphRevisionService {
    * Create a new connection in the graph
    */
   static async createConnection(
-    revisionId: string,
     floorId: string,
     connectionData: any
   ): Promise<any> {
     try {
-      const response = await createGraphConnection(
-        revisionId,
-        floorId,
-        connectionData
-      );
+      const response = await createGraphConnection(floorId, connectionData);
       return response.data;
     } catch (error) {
       console.error("Failed to create connection:", error);
@@ -339,7 +319,7 @@ export class GraphRevisionService {
    * Create a new floor in a venue revision
    */
   static async createFloor(
-    venueId: string,
+    revisionId: string,
     floorData: {
       name: string;
       level_index: number;
@@ -350,7 +330,7 @@ export class GraphRevisionService {
     }
   ): Promise<any> {
     try {
-      const response = await createFloor(venueId, floorData);
+      const response = await createFloor(revisionId, floorData);
       return response.data;
     } catch (error) {
       console.error("Failed to create floor:", error);
@@ -398,9 +378,9 @@ export class GraphRevisionService {
   /**
    * Get all floors for a venue (without detailed node data)
    */
-  static async getFloors(venueId: string): Promise<any> {
+  static async getFloors(revisionId: string): Promise<any> {
     try {
-      const response = await getFloors(venueId);
+      const response = await getFloors(revisionId);
       return response.data;
     } catch (error) {
       console.error("Failed to fetch floors:", error);

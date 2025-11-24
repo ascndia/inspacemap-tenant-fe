@@ -72,33 +72,6 @@ function GraphEditorContent() {
       <div className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold">Graph Editor</h2>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleLoadFloorplan}>
-              <Upload className="h-4 w-4 mr-2" />
-              Load Floorplan
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleAutoLayout}>
-              <Zap className="h-4 w-4 mr-2" />
-              Auto Layout
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePathfinding}
-              disabled={!selectedNodeId}
-            >
-              <Route className="h-4 w-4 mr-2" />
-              {pathStartNode ? "Find Path" : "Start Path"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleShowStats}>
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Stats
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleValidate}>
-              <Play className="h-4 w-4 mr-2" />
-              Validate
-            </Button>
-          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button

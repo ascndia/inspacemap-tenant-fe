@@ -790,7 +790,7 @@ export function GraphProvider({
         });
       }
     },
-    [state.graph?.connections]
+    [state.graph?.connections, revisionId]
   );
 
   const loadFloorplan = useCallback((floorplan: any) => {

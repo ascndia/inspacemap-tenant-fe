@@ -53,7 +53,9 @@ export interface VenueFilters {
 }
 
 export interface VenueGalleryItem {
-  media_asset_id: string;
+  media_id: string;
+  url: string;
+  thumbnail_url: string;
   sort_order?: number;
   caption?: string;
   is_visible?: boolean;
@@ -72,7 +74,7 @@ export interface UpdateGalleryItemRequest {
 }
 
 export interface ReorderGalleryRequest {
-  media_asset_ids: string[];
+  media_ids: string[];
 }
 
 export interface GalleryResponse {

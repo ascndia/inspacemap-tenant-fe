@@ -35,7 +35,6 @@ import { venueService } from "@/lib/services/venue-service";
 import type { VenueGalleryItem } from "@/types/venue";
 import type { MediaItem } from "@/types/media";
 import { toast } from "sonner";
-import { mediaService } from "@/lib/services/media-service";
 
 interface VenueGalleryProps {
   venueId: string;
@@ -54,57 +53,25 @@ export function VenueGallery({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draggedItem, setDraggedItem] = useState<VenueGalleryItem | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [mediaDetails, setMediaDetails] = useState<Map<string, MediaItem>>(
-    new Map()
-  );
 
-  // Fetch media details for gallery items
-  useEffect(() => {
-    const fetchMediaDetails = async () => {
-      if (galleryItems.length === 0) return;
-
-      const mediaIds = galleryItems.map((item) => item.media_asset_id);
-      const newMediaDetails = new Map(mediaDetails);
-
-      // Only fetch media that we don't already have
-      const missingMediaIds = mediaIds.filter((id) => !newMediaDetails.has(id));
-
-      if (missingMediaIds.length === 0) return;
-
-      try {
-        // For now, we'll fetch all media and filter. In a real app, you might want to fetch by IDs
-        const response = await mediaService.getMedia();
-        if (response.data) {
-          response.data.forEach((media) => {
-            if (missingMediaIds.includes(media.id)) {
-              newMediaDetails.set(media.id, media);
-            }
-          });
-          setMediaDetails(newMediaDetails);
-        }
-      } catch (error) {
-        console.error("Failed to fetch media details:", error);
-      }
-    };
-
-    fetchMediaDetails();
-  }, [galleryItems]);
+  console.log(galleryItems);
 
   const handleAddImages = async (selectedMedia: MediaItem | MediaItem[]) => {
     // Handle both single media item and array of media items
     const mediaArray = Array.isArray(selectedMedia)
       ? selectedMedia
       : [selectedMedia];
-    const mediaIds = mediaArray.map((item) => item.id || item.asset_id);
 
-    if (mediaIds.length === 0) return;
+    if (mediaArray.length === 0) return;
 
     try {
       setIsSubmitting(true);
 
       // Create gallery items from selected media
-      const items: VenueGalleryItem[] = mediaIds.map((mediaId, index) => ({
-        media_asset_id: mediaId,
+      const items: VenueGalleryItem[] = mediaArray.map((media, index) => ({
+        media_id: media.id,
+        url: media.url,
+        thumbnail_url: media.thumbnail_url || "",
         sort_order: galleryItems.length + index,
         caption: "",
         is_visible: true,
@@ -114,7 +81,7 @@ export function VenueGallery({
       const response = await venueService.addGalleryItems(venueId, { items });
 
       if (response.success) {
-        toast.success(`Added ${mediaIds.length} image(s) to gallery`);
+        toast.success(`Added ${mediaArray.length} image(s) to gallery`);
         onUpdate();
         setIsMediaPickerOpen(false);
       } else {
@@ -159,7 +126,7 @@ export function VenueGallery({
       setIsSubmitting(true);
       const response = await venueService.updateGalleryItem(
         venueId,
-        editingItem.media_asset_id,
+        editingItem.media_id,
         {
           caption: updatedItem.caption,
           is_featured: updatedItem.is_featured,
@@ -205,7 +172,7 @@ export function VenueGallery({
     if (!draggedItem) return;
 
     const draggedIndex = sortedItems.findIndex(
-      (item) => item.media_asset_id === draggedItem.media_asset_id
+      (item) => item.media_id === draggedItem.media_id
     );
     if (draggedIndex === -1 || draggedIndex === dropIndex) return;
 
@@ -221,7 +188,7 @@ export function VenueGallery({
     }));
 
     // Update backend
-    const mediaIds = reorderedItems.map((item) => item.media_asset_id);
+    const mediaIds = reorderedItems.map((item) => item.media_id);
     await handleReorder(mediaIds);
 
     setDraggedItem(null);
@@ -232,7 +199,7 @@ export function VenueGallery({
     try {
       setIsSubmitting(true);
       const response = await venueService.reorderGallery(venueId, {
-        media_asset_ids: newOrder,
+        media_ids: newOrder,
       });
 
       if (response.success) {
@@ -281,7 +248,7 @@ export function VenueGallery({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {sortedItems.map((item, index) => (
             <div
-              key={`${item.media_asset_id}-${item.sort_order || 0}-${index}`}
+              key={`${item.media_id}-${item.sort_order || 0}-${index}`}
               draggable
               onDragStart={(e) => handleDragStart(e, item)}
               onDragOver={(e) => handleDragOver(e, index)}
@@ -291,15 +258,10 @@ export function VenueGallery({
                 dragOverIndex === index
                   ? "ring-2 ring-primary ring-offset-2"
                   : ""
-              } ${
-                draggedItem?.media_asset_id === item.media_asset_id
-                  ? "opacity-50"
-                  : ""
-              }`}
+              } ${draggedItem?.media_id === item.media_id ? "opacity-50" : ""}`}
             >
               <GalleryItemCard
                 item={item}
-                mediaItem={mediaDetails.get(item.media_asset_id)}
                 onEdit={handleEditItem}
                 onRemove={handleRemoveItem}
                 isSubmitting={isSubmitting}
@@ -323,7 +285,6 @@ export function VenueGallery({
 
 interface GalleryItemCardProps {
   item: VenueGalleryItem;
-  mediaItem?: MediaItem;
   onEdit: (item: VenueGalleryItem) => void;
   onRemove: (mediaId: string) => void;
   isSubmitting: boolean;
@@ -331,22 +292,20 @@ interface GalleryItemCardProps {
 
 function GalleryItemCard({
   item,
-  mediaItem,
   onEdit,
   onRemove,
   isSubmitting,
 }: GalleryItemCardProps) {
   // Use actual image URL if available, otherwise placeholder
-  const imageUrl =
-    mediaItem?.thumbnail_url || mediaItem?.url || "/placeholder.svg";
+  const imageUrl = item.thumbnail_url || item.url || "/placeholder.svg";
 
   return (
-    <Card className="overflow-hidden group relative cursor-move">
+    <Card className="overflow-hidden space-y-0 group py-0 relative cursor-move">
       <div className="aspect-square bg-muted relative">
         {/* Actual Image */}
         <img
           src={imageUrl}
-          alt={item.caption || mediaItem?.name || "Gallery image"}
+          alt={item.caption || "Gallery image"}
           className="w-full h-full object-cover"
           onError={(e) => {
             // Fallback to placeholder if image fails to load
@@ -388,7 +347,7 @@ function GalleryItemCard({
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => onRemove(item.media_asset_id)}
+                onClick={() => onRemove(item.media_id)}
                 disabled={isSubmitting}
                 className="text-destructive"
               >
@@ -399,9 +358,9 @@ function GalleryItemCard({
           </DropdownMenu>
         </div>
       </div>
-      <CardContent className="p-2">
+      <CardContent className="p-2 pt-0">
         <p className="text-xs font-medium truncate">
-          {item.caption || mediaItem?.name || "Untitled"}
+          {item.caption || "Untitled"}
         </p>
         <p className="text-xs text-muted-foreground">
           Order: {item.sort_order || 0}

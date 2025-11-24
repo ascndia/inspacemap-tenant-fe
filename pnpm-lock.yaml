@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@egjs/view360':
-        specifier: ^3.6.4
-        version: 3.6.4
+        specifier: 4.0.0-beta.7
+        version: 4.0.0-beta.7
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.66.1(react@19.2.0))
@@ -227,20 +227,11 @@ packages:
   '@cfcs/core@0.0.24':
     resolution: {integrity: sha512-feB38qu+eDk0Pggh/yR7gjaNmvUYA2uCxHP3Pz2MLE4LZ/9jPdtu8bzCSI47yTEhWyZCF5Pk698hdz8IN2mTjA==}
 
-  '@cfcs/core@0.1.0':
-    resolution: {integrity: sha512-kvYX0RpL45XTHJ5sW7teNbKeAa7pK3nNqaJPoFfZDPTIBJOkTtRD3QhkBG+O3Hu69a8xeMoPvF6y/RtJ6JUOdA==}
-
   '@date-fns/tz@1.2.0':
     resolution: {integrity: sha512-LBrd7MiJZ9McsOgxqWX7AaxrDjcFVjWH/tIKJd7pnR7McaslGYOP1QmmiBXdJH/H/yLCT+rcQ7FaPBUxRGUtrg==}
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
-
-  '@egjs/agent@2.4.4':
-    resolution: {integrity: sha512-cvAPSlUILhBBOakn2krdPnOGv5hAZq92f1YHxYcfu0p7uarix2C6Ia3AVizpS1SGRZGiEkIS5E+IVTLg1I2Iog==}
-
-  '@egjs/axes@3.9.2':
-    resolution: {integrity: sha512-LEyJfhAdOrg672twCtH9KUloMTGCERm2tqxNLaXFjm/2rOcd4n5yrUofIjY0m/oG146XmSLeCR9+ri2kOA4BHg==}
 
   '@egjs/component@3.0.5':
     resolution: {integrity: sha512-cLcGizTrrUNA2EYE3MBmEDt2tQv1joVP1Q3oDisZ5nw0MZDx2kcgEXM+/kZpfa/PAkFvYVhRUZwytIQWoN3V/w==}
@@ -248,8 +239,8 @@ packages:
   '@egjs/imready@1.4.2':
     resolution: {integrity: sha512-ckV7KlBa23Bw6iZP59W2cMZfAmV5q0BtMoOz7ZkzIvjoOtkxfLZkqVJROSgDP5Ha0hsnskyL4vtom9Bt7FZSRQ==}
 
-  '@egjs/view360@3.6.4':
-    resolution: {integrity: sha512-b+yShl7/MJpr+muJwU+zTlapeAkXhPdN5KgPw1xD818G3a+inticFTCzD9dclBBfORUJv2E7HdGWWvkMZRPorg==}
+  '@egjs/view360@4.0.0-beta.7':
+    resolution: {integrity: sha512-prVTTxuQ1/k59NM7G0tm58k2vPHGoaExoFr5E7MoJaSGF56Otj4okQHAxxosXH87aQLN0feZMtBlsKz0b/7zEw==}
 
   '@emnapi/runtime@1.7.1':
     resolution: {integrity: sha512-PVtJr5CmLwYAU9PZDMITZoR5iAOShYREoR45EyyLrbntV50mdePTgUn4AmOw90Ifcj+x2kRjdzr1HP3RrNiHGA==}
@@ -1951,9 +1942,6 @@ packages:
   potpack@1.0.2:
     resolution: {integrity: sha512-choctRBIV9EMT9WGAZHn3V7t0Z2pMQyl0EZE6pFc/6ml3ssw7Dlf/oAOvFwjm1HVsqfQN8GfeFyJ+d8tRzqueQ==}
 
-  promise-polyfill@8.3.0:
-    resolution: {integrity: sha512-H5oELycFml5yto/atYqmjyigJoAo3+OXwolYiH7OfQuYlAqhxNvTfiNMbV9hsC6Yp83yE5r2KTVmtrG6R9i6Pg==}
-
   promise-worker-transferable@1.0.4:
     resolution: {integrity: sha512-bN+0ehEnrXfxV2ZQvU2PetO0n4gqBD4ulq3MI1WOPLgr7/Mg9yRQkX5+0v1vagr74ZTsl7XtzlaYDo2EuCeYJw==}
 
@@ -2292,21 +2280,9 @@ snapshots:
     dependencies:
       '@egjs/component': 3.0.5
 
-  '@cfcs/core@0.1.0':
-    dependencies:
-      '@egjs/component': 3.0.5
-
   '@date-fns/tz@1.2.0': {}
 
   '@dimforge/rapier3d-compat@0.12.0': {}
-
-  '@egjs/agent@2.4.4': {}
-
-  '@egjs/axes@3.9.2':
-    dependencies:
-      '@cfcs/core': 0.1.0
-      '@egjs/agent': 2.4.4
-      '@egjs/component': 3.0.5
 
   '@egjs/component@3.0.5': {}
 
@@ -2315,13 +2291,12 @@ snapshots:
       '@cfcs/core': 0.0.24
       '@egjs/component': 3.0.5
 
-  '@egjs/view360@3.6.4':
+  '@egjs/view360@4.0.0-beta.7':
     dependencies:
-      '@egjs/axes': 3.9.2
       '@egjs/component': 3.0.5
       '@egjs/imready': 1.4.2
+      '@types/webxr': 0.5.24
       gl-matrix: 3.4.4
-      promise-polyfill: 8.3.0
 
   '@emnapi/runtime@1.7.1':
     dependencies:
@@ -3907,8 +3882,6 @@ snapshots:
       source-map-js: 1.2.1
 
   potpack@1.0.2: {}
-
-  promise-polyfill@8.3.0: {}
 
   promise-worker-transferable@1.0.4:
     dependencies:

@@ -305,7 +305,7 @@ export default function VenueDetailPage() {
                       <div className="aspect-square relative overflow-hidden rounded-lg border">
                         <Image
                           src={replaceMinioPort(
-                            item.media_url || item.url || ""
+                            item.media_url || item.url || "/placeholder.svg"
                           )}
                           alt={`Gallery item ${index + 1}`}
                           fill

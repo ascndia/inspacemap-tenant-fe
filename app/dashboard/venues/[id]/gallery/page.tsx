@@ -17,6 +17,7 @@ import { venueService } from "@/lib/services/venue-service";
 import type { VenueDetail } from "@/types/venue";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { replaceMinioPort } from "@/lib/utils";
 
 export default function VenueGalleryPage() {
   const params = useParams();
@@ -34,6 +35,11 @@ export default function VenueGalleryPage() {
         const response = await venueService.getVenueById(id);
 
         if (response.success && response.data) {
+          console.log("Fetched venue data:", response.data);
+          response.data.gallery.map((item: any) => {
+            item.url = replaceMinioPort(item.url);
+          });
+          response.data;
           setVenue(response.data);
         } else {
           throw new Error(response.error || "Failed to fetch venue details");
@@ -56,6 +62,9 @@ export default function VenueGalleryPage() {
     if (id) {
       venueService.getVenueById(id).then((response) => {
         if (response.success && response.data) {
+          response.data.gallery.map((item: any) => {
+            item.url = replaceMinioPort(item.url);
+          });
           setVenue(response.data);
         }
       });

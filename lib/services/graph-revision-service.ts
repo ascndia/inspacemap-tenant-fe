@@ -157,11 +157,11 @@ export class GraphRevisionService {
    * Publish a draft revision (placeholder - backend implementation needed)
    */
   static async publishRevision(
-    venueId: string,
+    revisionId: string,
     note?: string
   ): Promise<string> {
     try {
-      const response = await publishRevision(venueId, note);
+      const response = await publishRevision(revisionId, note);
       if (!response.success) {
         throw new Error(response.error || "Failed to publish revision");
       }

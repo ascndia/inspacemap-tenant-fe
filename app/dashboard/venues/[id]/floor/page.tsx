@@ -13,13 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Map } from "lucide-react";
 import Link from "next/link";
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { useParams } from "next/navigation";
 
 export default function VenueFloorPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
+  const { id } = useParams();
   // In a real app, fetch venue by ID
   const venue = mockVenues.find((v) => v.id === id) || mockVenues[0];
 

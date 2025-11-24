@@ -23,6 +23,11 @@ export interface GraphNode {
   updatedAt: Date;
 }
 
+export interface CloneGraphRevisionRequest {
+  source_revision_id: string;
+  target_venue_id: string;
+  note?: string;
+}
 export interface GraphConnection {
   id: string;
   fromNodeId: string;

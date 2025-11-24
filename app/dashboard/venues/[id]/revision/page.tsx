@@ -55,7 +55,6 @@ export default function VenueRevisionsPage({
   const [creatingRevision, setCreatingRevision] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedRevision, setSelectedRevision] = useState<any>(null);
-  const [hasDraftRevision, setHasDraftRevision] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [revisionToDelete, setRevisionToDelete] = useState<any>(null);
   const [deletingRevision, setDeletingRevision] = useState(false);
@@ -90,15 +89,10 @@ export default function VenueRevisionsPage({
       // Ensure data is an array (handle null responses from API)
       const revisionsData = Array.isArray(data) ? data : [];
       setRevisions(revisionsData);
-
-      // Check if there's already a draft revision
-      const hasDraft = revisionsData.some((rev: any) => rev.status === "draft");
-      setHasDraftRevision(hasDraft);
     } catch (err) {
       console.error("Failed to load revisions:", err);
       setError("Failed to load revisions");
       setRevisions([]); // Set empty array instead of mock data
-      setHasDraftRevision(false);
     } finally {
       setLoading(false);
     }
@@ -329,24 +323,13 @@ export default function VenueRevisionsPage({
               Manage navigation graph revisions for {venueName}
             </p>
           </div>
-          <Button
-            onClick={handleCreateRevision}
-            disabled={creatingRevision || hasDraftRevision}
-            title={
-              hasDraftRevision
-                ? "A draft revision already exists. Complete or delete it before creating a new one."
-                : ""
-            }
-          >
+          <Button onClick={handleCreateRevision} disabled={creatingRevision}>
             {creatingRevision ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Plus className="mr-2 h-4 w-4" />
             )}
             New Revision
-            {hasDraftRevision && (
-              <span className="ml-2 text-xs opacity-75">(Draft exists)</span>
-            )}
           </Button>
         </div>
 
@@ -359,12 +342,6 @@ export default function VenueRevisionsPage({
             <CardDescription>
               View and manage all graph revisions for this venue. Each revision
               contains the complete navigation graph data for all floors.
-              {hasDraftRevision && (
-                <span className="block mt-1 text-blue-600 font-medium">
-                  ⚠️ A draft revision is currently in progress. Complete or
-                  delete it before creating a new one.
-                </span>
-              )}
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -172,29 +172,29 @@ export default function RevisionEditorPage({
     }
   };
 
-  const handlePublish = async () => {
-    if (!revision) return;
+  // const handlePublish = async () => {
+  //   if (!revision) return;
 
-    try {
-      await GraphRevisionService.publishRevision(id); // Use venueId instead of revisionId
-      toast({
-        title: "Success",
-        description: "Revision published successfully",
-      });
-      // Reload revision to update status
-      const updatedRevision = await GraphRevisionService.getRevisionDetail(
-        revisionId
-      );
-      setRevision(updatedRevision);
-    } catch (err) {
-      console.error("Failed to publish revision:", err);
-      toast({
-        title: "Error",
-        description: "Failed to publish revision",
-        variant: "destructive",
-      });
-    }
-  };
+  //   try {
+  //     await GraphRevisionService.publishRevision(id); // Use venueId instead of revisionId
+  //     toast({
+  //       title: "Success",
+  //       description: "Revision published successfully",
+  //     });
+  //     // Reload revision to update status
+  //     const updatedRevision = await GraphRevisionService.getRevisionDetail(
+  //       revisionId
+  //     );
+  //     setRevision(updatedRevision);
+  //   } catch (err) {
+  //     console.error("Failed to publish revision:", err);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to publish revision",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   // Enhanced publish function with validation and note
   const handlePublishWithValidation = async () => {
@@ -237,7 +237,10 @@ export default function RevisionEditorPage({
     setIsPublishing(true);
     try {
       // Call publish API with note
-      await GraphRevisionService.publishRevision(id, publishNote || undefined);
+      await GraphRevisionService.publishRevision(
+        revisionId,
+        publishNote || undefined
+      );
 
       toast({
         title: "Success",

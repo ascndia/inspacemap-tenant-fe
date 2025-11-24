@@ -455,10 +455,13 @@ export const updateRevision = async (
 };
 
 export const publishRevision = async (
-  venueId: string,
+  revisionId: string,
   note?: string
 ): Promise<{ success: boolean; data: string }> => {
-  const response = await api.post(`/editor/${venueId}/publish`, { note });
+  const response = await api.post(`/editor/${revisionId}/publish`, {
+    revision_id: revisionId,
+    note,
+  });
   return response.data;
 };
 

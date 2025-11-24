@@ -13,7 +13,16 @@ import { MapCanvas2D } from "./map-canvas-2d";
 import PanoramaViewer from "./panorama-viewer2";
 import { Button } from "@/components/ui/button";
 
-export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
+interface GraphCanvasProps {
+  showPropertiesPanel: boolean;
+  onShowPropertiesPanelChange: (show: boolean) => void;
+  pathPreview: string[] | null;
+}
+export function GraphCanvas({
+  showPropertiesPanel,
+  onShowPropertiesPanelChange,
+  pathPreview,
+}: GraphCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const graphStore = useGraphStore();
   const graphProvider = useGraph();
@@ -282,67 +291,17 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
 
   const handleFloorplanSelect = useCallback(
     async (media: any) => {
-      if (!graphProvider.updateFloorplan) return;
-
-      try {
-        // Update floorplan with selected media
-        await graphProvider.updateFloorplan({
-          map_image_id: media.asset_id,
-          // You might want to add width/height from media if available
-          map_width: media.width || 1000,
-          map_height: media.height || 1000,
-        });
-
-        // Update the graph store to reflect the new floorplan
-        if (graph) {
-          const updatedGraph = {
-            ...graph,
-            floorplan: {
-              id: `floorplan-${graph.floorId}`,
-              venueId: graph.venueId,
-              floorId: graph.floorId,
-              name: `Floorplan for ${graph.floorId}`,
-              fileUrl: media.url,
-              scale: 1,
-              bounds: {
-                width: media.width || 1000,
-                height: media.height || 1000,
-                minX: -(media.width || 1000) / 2,
-                minY: -(media.height || 1000) / 2,
-                maxX: (media.width || 1000) / 2,
-                maxY: (media.height || 1000) / 2,
-              },
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          };
-          graphStore.setGraph(updatedGraph);
-        }
-      } catch (error) {
-        console.error("Failed to update floorplan:", error);
-      }
-    },
-    [graphProvider, graph, graphStore]
-  );
-
-  const handleFloorplanUpdate = useCallback(
-    async (media: any) => {
-      if (!graphProvider.updateFloorplan) return;
-
-      try {
-        // Update floorplan with selected media
-        await graphProvider.updateFloorplan({
-          map_image_id: media.asset_id,
-          // You might want to add width/height from media if available
-          map_width: media.width || 1000,
-          map_height: media.height || 1000,
-        });
-
-        // Update the graph store to reflect the updated floorplan
-        if (graph?.floorplan) {
-          const updatedFloorplan = {
-            ...graph.floorplan,
+      // Update the graph store immediately for instant feedback
+      if (graph) {
+        const updatedGraph = {
+          ...graph,
+          floorplan: {
+            id: `floorplan-${graph.floorId}`,
+            venueId: graph.venueId,
+            floorId: graph.floorId,
+            name: `Floorplan for ${graph.floorId}`,
             fileUrl: media.url,
+            scale: 1,
             bounds: {
               width: media.width || 1000,
               height: media.height || 1000,
@@ -351,17 +310,67 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
               maxX: (media.width || 1000) / 2,
               maxY: (media.height || 1000) / 2,
             },
+            createdAt: new Date(),
             updatedAt: new Date(),
-          };
+          },
+        };
+        graphStore.setGraph(updatedGraph);
+      }
 
-          const updatedGraph = {
-            ...graph,
-            floorplan: updatedFloorplan,
-          };
-          graphStore.setGraph(updatedGraph);
+      // Then persist to backend
+      if (graphProvider.updateFloorplan) {
+        try {
+          await graphProvider.updateFloorplan({
+            map_image_id: media.asset_id,
+            map_width: media.width || 1000,
+            map_height: media.height || 1000,
+          });
+        } catch (error) {
+          console.error("Failed to persist floorplan update:", error);
+          // Optionally revert the optimistic update here
         }
-      } catch (error) {
-        console.error("Failed to update floorplan:", error);
+      }
+    },
+    [graphProvider, graph, graphStore]
+  );
+
+  const handleFloorplanUpdate = useCallback(
+    async (media: any) => {
+      // Update the graph store immediately for instant feedback
+      if (graph?.floorplan) {
+        const updatedFloorplan = {
+          ...graph.floorplan,
+          fileUrl: media.url,
+          bounds: {
+            width: media.width || 1000,
+            height: media.height || 1000,
+            minX: -(media.width || 1000) / 2,
+            minY: -(media.height || 1000) / 2,
+            maxX: (media.width || 1000) / 2,
+            maxY: (media.height || 1000) / 2,
+          },
+          updatedAt: new Date(),
+        };
+
+        const updatedGraph = {
+          ...graph,
+          floorplan: updatedFloorplan,
+        };
+        graphStore.setGraph(updatedGraph);
+      }
+
+      // Then persist to backend
+      if (graphProvider.updateFloorplan) {
+        try {
+          await graphProvider.updateFloorplan({
+            map_image_id: media.asset_id,
+            map_width: media.width || 1000,
+            map_height: media.height || 1000,
+          });
+        } catch (error) {
+          console.error("Failed to persist floorplan update:", error);
+          // Optionally revert the optimistic update here
+        }
       }
     },
     [graphProvider, graph, graphStore]
@@ -417,6 +426,8 @@ export function GraphCanvas({ pathPreview }: { pathPreview: string[] | null }) {
             onRedo={() => {}} // TODO: Implement undo/redo in Zustand store
             onTogglePanoramaViewer={handleTogglePanoramaViewer}
             onToggleGrid={handleToggleGrid}
+            onShowPropertiesPanelChange={onShowPropertiesPanelChange}
+            showPropertiesPanel={showPropertiesPanel}
           />
 
           {/* Canvas */}

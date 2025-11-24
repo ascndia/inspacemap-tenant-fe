@@ -369,30 +369,14 @@ export function useUpdateFloorplan() {
       return floorplanData;
     },
     onSuccess: (floorplanData, variables) => {
-      // Update the cache directly instead of invalidating
-      queryClient.setQueryData(
-        graphKeys.floor(
+      // Invalidate the query to refetch the updated graph data
+      queryClient.invalidateQueries({
+        queryKey: graphKeys.floor(
           variables.venueId,
           variables.revisionId,
           variables.floorId
         ),
-        (oldData: GraphData | undefined) => {
-          if (!oldData) return oldData;
-          const currentGraph = useGraphStore.getState().graph;
-          return {
-            ...oldData,
-            floorplan: oldData.floorplan
-              ? {
-                  ...oldData.floorplan,
-                  ...floorplanData,
-                  updatedAt: new Date(),
-                }
-              : undefined,
-            settings: currentGraph?.settings || oldData.settings,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-      );
+      });
     },
   });
 }

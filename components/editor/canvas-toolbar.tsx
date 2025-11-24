@@ -14,6 +14,7 @@ import {
   Eye,
   Edit,
   Grid3X3,
+  Settings,
 } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
 
@@ -31,6 +32,8 @@ interface CanvasToolbarProps {
   onRedo: () => void;
   onTogglePanoramaViewer?: () => void;
   onToggleGrid?: () => void;
+  onShowPropertiesPanelChange?: (show: boolean) => void;
+  showPropertiesPanel: boolean;
 }
 
 export function CanvasToolbar({
@@ -47,6 +50,8 @@ export function CanvasToolbar({
   onRedo,
   onTogglePanoramaViewer,
   onToggleGrid,
+  onShowPropertiesPanelChange,
+  showPropertiesPanel,
 }: CanvasToolbarProps) {
   const { showPanoramaViewer, graph } = useGraphStore();
   return (
@@ -98,17 +103,6 @@ export function CanvasToolbar({
       <div className="h-6 w-px bg-border mx-2" />
 
       <Button
-        variant={showPanoramaViewer ? "default" : "ghost"}
-        size="sm"
-        title="Toggle Panorama Viewer"
-        onClick={onTogglePanoramaViewer}
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-
-      <div className="h-6 w-px bg-border mx-2" />
-
-      <Button
         variant={graph?.settings?.showGrid ? "default" : "ghost"}
         size="sm"
         title="Toggle Grid"
@@ -139,42 +133,27 @@ export function CanvasToolbar({
         />
       )}
 
-      <div className="h-6 w-px bg-border mx-2" />
-
-      <Button variant="ghost" size="sm" title="Zoom In" onClick={onZoomIn}>
-        <ZoomIn className="h-4 w-4" />
-      </Button>
-      <Button variant="ghost" size="sm" title="Zoom Out" onClick={onZoomOut}>
-        <ZoomOut className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        title="Reset View"
-        onClick={onResetView}
-      >
-        <RotateCcw className="h-4 w-4" />
-      </Button>
-
-      <div className="h-6 w-px bg-border mx-2" />
+      <div className="mx-2 ml-auto" />
 
       <Button
-        variant="ghost"
+        variant={showPanoramaViewer ? "default" : "ghost"}
         size="sm"
-        disabled={!canUndo}
-        onClick={onUndo}
-        title="Undo"
+        title="Toggle Panorama Viewer"
+        onClick={onTogglePanoramaViewer}
       >
-        ↶
+        {showPanoramaViewer ? (
+          <Eye className="h-4 w-4" />
+        ) : (
+          <Eye className="h-4 w-4" />
+        )}
       </Button>
       <Button
-        variant="ghost"
+        variant={showPropertiesPanel ? "default" : "ghost"}
         size="sm"
-        disabled={!canRedo}
-        onClick={onRedo}
-        title="Redo"
+        onClick={() => onShowPropertiesPanelChange?.(!showPropertiesPanel)}
+        title="Toggle Properties Panel"
       >
-        ↷
+        <Settings className="h-4 w-4" />
       </Button>
     </div>
   );

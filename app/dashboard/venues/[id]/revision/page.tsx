@@ -29,6 +29,8 @@ import {
   Trash2,
   AlertCircle,
   Loader2,
+  MoreHorizontal,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { GraphRevision } from "@/types/graph";
@@ -37,6 +39,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { EditRevisionModal } from "@/components/revisions/edit-revision-modal";
 import { DeleteRevisionConfirmModal } from "@/components/revisions/delete-revision-confirm-modal";
+import { PublishRevisionDialog } from "@/components/revisions/publish-revision-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { venueService } from "@/lib/services/venue-service";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 
@@ -58,6 +67,8 @@ export default function VenueRevisionsPage({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [revisionToDelete, setRevisionToDelete] = useState<any>(null);
   const [deletingRevision, setDeletingRevision] = useState(false);
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [revisionToPublish, setRevisionToPublish] = useState<any>(null);
   const router = useRouter();
 
   // Resolve params
@@ -88,6 +99,8 @@ export default function VenueRevisionsPage({
       const data = await GraphRevisionService.getRevisions(id);
       // Ensure data is an array (handle null responses from API)
       const revisionsData = Array.isArray(data) ? data : [];
+      console.log("Fetched Revisions:", revisionsData);
+
       setRevisions(revisionsData);
     } catch (err) {
       console.error("Failed to load revisions:", err);
@@ -217,6 +230,15 @@ export default function VenueRevisionsPage({
   const handleEditRevision = (revision: any) => {
     setSelectedRevision(revision);
     setEditModalOpen(true);
+  };
+
+  const handlePublishRevision = (revision: any) => {
+    setRevisionToPublish(revision);
+    setPublishModalOpen(true);
+  };
+
+  const handlePublishSuccess = () => {
+    loadRevisions(venueId);
   };
 
   const handleUpdateRevision = (updatedRevision: any) => {
@@ -357,11 +379,7 @@ export default function VenueRevisionsPage({
                     <TableHead>Version</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Floors</TableHead>
-                    <TableHead>Nodes</TableHead>
-                    <TableHead>Connections</TableHead>
                     <TableHead>Last Updated</TableHead>
-                    <TableHead>Created By</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -407,31 +425,15 @@ export default function VenueRevisionsPage({
                           </div>
                         </TableCell>
                         <TableCell>{getStatusBadge(revision)}</TableCell>
-                        <TableCell>{revision.floorCount}</TableCell>
-                        <TableCell>{revision.nodeCount}</TableCell>
-                        <TableCell>{revision.connectionCount}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 text-sm">
                             <Calendar className="h-3 w-3" />
                             {revision.updatedAt.toLocaleDateString()}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-sm">
-                            <User className="h-3 w-3" />
-                            {revision.createdBy}
-                          </div>
-                        </TableCell>
+
                         <TableCell className="text-right">
                           <div className="flex items-center gap-2 justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditRevision(revision)}
-                            >
-                              <Edit className="mr-1 h-3 w-3" />
-                              Edit Note
-                            </Button>
                             {revision.isDraft && (
                               <Link
                                 href={`/dashboard/venues/${venueId}/revision/${revision.id}/editor`}
@@ -442,17 +444,42 @@ export default function VenueRevisionsPage({
                                 </Button>
                               </Link>
                             )}
-                            {revision.isDraft && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteRevision(revision)}
-                              >
-                                <Trash2 className="mr-1 h-3 w-3" />
-                                Delete
-                              </Button>
-                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => handleEditRevision(revision)}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Note
+                                </DropdownMenuItem>
+                                {revision.isDraft && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handlePublishRevision(revision)
+                                    }
+                                  >
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Publish
+                                  </DropdownMenuItem>
+                                )}
+                                {revision.isDraft && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleDeleteRevision(revision)
+                                    }
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -519,6 +546,19 @@ export default function VenueRevisionsPage({
             revisionName={revisionToDelete.name}
             onConfirm={handleConfirmDeleteRevision}
             isDeleting={deletingRevision}
+          />
+        )}
+
+        {revisionToPublish && (
+          <PublishRevisionDialog
+            isOpen={publishModalOpen}
+            onClose={() => {
+              setPublishModalOpen(false);
+              setRevisionToPublish(null);
+            }}
+            revisionId={revisionToPublish.id}
+            revisionName={revisionToPublish.name}
+            onSuccess={handlePublishSuccess}
           />
         )}
       </div>

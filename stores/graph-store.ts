@@ -33,6 +33,7 @@ interface GraphStore {
   deleteNode: (nodeId: string) => void;
   addConnection: (fromNodeId: string, toNodeId: string) => void;
   deleteConnection: (connectionId: string) => void;
+  updateFloorplan: (updates: Partial<GraphData["floorplan"]>) => void;
 
   // UI Operations
   setSelectedNode: (nodeId: string | null) => void;
@@ -210,6 +211,25 @@ export const useGraphStore = create<GraphStore>()(
           ...graph,
           nodes: updatedNodes,
           connections: graph.connections.filter((c) => c.id !== connectionId),
+          updatedAt: new Date(),
+        };
+
+        set({ graph: updatedGraph });
+      },
+
+      updateFloorplan: (updates) => {
+        const { graph } = get();
+        if (!graph || !graph.floorplan) return;
+
+        const updatedFloorplan = {
+          ...graph.floorplan,
+          ...updates,
+          updatedAt: new Date(),
+        };
+
+        const updatedGraph = {
+          ...graph,
+          floorplan: updatedFloorplan,
           updatedAt: new Date(),
         };
 

@@ -112,32 +112,6 @@ export function MapCanvas2D({
       img.crossOrigin = "anonymous"; // Allow canvas operations
       img.onload = () => {
         setFloorplanImage(img);
-
-        // Update floorplan bounds based on actual image dimensions
-        if (graph?.floorplan) {
-          const aspectRatio = img.width / img.height;
-          const maxDimension = Math.max(img.width, img.height);
-          const scaleFactor = 1000 / maxDimension; // Normalize to reasonable size
-
-          const displayWidth = img.width * scaleFactor;
-          const displayHeight = img.height * scaleFactor;
-
-          // Update floorplan bounds in the graph state
-          const updatedFloorplan = {
-            ...graph.floorplan,
-            bounds: {
-              width: displayWidth,
-              height: displayHeight,
-              minX: -displayWidth / 2,
-              minY: -displayHeight / 2,
-              maxX: displayWidth / 2,
-              maxY: displayHeight / 2,
-            },
-          };
-
-          // TODO: Implement floorplan bounds update in Zustand store
-          console.log("Floorplan bounds update not yet implemented");
-        }
       };
       img.onerror = () => {
         console.error("Failed to load floorplan image");

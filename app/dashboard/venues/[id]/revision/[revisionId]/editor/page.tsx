@@ -407,20 +407,18 @@ export default function RevisionEditorPage({
             </Link>
             <div className="flex items-center gap-2">
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="font-semibold">{venue.name}</h1>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowEditRevisionDialog(true)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
                 <p className="text-sm text-muted-foreground">
-                  Editing revision v{revision?.id.slice(-2) || "1"}
+                  Editing {venue.name} - revision v
+                  {revision?.id.slice(-2) || "1"}
                 </p>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowEditRevisionDialog(true)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
               {getStatusBadge()}
             </div>
             <div className="flex items-center gap-2">

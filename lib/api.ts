@@ -465,6 +465,28 @@ export const publishRevision = async (
   return response.data;
 };
 
+export const cloneRevision = async (
+  sourceRevisionId: string,
+  targetVenueId: string,
+  note?: string
+): Promise<{
+  success: boolean;
+  data: {
+    new_revision_id: string;
+    note: string;
+    status: string;
+    created_at: string;
+    created_by: string;
+  };
+}> => {
+  const response = await api.post(`/editor/revisions/clone`, {
+    source_revision_id: sourceRevisionId,
+    target_venue_id: targetVenueId,
+    note,
+  });
+  return response.data;
+};
+
 export const updateNodePosition = async (
   nodeId: string,
   x: number,

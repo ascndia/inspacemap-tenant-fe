@@ -31,6 +31,7 @@ import {
   Loader2,
   MoreHorizontal,
   Upload,
+  Copy,
 } from "lucide-react";
 import Link from "next/link";
 import { GraphRevision } from "@/types/graph";
@@ -40,6 +41,7 @@ import { toast } from "sonner";
 import { EditRevisionModal } from "@/components/revisions/edit-revision-modal";
 import { DeleteRevisionConfirmModal } from "@/components/revisions/delete-revision-confirm-modal";
 import { PublishRevisionDialog } from "@/components/revisions/publish-revision-dialog";
+import { CloneRevisionModal } from "@/components/revisions/clone-revision-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +71,8 @@ export default function VenueRevisionsPage({
   const [deletingRevision, setDeletingRevision] = useState(false);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [revisionToPublish, setRevisionToPublish] = useState<any>(null);
+  const [cloneModalOpen, setCloneModalOpen] = useState(false);
+  const [revisionToClone, setRevisionToClone] = useState<any>(null);
   const router = useRouter();
 
   // Resolve params
@@ -239,6 +243,16 @@ export default function VenueRevisionsPage({
 
   const handlePublishSuccess = () => {
     loadRevisions(venueId);
+  };
+
+  const handleCloneRevision = (revision: any) => {
+    setRevisionToClone(revision);
+    setCloneModalOpen(true);
+  };
+
+  const handleCloneSuccess = (newRevision: any) => {
+    // Add the new revision to the list
+    setRevisions((prev) => [newRevision, ...prev]);
   };
 
   const handleUpdateRevision = (updatedRevision: any) => {
@@ -452,6 +466,12 @@ export default function VenueRevisionsPage({
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
+                                  onClick={() => handleCloneRevision(revision)}
+                                >
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Clone
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
                                   onClick={() => handleEditRevision(revision)}
                                 >
                                   <Edit className="mr-2 h-4 w-4" />
@@ -559,6 +579,20 @@ export default function VenueRevisionsPage({
             revisionId={revisionToPublish.id}
             revisionName={revisionToPublish.name}
             onSuccess={handlePublishSuccess}
+          />
+        )}
+
+        {revisionToClone && (
+          <CloneRevisionModal
+            isOpen={cloneModalOpen}
+            onClose={() => {
+              setCloneModalOpen(false);
+              setRevisionToClone(null);
+            }}
+            sourceRevisionId={revisionToClone.id}
+            targetVenueId={venueId}
+            sourceRevisionName={revisionToClone.name}
+            onClone={handleCloneSuccess}
           />
         )}
       </div>

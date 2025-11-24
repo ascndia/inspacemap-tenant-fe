@@ -7,6 +7,7 @@ import {
   deleteRevision,
   updateRevision,
   publishRevision,
+  cloneRevision,
   getGraphData,
   createGraphNode,
   updateGraphNode,
@@ -29,6 +30,7 @@ import type {
   GetRevisionDetailResponse,
   DeleteRevisionResponse,
   UpdateRevisionResponse,
+  CloneGraphRevisionResponse,
   GraphData,
   GraphNode,
   GraphConnection,
@@ -124,7 +126,7 @@ export class GraphRevisionService {
     try {
       const response = await updateRevision(revisionId, updateData);
       if (!response.success) {
-        throw new Error(response.error || "Failed to update revision");
+        throw new Error("Failed to update revision");
       }
       return response.data;
     } catch (error: any) {
@@ -163,7 +165,7 @@ export class GraphRevisionService {
     try {
       const response = await publishRevision(revisionId, note);
       if (!response.success) {
-        throw new Error(response.error || "Failed to publish revision");
+        throw new Error("Failed to publish revision");
       }
       return response.data;
     } catch (error: any) {
@@ -176,6 +178,35 @@ export class GraphRevisionService {
       }
       console.error("Failed to publish revision:", error);
       throw new Error("Failed to publish revision");
+    }
+  }
+
+  /**
+   * Clone a revision
+   */
+  static async cloneRevision(
+    sourceRevisionId: string,
+    targetVenueId: string,
+    note?: string
+  ): Promise<CloneGraphRevisionResponse> {
+    try {
+      const response = await cloneRevision(
+        sourceRevisionId,
+        targetVenueId,
+        note
+      );
+      if (!response.success) {
+        throw new Error("Failed to clone revision");
+      }
+      return response.data as CloneGraphRevisionResponse;
+    } catch (error: any) {
+      // Handle 400 errors as validation messages
+      if (error.response?.status === 400) {
+        console.warn("Revision clone validation error:", error.response.data);
+        throw new Error(error.response.data?.error || "Cannot clone revision");
+      }
+      console.error("Failed to clone revision:", error);
+      throw new Error("Failed to clone revision");
     }
   }
 

@@ -23,10 +23,20 @@ export interface GraphNode {
   updatedAt: Date;
 }
 
+export type RevisionStatus = "draft" | "published" | "archived";
+
 export interface CloneGraphRevisionRequest {
   source_revision_id: string;
   target_venue_id: string;
   note?: string;
+}
+
+export interface CloneGraphRevisionResponse {
+  new_revision_id: string;
+  note: string;
+  status: RevisionStatus;
+  created_at: string;
+  created_by: string;
 }
 export interface GraphConnection {
   id: string;

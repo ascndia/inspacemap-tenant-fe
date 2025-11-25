@@ -45,6 +45,7 @@ export interface MouseHandlerParams {
     vertexIndex: number,
     position: { x: number; y: number }
   ) => void;
+  onAreaMove?: (areaId: string, delta: { x: number; y: number }) => void;
   onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
   contextMenu: {
     x: number;
@@ -66,6 +67,8 @@ export interface MouseHandlerParams {
   setIsDragging: (dragging: boolean) => void;
   dragNode: string | null;
   setDragNode: (nodeId: string | null) => void;
+  dragArea: string | null;
+  setDragArea: (areaId: string | null) => void;
   dragStart: { x: number; y: number };
   setDragStart: (start: { x: number; y: number }) => void;
   isPanning: boolean;
@@ -100,6 +103,7 @@ export function createMouseHandlers(
     onConnectionComplete,
     onAreaSelect,
     onAreaVertexUpdate,
+    onAreaMove,
     onDrawingVertexAdd,
     contextMenu,
     setContextMenu,
@@ -107,6 +111,8 @@ export function createMouseHandlers(
     setIsDragging,
     dragNode,
     setDragNode,
+    dragArea,
+    setDragArea,
     dragStart,
     setDragStart,
     isPanning,
@@ -305,8 +311,25 @@ export function createMouseHandlers(
         y: y - clickedVertex.area.boundary[clickedVertex.vertexIndex].y,
       });
     } else if (clickedArea) {
-      // Handle area selection
+      // Handle area selection and potential dragging
       onAreaSelect?.(clickedArea.id);
+
+      // Start area dragging if in move mode
+      if (state.ui.tool === "move") {
+        setIsDragging(true);
+        setDragArea(clickedArea.id);
+        // Calculate drag start relative to area center
+        const centerX =
+          clickedArea.boundary.reduce((sum, p) => sum + p.x, 0) /
+          clickedArea.boundary.length;
+        const centerY =
+          clickedArea.boundary.reduce((sum, p) => sum + p.y, 0) /
+          clickedArea.boundary.length;
+        setDragStart({
+          x: x - centerX,
+          y: y - centerY,
+        });
+      }
     } else if (clickedNode) {
       if (state.ui.tool === "select") {
         // In select mode, only select the node, don't start dragging
@@ -421,8 +444,8 @@ export function createMouseHandlers(
     }
 
     // Handle node dragging for real-time visual feedback
-    if (isDragging && dragNode) {
-      if (dragNode.startsWith("area-vertex-")) {
+    if (isDragging && (dragNode || dragArea)) {
+      if (dragNode && dragNode.startsWith("area-vertex-")) {
         // Handle area vertex dragging
         const parts = dragNode.split("-");
         const areaId = parts[2];
@@ -443,6 +466,37 @@ export function createMouseHandlers(
 
           // Update area vertex position
           onAreaVertexUpdate?.(areaId, vertexIndex, { x: newX, y: newY });
+        }
+      } else if (dragArea) {
+        // Handle area dragging (moving entire area)
+        const area = state.graph?.areas.find((a) => a.id === dragArea);
+        if (area) {
+          // Calculate delta from drag start
+          let deltaX = x - dragStart.x;
+          let deltaY = y - dragStart.y;
+
+          // Snap to grid if enabled
+          if (state.ui.snapToGrid) {
+            const gridSize = state.graph?.settings.gridSize || 20;
+            // Calculate area center
+            const centerX =
+              area.boundary.reduce((sum, p) => sum + p.x, 0) /
+              area.boundary.length;
+            const centerY =
+              area.boundary.reduce((sum, p) => sum + p.y, 0) /
+              area.boundary.length;
+
+            // Snap center position
+            const snappedCenterX = Math.round(centerX / gridSize) * gridSize;
+            const snappedCenterY = Math.round(centerY / gridSize) * gridSize;
+
+            // Calculate snapped delta
+            deltaX = snappedCenterX - (centerX - deltaX);
+            deltaY = snappedCenterY - (centerY - deltaY);
+          }
+
+          // Move entire area
+          onAreaMove?.(dragArea, { x: deltaX, y: deltaY });
         }
       } else {
         // Handle node dragging
@@ -486,6 +540,7 @@ export function createMouseHandlers(
 
     setIsDragging(false);
     setDragNode(null);
+    setDragArea(null);
     setIsPanning(false);
     setIsMiddleMousePanning(false);
   };

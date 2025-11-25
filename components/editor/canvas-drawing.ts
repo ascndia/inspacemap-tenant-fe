@@ -26,6 +26,7 @@ export interface DrawParams {
     mousePosition?: { x: number; y: number };
     isDrawingArea?: boolean;
     drawingAreaVertices?: { x: number; y: number }[];
+    draggingAreaId?: string | null;
   };
   pathPreview: string[] | null;
 }
@@ -69,7 +70,14 @@ export function drawCanvas(params: DrawParams) {
   drawConnections(ctx, zoom, graph.connections, graph.nodes);
 
   // Draw areas
-  drawAreas(ctx, zoom, graph.areas, ui.selectedAreaId, ui.hoveredAreaId);
+  drawAreas(
+    ctx,
+    zoom,
+    graph.areas,
+    ui.selectedAreaId,
+    ui.hoveredAreaId,
+    ui.draggingAreaId
+  );
 
   // Draw area drawing preview
   if (
@@ -404,11 +412,13 @@ function drawAreas(
   zoom: number,
   areas: Area[],
   selectedAreaId: string | null | undefined,
-  hoveredAreaId: string | null | undefined
+  hoveredAreaId: string | null | undefined,
+  draggingAreaId?: string | null
 ) {
   areas.forEach((area) => {
     const isSelected = selectedAreaId === area.id;
     const isHovered = hoveredAreaId === area.id;
+    const isDragging = draggingAreaId === area.id;
 
     // Set area color based on category
     const categoryColors: Record<string, string> = {
@@ -421,16 +431,13 @@ function drawAreas(
     };
 
     const fillColor = categoryColors[area.category] || "#6b7280";
-    const strokeColor = isSelected
-      ? "#1e40af"
-      : isHovered
-      ? "#374151"
-      : "#4b5563";
+    const strokeColor =
+      isSelected || isDragging ? "#1e40af" : isHovered ? "#374151" : "#4b5563";
 
     // Draw filled polygon
-    ctx.fillStyle = fillColor + "40"; // 25% opacity
+    ctx.fillStyle = isDragging ? fillColor + "60" : fillColor + "40"; // More transparent when dragging
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = isSelected ? 3 / zoom : 2 / zoom;
+    ctx.lineWidth = isSelected || isDragging ? 3 / zoom : 2 / zoom;
 
     ctx.beginPath();
     if (area.boundary.length > 0) {
@@ -444,7 +451,7 @@ function drawAreas(
     }
 
     // Draw vertex handles for selected area
-    if (isSelected) {
+    if (isSelected && !isDragging) {
       ctx.fillStyle = "#ffffff";
       ctx.strokeStyle = "#1e40af";
       ctx.lineWidth = 1 / zoom;

@@ -473,6 +473,20 @@ export function GraphCanvas({
     [graph?.areas, graphProvider]
   );
 
+  const handleAreaMove = useCallback(
+    (areaId: string, delta: { x: number; y: number }) => {
+      const area = graph?.areas.find((a) => a.id === areaId);
+      if (area) {
+        const newBoundary = area.boundary.map((vertex) => ({
+          x: vertex.x + delta.x,
+          y: vertex.y + delta.y,
+        }));
+        graphProvider.updateArea(areaId, { boundary: newBoundary });
+      }
+    },
+    [graph?.areas, graphProvider]
+  );
+
   const handleDrawingVertexAdd = useCallback(
     (position: { x: number; y: number }) => {
       graphStore.addDrawingVertex(position);
@@ -608,6 +622,7 @@ export function GraphCanvas({
                 pathPreview={pathPreview}
                 onAreaSelect={handleAreaSelect}
                 onAreaVertexUpdate={handleAreaVertexUpdate}
+                onAreaMove={handleAreaMove}
                 onDrawingVertexAdd={handleDrawingVertexAdd}
               />
             </div>

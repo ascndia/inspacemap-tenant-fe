@@ -33,6 +33,7 @@ interface MapCanvas2DProps {
     vertexIndex: number,
     position: { x: number; y: number }
   ) => void;
+  onAreaMove?: (areaId: string, delta: { x: number; y: number }) => void;
   onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
 }
 
@@ -53,6 +54,7 @@ export function MapCanvas2D({
   onDeleteConnection,
   onAreaSelect,
   onAreaVertexUpdate,
+  onAreaMove,
   onDrawingVertexAdd,
 }: MapCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,6 +79,7 @@ export function MapCanvas2D({
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragNode, setDragNode] = useState<string | null>(null);
+  const [dragArea, setDragArea] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -166,6 +169,7 @@ export function MapCanvas2D({
         mousePosition,
         isDrawingArea,
         drawingAreaVertices,
+        draggingAreaId: dragArea,
       },
       pathPreview,
     });
@@ -205,6 +209,7 @@ export function MapCanvas2D({
     onConnectionComplete,
     onAreaSelect,
     onAreaVertexUpdate,
+    onAreaMove,
     onDrawingVertexAdd,
     contextMenu,
     setContextMenu,
@@ -212,6 +217,8 @@ export function MapCanvas2D({
     setIsDragging,
     dragNode,
     setDragNode,
+    dragArea,
+    setDragArea,
     dragStart,
     setDragStart,
     isPanning,

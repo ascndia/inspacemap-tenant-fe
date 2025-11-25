@@ -249,7 +249,7 @@ export function useGraph() {
       }
     },
 
-    setAreaStartNode: async (areaId: string, nodeId: string) => {
+    setAreaStartNode: async (areaId: string, nodeId: string | null) => {
       try {
         await setAreaStartNodeMutation.mutateAsync({
           venueId: venueId || "",

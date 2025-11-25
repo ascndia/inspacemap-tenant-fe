@@ -581,13 +581,12 @@ export function PropertiesPanel() {
                   <p>
                     <strong>Area ID:</strong> {selectedArea.id.slice(0, 8)}
                   </p>
-                  {selectedArea.gallery_items &&
-                    selectedArea.gallery_items.length > 0 && (
-                      <p>
-                        <strong>Gallery Items:</strong>{" "}
-                        {selectedArea.gallery_items.length}
-                      </p>
-                    )}
+                  {selectedArea.gallery && selectedArea.gallery.length > 0 && (
+                    <p>
+                      <strong>Gallery Items:</strong>{" "}
+                      {selectedArea.gallery.length}
+                    </p>
+                  )}
                 </div>
               </>
             ) : (

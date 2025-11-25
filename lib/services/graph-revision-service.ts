@@ -480,7 +480,7 @@ export class GraphRevisionService {
    */
   static async setAreaStartNode(
     areaId: string,
-    data: { node_id: string }
+    data: { node_id: string | null }
   ): Promise<any> {
     try {
       const response = await setAreaStartNode(areaId, data);

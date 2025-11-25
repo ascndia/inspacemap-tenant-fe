@@ -595,7 +595,7 @@ export const deleteArea = async (areaId: string): Promise<any> => {
 
 export const setAreaStartNode = async (
   areaId: string,
-  data: { node_id: string }
+  data: { node_id: string | null }
 ): Promise<any> => {
   const response = await api.put(`/editor/areas/${areaId}/start-node`, data);
   return response.data;

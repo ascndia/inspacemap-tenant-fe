@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { PanoViewer } from "@egjs/view360";
+import PanoViewer from "@egjs/view360";
 import { mediaService } from "@/lib/services/media-service";
 import { MediaItem } from "@/types/media";
 // Panorama Viewer Component

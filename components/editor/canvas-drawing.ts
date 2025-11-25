@@ -396,8 +396,8 @@ function drawAreas(
   ctx: CanvasRenderingContext2D,
   zoom: number,
   areas: Area[],
-  selectedAreaId: string | null,
-  hoveredAreaId: string | null
+  selectedAreaId: string | null | undefined,
+  hoveredAreaId: string | null | undefined
 ) {
   areas.forEach((area) => {
     const isSelected = selectedAreaId === area.id;

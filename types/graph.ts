@@ -308,6 +308,39 @@ export interface AreaGalleryItem {
   is_visible: boolean;
 }
 
+// Manifest-specific types (from editor manifest endpoint)
+export interface AreaData {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  boundary: BoundaryPoint[];
+  start_node_id?: string;
+  cover_image_url?: string;
+  gallery: AreaGalleryDetail[];
+}
+
+export interface AreaGalleryDetail {
+  media_id: string;
+  url: string;
+  thumbnail_url: string;
+  caption: string;
+  sort_order: number;
+}
+
+export interface FloorData {
+  id: string;
+  name: string;
+  level_index: number;
+  map_image_url: string;
+  width: number;
+  height: number;
+  nodes: GraphNode[];
+  areas: AreaData[];
+}
+
 // Graph Revision Types (for API integration)
 export interface GraphRevision {
   id: string;

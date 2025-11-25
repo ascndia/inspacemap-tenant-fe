@@ -440,8 +440,8 @@ export function GraphCanvas({
         });
 
         // Clear drawing state
-        graphStore.setDrawingAreaStart(false);
         graphStore.setDrawingAreaEnd();
+        graphStore.clearDrawingVertices();
       } catch (error) {
         console.error("Failed to create area:", error);
         alert("Failed to create area. Please try again.");
@@ -540,8 +540,8 @@ export function GraphCanvas({
             <AreaCreationPanel
               drawingAreaVertices={drawingAreaVertices}
               onCancel={() => {
-                graphStore.setDrawingAreaStart(false);
                 graphStore.setDrawingAreaEnd();
+                graphStore.clearDrawingVertices();
               }}
               onCreateArea={handleCreateArea}
             />

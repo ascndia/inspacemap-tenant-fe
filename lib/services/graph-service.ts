@@ -110,6 +110,29 @@ export class GraphService {
         });
       });
 
+      // Transform areas from floor data
+      const areas: Area[] =
+        floorData.areas?.map((area: any) => ({
+          id: area.id,
+          floorId: this.floorId,
+          name: area.name,
+          description: area.description,
+          category: area.category,
+          latitude: area.latitude,
+          longitude: area.longitude,
+          boundary: area.boundary,
+          start_node_id: area.start_node_id,
+          cover_image_id: area.cover_image_url, // Map URL to ID for consistency
+          gallery: area.gallery?.map((item: any) => ({
+            media_asset_id: item.media_id,
+            sort_order: item.sort_order,
+            caption: item.caption,
+            is_visible: true, // Default to visible
+          })),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })) || [];
+
       return {
         id: `graph-${this.venueId}-${this.floorId}`,
         venueId: this.venueId,
@@ -117,6 +140,7 @@ export class GraphService {
         name: floorData.level_name || `Floor ${this.floorId}`,
         nodes,
         connections,
+        areas, // Include areas data
         floorplan, // Include floorplan data
         panoramas: [],
         settings: {
@@ -367,11 +391,11 @@ export class GraphService {
     try {
       const apiAreaData = {
         name: areaData.name,
-        description: areaData.description,
+        description: areaData.description || "",
         category: areaData.category,
         boundary: areaData.boundary,
         cover_image_id: areaData.cover_image_id,
-        gallery: areaData.gallery,
+        gallery: areaData.gallery || [],
       };
 
       const createdArea = await GraphRevisionService.createArea(
@@ -387,7 +411,12 @@ export class GraphService {
         category: areaData.category,
         boundary: areaData.boundary,
         cover_image_id: areaData.cover_image_id,
-        gallery: areaData.gallery,
+        gallery: areaData.gallery?.map((item, index) => ({
+          media_asset_id: item.media_asset_id || item.media_id,
+          sort_order: item.sort_order || index,
+          caption: item.caption || "",
+          is_visible: item.is_visible !== false,
+        })),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -413,8 +442,7 @@ export class GraphService {
         apiUpdates.boundary = updates.boundary;
       if (updates.cover_image_id !== undefined)
         apiUpdates.cover_image_id = updates.cover_image_id;
-      if (updates.floor_id !== undefined)
-        apiUpdates.floor_id = updates.floor_id;
+      if (updates.floorId !== undefined) apiUpdates.floor_id = updates.floorId;
 
       await GraphRevisionService.updateArea(areaId, apiUpdates);
     } catch (error) {
@@ -438,7 +466,7 @@ export class GraphService {
   /**
    * Set area start node
    */
-  async setAreaStartNode(areaId: string, nodeId: string): Promise<void> {
+  async setAreaStartNode(areaId: string, nodeId: string | null): Promise<void> {
     try {
       await GraphRevisionService.setAreaStartNode(areaId, { node_id: nodeId });
     } catch (error) {
@@ -458,6 +486,7 @@ export class GraphService {
       name: `Graph for ${this.floorId}`,
       nodes: [],
       connections: [],
+      areas: [], // Include empty areas array
       panoramas: [],
       settings: {
         gridSize: 40,

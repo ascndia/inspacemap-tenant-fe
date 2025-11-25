@@ -577,7 +577,7 @@ export function useSetAreaStartNode() {
       revisionId: string;
       floorId: string;
       areaId: string;
-      nodeId: string;
+      nodeId: string | null;
     }) => {
       const graphService = new GraphService(venueId, revisionId, floorId);
       await graphService.setAreaStartNode(areaId, nodeId);

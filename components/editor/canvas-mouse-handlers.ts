@@ -43,9 +43,14 @@ export interface MouseHandlerParams {
   onAreaVertexUpdate?: (
     areaId: string,
     vertexIndex: number,
-    position: { x: number; y: number }
+    position: { x: number; y: number },
+    isDragging?: boolean
   ) => void;
-  onAreaMove?: (areaId: string, delta: { x: number; y: number }) => void;
+  onAreaMove?: (
+    areaId: string,
+    delta: { x: number; y: number },
+    isDragging?: boolean
+  ) => void;
   onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
   contextMenu: {
     x: number;
@@ -465,38 +470,36 @@ export function createMouseHandlers(
           }
 
           // Update area vertex position
-          onAreaVertexUpdate?.(areaId, vertexIndex, { x: newX, y: newY });
+          onAreaVertexUpdate?.(areaId, vertexIndex, { x: newX, y: newY }, true);
         }
       } else if (dragArea) {
         // Handle area dragging (moving entire area)
         const area = state.graph?.areas.find((a) => a.id === dragArea);
         if (area) {
-          // Calculate delta from drag start
-          let deltaX = x - dragStart.x;
-          let deltaY = y - dragStart.y;
+          // Calculate new center position (like node dragging)
+          let newCenterX = x - dragStart.x;
+          let newCenterY = y - dragStart.y;
 
           // Snap to grid if enabled
           if (state.ui.snapToGrid) {
             const gridSize = state.graph?.settings.gridSize || 20;
-            // Calculate area center
-            const centerX =
-              area.boundary.reduce((sum, p) => sum + p.x, 0) /
-              area.boundary.length;
-            const centerY =
-              area.boundary.reduce((sum, p) => sum + p.y, 0) /
-              area.boundary.length;
-
-            // Snap center position
-            const snappedCenterX = Math.round(centerX / gridSize) * gridSize;
-            const snappedCenterY = Math.round(centerY / gridSize) * gridSize;
-
-            // Calculate snapped delta
-            deltaX = snappedCenterX - (centerX - deltaX);
-            deltaY = snappedCenterY - (centerY - deltaY);
+            newCenterX = Math.round(newCenterX / gridSize) * gridSize;
+            newCenterY = Math.round(newCenterY / gridSize) * gridSize;
           }
 
+          // Calculate delta from current area center
+          const currentCenterX =
+            area.boundary.reduce((sum, p) => sum + p.x, 0) /
+            area.boundary.length;
+          const currentCenterY =
+            area.boundary.reduce((sum, p) => sum + p.y, 0) /
+            area.boundary.length;
+
+          const deltaX = newCenterX - currentCenterX;
+          const deltaY = newCenterY - currentCenterY;
+
           // Move entire area
-          onAreaMove?.(dragArea, { x: deltaX, y: deltaY });
+          onAreaMove?.(dragArea, { x: deltaX, y: deltaY }, true);
         }
       } else {
         // Handle node dragging
@@ -521,12 +524,27 @@ export function createMouseHandlers(
   };
 
   const handleMouseUp = () => {
-    // If we were dragging a node, sync final position with backend
-    if (isDragging && dragNode) {
-      if (dragNode.startsWith("area-vertex-")) {
-        // Area vertex dragging is already handled in real-time
-        // No additional sync needed as onAreaVertexUpdate handles it
-      } else {
+    // If we were dragging something, sync final state with backend
+    if (isDragging) {
+      if (dragNode && dragNode.startsWith("area-vertex-")) {
+        // Sync area vertex changes to backend
+        const parts = dragNode.split("-");
+        const areaId = parts[2];
+        const vertexIndex = parseInt(parts[3]);
+        const area = state.graph?.areas.find((a) => a.id === areaId);
+        if (area) {
+          onAreaVertexUpdate?.(
+            areaId,
+            vertexIndex,
+            area.boundary[vertexIndex],
+            false
+          );
+        }
+      } else if (dragArea) {
+        // Area moving is already handled in real-time, but we could add final sync here if needed
+        // For now, the real-time updates during dragging should be sufficient
+      } else if (dragNode) {
+        // Handle node dragging final sync
         const node = state.graph?.nodes.find((n) => n.id === dragNode);
         if (node) {
           // Get current position from the node (already updated during dragging)

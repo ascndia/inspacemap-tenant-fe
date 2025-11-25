@@ -461,30 +461,46 @@ export function GraphCanvas({
     (
       areaId: string,
       vertexIndex: number,
-      position: { x: number; y: number }
+      position: { x: number; y: number },
+      isDragging = false
     ) => {
       const area = graph?.areas.find((a) => a.id === areaId);
       if (area) {
-        const newBoundary = [...area.boundary];
-        newBoundary[vertexIndex] = position;
-        graphProvider.updateArea(areaId, { boundary: newBoundary });
+        if (isDragging) {
+          // Update local state only during dragging
+          const newBoundary = [...area.boundary];
+          newBoundary[vertexIndex] = position;
+          graphStore.updateArea(areaId, { boundary: newBoundary });
+        } else {
+          // Sync to backend when dragging is complete
+          const newBoundary = [...area.boundary];
+          newBoundary[vertexIndex] = position;
+          graphProvider.updateArea(areaId, { boundary: newBoundary });
+        }
       }
     },
-    [graph?.areas, graphProvider]
+    [graph?.areas, graphProvider, graphStore]
   );
 
   const handleAreaMove = useCallback(
-    (areaId: string, delta: { x: number; y: number }) => {
+    (areaId: string, delta: { x: number; y: number }, isDragging = false) => {
       const area = graph?.areas.find((a) => a.id === areaId);
       if (area) {
         const newBoundary = area.boundary.map((vertex) => ({
           x: vertex.x + delta.x,
           y: vertex.y + delta.y,
         }));
-        graphProvider.updateArea(areaId, { boundary: newBoundary });
+
+        if (isDragging) {
+          // Update local state only during dragging
+          graphStore.updateArea(areaId, { boundary: newBoundary });
+        } else {
+          // Sync to backend when dragging is complete
+          graphProvider.updateArea(areaId, { boundary: newBoundary });
+        }
       }
     },
-    [graph?.areas, graphProvider]
+    [graph?.areas, graphProvider, graphStore]
   );
 
   const handleDrawingVertexAdd = useCallback(

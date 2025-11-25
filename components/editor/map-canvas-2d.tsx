@@ -31,9 +31,14 @@ interface MapCanvas2DProps {
   onAreaVertexUpdate?: (
     areaId: string,
     vertexIndex: number,
-    position: { x: number; y: number }
+    position: { x: number; y: number },
+    isDragging?: boolean
   ) => void;
-  onAreaMove?: (areaId: string, delta: { x: number; y: number }) => void;
+  onAreaMove?: (
+    areaId: string,
+    delta: { x: number; y: number },
+    isDragging?: boolean
+  ) => void;
   onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
 }
 

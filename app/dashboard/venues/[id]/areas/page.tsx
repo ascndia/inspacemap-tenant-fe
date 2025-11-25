@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,6 +45,7 @@ import {
   Filter,
   Plus,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { venueService } from "@/lib/services/venue-service";
@@ -54,9 +55,11 @@ import { useAccessControl } from "@/lib/hooks/use-access-control";
 import type { VenueDetail } from "@/types/venue";
 import type { AreaSummary } from "@/lib/services/area-service";
 import type { GraphRevision } from "@/types/graph";
+import { DeleteAreaConfirmModal } from "@/components/revisions/delete-area-confirm-modal";
 
 export default function VenueAreasPage() {
   const params = useParams();
+  const router = useRouter();
   const venueId = params.id as string;
   const { canAccess } = useAccessControl();
 
@@ -68,7 +71,7 @@ export default function VenueAreasPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [floorFilter, setFloorFilter] = useState<string>("all");
   const [revisionFilter, setRevisionFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("published");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // Edit dialog state
   const [editingArea, setEditingArea] = useState<AreaSummary | null>(null);
@@ -77,6 +80,9 @@ export default function VenueAreasPage() {
     description: "",
     category: "",
   });
+
+  // Delete dialog state
+  const [deletingArea, setDeletingArea] = useState<AreaSummary | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -177,6 +183,25 @@ export default function VenueAreasPage() {
       }
     } catch (error) {
       console.error("Failed to update area:", error);
+      // TODO: Show error toast
+    }
+  };
+
+  const handleDeleteArea = async () => {
+    if (!deletingArea) return;
+
+    try {
+      const response = await areaService.deleteArea(deletingArea.id);
+      if (response.success) {
+        // Remove from local state
+        setAreas(areas.filter((area) => area.id !== deletingArea.id));
+        setDeletingArea(null);
+      } else {
+        console.error("Failed to delete area:", response.error);
+        // TODO: Show error toast
+      }
+    } catch (error) {
+      console.error("Failed to delete area:", error);
       // TODO: Show error toast
     }
   };
@@ -326,39 +351,49 @@ export default function VenueAreasPage() {
                 </TableRow>
               ) : (
                 filteredAreas.map((area) => (
-                  <TableRow key={area.id}>
-                    <TableCell>
-                      <Link
-                        href={`/dashboard/venues/${venueId}/areas/${area.id}`}
-                        className="hover:underline"
-                      >
-                        <div>
-                          <div className="font-medium">{area.name}</div>
-                          {area.description && (
-                            <div className="text-sm text-muted-foreground truncate max-w-xs">
-                              {area.description}
-                            </div>
-                          )}
-                        </div>
-                      </Link>
+                  <TableRow
+                    key={area.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/venues/${venueId}/areas/${area.id}`
+                      )
+                    }
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div>
+                        <div className="font-medium">{area.name}</div>
+                        {area.description && (
+                          <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            {area.description}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Badge className={getCategoryColor(area.category)}>
                         {area.category.replace("_", " ")}
                       </Badge>
                     </TableCell>
-                    <TableCell>{area.floor_name}</TableCell>
-                    <TableCell>{area.revision_id}</TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {area.floor_name}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {area.revision_id}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
                         <ImageIcon className="h-4 w-4 text-muted-foreground" />
                         <span>{area.gallery_count}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-sm text-muted-foreground"
+                    >
                       {new Date(area.updated_at).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
@@ -367,13 +402,15 @@ export default function VenueAreasPage() {
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Link
-                          href={`/dashboard/venues/${venueId}/areas/${area.id}`}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingArea(area)}
+                          disabled={statusFilter === "published"}
+                          className="text-destructive hover:text-destructive"
                         >
-                          <Button variant="ghost" size="sm">
-                            <ImageIcon className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -450,6 +487,17 @@ export default function VenueAreasPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Area Confirmation Modal */}
+      {deletingArea && venue && (
+        <DeleteAreaConfirmModal
+          isOpen={!!deletingArea}
+          onClose={() => setDeletingArea(null)}
+          onConfirm={handleDeleteArea}
+          venueSlug={venue.slug}
+          areaName={deletingArea.name}
+        />
+      )}
     </div>
   );
 }

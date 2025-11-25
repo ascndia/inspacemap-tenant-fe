@@ -377,7 +377,10 @@ export default function AreaDetailPage() {
           {gallery.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {gallery.map((item, index) => (
-                <Card key={item.id} className="group relative overflow-hidden">
+                <Card
+                  key={item.id}
+                  className="group relative overflow-hidden p-0"
+                >
                   <CardContent className="p-0">
                     <div className="aspect-square relative overflow-hidden">
                       <Image

@@ -84,6 +84,10 @@ export interface MouseHandlerParams {
   setHoveredNodeId: (nodeId: string | null) => void;
   hoveredAreaId: string | null;
   setHoveredAreaId: (areaId: string | null) => void;
+  hoveredAreaVertex: { areaId: string; vertexIndex: number } | null;
+  setHoveredAreaVertex: (
+    vertex: { areaId: string; vertexIndex: number } | null
+  ) => void;
   mousePosition: { x: number; y: number };
   setMousePosition: (position: { x: number; y: number }) => void;
   onToolChange?: (tool: string) => void;
@@ -128,6 +132,8 @@ export function createMouseHandlers(
     setHoveredNodeId,
     hoveredAreaId,
     setHoveredAreaId,
+    hoveredAreaVertex,
+    setHoveredAreaVertex,
     mousePosition,
     setMousePosition,
     onToolChange,
@@ -182,7 +188,7 @@ export function createMouseHandlers(
   ): { area: Area; vertexIndex: number } | null => {
     if (!state.graph?.areas) return null;
 
-    const tolerance = 8 / zoom;
+    const tolerance = 12 / zoom;
     for (const area of state.graph.areas) {
       for (let i = 0; i < area.boundary.length; i++) {
         const vertex = area.boundary[i];
@@ -323,7 +329,7 @@ export function createMouseHandlers(
       if (state.ui.tool === "move") {
         setIsDragging(true);
         setDragArea(clickedArea.id);
-        // Calculate drag start relative to area center
+        // Store the initial offset from mouse to area center (like node dragging)
         const centerX =
           clickedArea.boundary.reduce((sum, p) => sum + p.x, 0) /
           clickedArea.boundary.length;
@@ -405,6 +411,9 @@ export function createMouseHandlers(
     // Detect hovered area
     const hoveredArea = hoveredNode ? null : getAreaAtPoint(x, y);
 
+    // Detect hovered area vertex (for selected areas)
+    const hoveredVertex = hoveredArea ? getAreaVertexAtPoint(x, y) : null;
+
     // Update hover state
     if (hoveredNode) {
       if (hoveredNodeId !== hoveredNode.id) {
@@ -413,6 +422,25 @@ export function createMouseHandlers(
       if (hoveredAreaId !== null) {
         setHoveredAreaId(null);
       }
+      if (hoveredAreaVertex !== null) {
+        setHoveredAreaVertex(null);
+      }
+    } else if (hoveredVertex) {
+      if (
+        hoveredAreaVertex?.areaId !== hoveredVertex.area.id ||
+        hoveredAreaVertex?.vertexIndex !== hoveredVertex.vertexIndex
+      ) {
+        setHoveredAreaVertex({
+          areaId: hoveredVertex.area.id,
+          vertexIndex: hoveredVertex.vertexIndex,
+        });
+      }
+      if (hoveredAreaId !== hoveredVertex.area.id) {
+        setHoveredAreaId(hoveredVertex.area.id);
+      }
+      if (hoveredNodeId !== null) {
+        setHoveredNodeId(null);
+      }
     } else if (hoveredArea) {
       if (hoveredAreaId !== hoveredArea.id) {
         setHoveredAreaId(hoveredArea.id);
@@ -420,12 +448,18 @@ export function createMouseHandlers(
       if (hoveredNodeId !== null) {
         setHoveredNodeId(null);
       }
+      if (hoveredAreaVertex !== null) {
+        setHoveredAreaVertex(null);
+      }
     } else {
       if (hoveredNodeId !== null) {
         setHoveredNodeId(null);
       }
       if (hoveredAreaId !== null) {
         setHoveredAreaId(null);
+      }
+      if (hoveredAreaVertex !== null) {
+        setHoveredAreaVertex(null);
       }
     }
 
@@ -473,10 +507,10 @@ export function createMouseHandlers(
           onAreaVertexUpdate?.(areaId, vertexIndex, { x: newX, y: newY }, true);
         }
       } else if (dragArea) {
-        // Handle area dragging (moving entire area)
+        // Handle area dragging (moving entire area) - simplified like node dragging
         const area = state.graph?.areas.find((a) => a.id === dragArea);
         if (area) {
-          // Calculate new center position (like node dragging)
+          // Calculate new center position (like node dragging: mouse - offset)
           let newCenterX = x - dragStart.x;
           let newCenterY = y - dragStart.y;
 
@@ -487,7 +521,7 @@ export function createMouseHandlers(
             newCenterY = Math.round(newCenterY / gridSize) * gridSize;
           }
 
-          // Calculate delta from current area center
+          // Calculate delta from current area center to new center
           const currentCenterX =
             area.boundary.reduce((sum, p) => sum + p.x, 0) /
             area.boundary.length;
@@ -498,7 +532,7 @@ export function createMouseHandlers(
           const deltaX = newCenterX - currentCenterX;
           const deltaY = newCenterY - currentCenterY;
 
-          // Move entire area
+          // Move entire area by delta
           onAreaMove?.(dragArea, { x: deltaX, y: deltaY }, true);
         }
       } else {
@@ -541,8 +575,9 @@ export function createMouseHandlers(
           );
         }
       } else if (dragArea) {
-        // Area moving is already handled in real-time, but we could add final sync here if needed
-        // For now, the real-time updates during dragging should be sufficient
+        // Area moving is already handled in real-time during drag
+        // Just sync the final position to backend
+        onAreaMove?.(dragArea, { x: 0, y: 0 }, false);
       } else if (dragNode) {
         // Handle node dragging final sync
         const node = state.graph?.nodes.find((n) => n.id === dragNode);

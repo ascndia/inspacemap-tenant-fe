@@ -106,6 +106,10 @@ export function MapCanvas2D({
     position?: { x: number; y: number };
   } | null>(null);
   const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null);
+  const [hoveredAreaVertex, setHoveredAreaVertex] = useState<{
+    areaId: string;
+    vertexIndex: number;
+  } | null>(null);
 
   // Load panorama media
   useEffect(() => {
@@ -171,6 +175,7 @@ export function MapCanvas2D({
         connectingFromId,
         hoveredNodeId,
         hoveredAreaId,
+        hoveredAreaVertex,
         mousePosition,
         isDrawingArea,
         drawingAreaVertices,
@@ -234,6 +239,8 @@ export function MapCanvas2D({
     setHoveredNodeId,
     hoveredAreaId,
     setHoveredAreaId,
+    hoveredAreaVertex,
+    setHoveredAreaVertex,
     mousePosition,
     setMousePosition,
     isMiddleMousePanning,

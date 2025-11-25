@@ -23,6 +23,7 @@ export interface DrawParams {
     connectingFromId?: string | null;
     hoveredNodeId?: string | null;
     hoveredAreaId?: string | null;
+    hoveredAreaVertex?: { areaId: string; vertexIndex: number } | null;
     mousePosition?: { x: number; y: number };
     isDrawingArea?: boolean;
     drawingAreaVertices?: { x: number; y: number }[];
@@ -76,6 +77,7 @@ export function drawCanvas(params: DrawParams) {
     graph.areas,
     ui.selectedAreaId,
     ui.hoveredAreaId,
+    ui.hoveredAreaVertex,
     ui.draggingAreaId
   );
 
@@ -413,6 +415,7 @@ function drawAreas(
   areas: Area[],
   selectedAreaId: string | null | undefined,
   hoveredAreaId: string | null | undefined,
+  hoveredAreaVertex: { areaId: string; vertexIndex: number } | null | undefined,
   draggingAreaId?: string | null
 ) {
   areas.forEach((area) => {
@@ -456,9 +459,14 @@ function drawAreas(
       ctx.strokeStyle = "#1e40af";
       ctx.lineWidth = 1 / zoom;
 
-      area.boundary.forEach((vertex) => {
+      area.boundary.forEach((vertex, vertexIndex) => {
+        const isVertexHovered =
+          hoveredAreaVertex?.areaId === area.id &&
+          hoveredAreaVertex?.vertexIndex === vertexIndex;
+        const radius = isVertexHovered ? 8 / zoom : 6 / zoom;
+
         ctx.beginPath();
-        ctx.arc(vertex.x, vertex.y, 6 / zoom, 0, 2 * Math.PI);
+        ctx.arc(vertex.x, vertex.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         ctx.stroke();
       });

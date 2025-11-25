@@ -34,18 +34,22 @@ import {
   Save,
   MapPin,
   Building,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { mediaService } from "@/lib/services/media-service";
 import { areaService } from "@/lib/services/area-service";
+import { venueService } from "@/lib/services/venue-service";
 import { MediaPicker } from "@/components/media/media-picker";
 import type { MediaItem } from "@/types/media";
+import type { VenueDetail } from "@/types/venue";
 import { replaceMinioPort } from "@/lib/utils";
 import type {
   AreaEditorDetail,
   AreaGalleryDetail,
 } from "@/lib/services/area-service";
+import { DeleteAreaConfirmModal } from "@/components/revisions/delete-area-confirm-modal";
 
 interface GalleryItem extends AreaGalleryDetail {
   id: string;
@@ -61,12 +65,14 @@ export default function AreaDetailPage() {
   const areaId = params.areaId as string;
 
   const [area, setArea] = useState<AreaEditorDetail | null>(null);
+  const [venue, setVenue] = useState<VenueDetail | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [editingArea, setEditingArea] = useState(false);
+  const [deletingArea, setDeletingArea] = useState(false);
 
   // Form state for area editing
   const [areaForm, setAreaForm] = useState({
@@ -79,6 +85,12 @@ export default function AreaDetailPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
+
+        // Fetch venue details
+        const venueResponse = await venueService.getVenueById(venueId);
+        if (venueResponse.success) {
+          setVenue(venueResponse.data);
+        }
 
         // Fetch complete area details including gallery
         const areaResponse = await areaService.getArea(areaId);
@@ -145,6 +157,22 @@ export default function AreaDetailPage() {
       console.error("Failed to save area:", error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteArea = async () => {
+    if (!area) return;
+
+    try {
+      const response = await areaService.deleteArea(area.id);
+      if (response.success) {
+        // Navigate back to areas list
+        router.push(`/dashboard/venues/${venueId}/areas`);
+      } else {
+        console.error("Failed to delete area:", response.error);
+      }
+    } catch (error) {
+      console.error("Failed to delete area:", error);
     }
   };
 
@@ -296,14 +324,35 @@ export default function AreaDetailPage() {
             {area.floor_name} • Revision ID: {area.revision_id}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setEditingArea(true)}
-          disabled={saving}
-        >
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Details
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              router.push(
+                `/dashboard/venues/${venueId}/revision/${area.revision_id}/editor`
+              )
+            }
+          >
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Open in Editor
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setEditingArea(true)}
+            disabled={saving}
+          >
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Details
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setDeletingArea(true)}
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Area
+          </Button>
+        </div>
       </div>
 
       {/* Area Details Card */}
@@ -556,6 +605,17 @@ export default function AreaDetailPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Area Confirmation Modal */}
+      {area && venue && (
+        <DeleteAreaConfirmModal
+          isOpen={deletingArea}
+          onClose={() => setDeletingArea(false)}
+          onConfirm={handleDeleteArea}
+          venueSlug={venue.slug}
+          areaName={area.name}
+        />
+      )}
     </div>
   );
 }

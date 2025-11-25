@@ -41,6 +41,8 @@ export interface AreaGalleryDetail {
   thumbnail_url: string;
   caption: string;
   sort_order: number;
+  is_visible?: boolean;
+  is_featured?: boolean;
 }
 
 export interface BoundaryPoint {

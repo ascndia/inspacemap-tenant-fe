@@ -360,7 +360,7 @@ export default function VenueAreasPage() {
                       )
                     }
                   >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell>
                       <div>
                         <div className="font-medium">{area.name}</div>
                         {area.description && (
@@ -370,27 +370,20 @@ export default function VenueAreasPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell>
                       <Badge className={getCategoryColor(area.category)}>
                         {area.category.replace("_", " ")}
                       </Badge>
                     </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {area.floor_name}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      {area.revision_id}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
+                    <TableCell>{area.floor_name}</TableCell>
+                    <TableCell>{area.revision_id}</TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-1">
                         <ImageIcon className="h-4 w-4 text-muted-foreground" />
                         <span>{area.gallery_count}</span>
                       </div>
                     </TableCell>
-                    <TableCell
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-sm text-muted-foreground"
-                    >
+                    <TableCell className="text-sm text-muted-foreground">
                       {new Date(area.updated_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>

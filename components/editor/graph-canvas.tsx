@@ -143,11 +143,21 @@ export function GraphCanvas({
     };
   }, []);
 
-  const handleToolChange = (tool: string) => {
+  const handleToolChange = useCallback((tool: string) => {
+    // Handle special tool changes
+    if (tool === "draw-area") {
+      // Start area drawing mode
+      graphStore.setDrawingAreaStart();
+    } else if (tool !== "draw-area" && isDrawingArea) {
+      // End area drawing mode if switching away from draw-area tool
+      graphStore.setDrawingAreaEnd();
+      graphStore.clearDrawingVertices();
+    }
+
     setTool(
-      tool as "select" | "move" | "add-node" | "connect" | "pan" | "zoom"
+      tool as "select" | "move" | "add-node" | "connect" | "pan" | "zoom" | "draw-area"
     );
-  };
+  }, [graphStore, isDrawingArea]);
 
   const handleZoomIn = useCallback(() => {
     setCanvasZoom((prev) => Math.min(5, prev * 1.2));

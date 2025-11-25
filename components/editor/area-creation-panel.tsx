@@ -30,7 +30,7 @@ export function AreaCreationPanel({
   onCreateArea,
 }: AreaCreationPanelProps) {
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("default");
+  const [category, setCategory] = useState("meeting_room");
   const [description, setDescription] = useState("");
 
   const handleCreate = () => {
@@ -87,16 +87,12 @@ export function AreaCreationPanel({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-                <SelectItem value="room">Room</SelectItem>
-                <SelectItem value="corridor">Corridor</SelectItem>
-                <SelectItem value="staircase">Staircase</SelectItem>
-                <SelectItem value="elevator">Elevator</SelectItem>
-                <SelectItem value="entrance">Entrance</SelectItem>
-                <SelectItem value="exit">Exit</SelectItem>
-                <SelectItem value="parking">Parking</SelectItem>
-                <SelectItem value="garden">Garden</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="meeting_room">Meeting Room</SelectItem>
+                <SelectItem value="office">Office</SelectItem>
+                <SelectItem value="lobby">Lobby</SelectItem>
+                <SelectItem value="dining">Dining</SelectItem>
+                <SelectItem value="entertainment">Entertainment</SelectItem>
+                <SelectItem value="service">Service</SelectItem>
               </SelectContent>
             </Select>
           </div>

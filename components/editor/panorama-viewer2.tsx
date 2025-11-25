@@ -51,6 +51,8 @@ export default function PanoramaViewer({
   const lastProgrammaticUpdate = useRef<number>(0);
   const panoramaSource = useGraphStore((s) => s.panoramaLastUpdateSource);
   const panoramaUpdatedAt = useGraphStore((s) => s.panoramaLastUpdatedAt);
+  const panoramaYaw = useGraphStore((s) => s.panoramaYaw);
+  const panoramaPitch = useGraphStore((s) => s.panoramaPitch);
   const setPanoramaRotation = useGraphStore((s) => s.setPanoramaRotation);
   const panoramaDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -168,6 +170,36 @@ export default function PanoramaViewer({
     }
   }, [initialYaw, initialPitch, panoramaSource, panoramaUpdatedAt]);
 
+  // React to global state changes (e.g., from properties panel slider)
+  useEffect(() => {
+    if (panoramaSource === "viewer") return; // Ignore updates from this viewer to prevent loops
+
+    const yaw = Number.isFinite(panoramaYaw) ? normalizeYaw(panoramaYaw) : 0;
+    const pitch = clampPitch(
+      Number.isFinite(panoramaPitch) ? panoramaPitch : 0
+    );
+
+    console.log(
+      "Updating viewer from global state - yaw:",
+      yaw,
+      "pitch:",
+      pitch
+    );
+    setCurrentYaw(yaw);
+    setCurrentPitch(pitch);
+    lastReportedYaw.current = yaw;
+    lastReportedPitch.current = pitch;
+    lastProgrammaticUpdate.current = Date.now();
+
+    // Update viewer rotation if it exists
+    if (viewerRef.current) {
+      viewerRef.current.camera.lookAt({
+        yaw: (yaw * Math.PI) / 180,
+        pitch: (pitch * Math.PI) / 180,
+      });
+    }
+  }, [panoramaYaw, panoramaPitch, panoramaSource]);
+
   // 2. Setup Viewer
   useEffect(() => {
     if (!containerRef.current || !selectedNode?.panorama_url) return;
@@ -208,20 +240,20 @@ export default function PanoramaViewer({
       isUserInteracting.current = true;
 
       setCurrentYaw(yaw);
-      setCurrentPitch(pitch);
+      setCurrentPitch((pitch * 180) / Math.PI); // Convert pitch from radians to degrees
 
       // Update store directly (debounced) to avoid parent round-trip. Also call callbacks for compatibility.
       if (panoramaDebounceRef.current)
         clearTimeout(panoramaDebounceRef.current);
       panoramaDebounceRef.current = setTimeout(() => {
-        setPanoramaRotation(yaw, pitch, "viewer");
+        setPanoramaRotation(yaw, (pitch * 180) / Math.PI, "viewer"); // Store pitch in degrees
         panoramaDebounceRef.current = null;
       }, 100);
       onRotationChange?.(yaw);
-      onPitchChange?.(pitch);
+      onPitchChange?.((pitch * 180) / Math.PI);
 
       lastReportedYaw.current = yaw;
-      lastReportedPitch.current = pitch;
+      lastReportedPitch.current = (pitch * 180) / Math.PI;
 
       // Reset interaction flag after delay
       setTimeout(() => {

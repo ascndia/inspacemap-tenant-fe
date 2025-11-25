@@ -511,11 +511,11 @@ export function PropertiesPanel() {
                   <Label>Start Node</Label>
                   <div className="flex gap-2">
                     <Select
-                      value={selectedArea.start_node_id || ""}
+                      value={selectedArea.start_node_id || "none"}
                       onValueChange={(value) => {
                         graphProvider.setAreaStartNode(
                           selectedArea.id,
-                          value || null
+                          value === "none" ? null : value
                         );
                       }}
                     >
@@ -523,7 +523,7 @@ export function PropertiesPanel() {
                         <SelectValue placeholder="Select start node" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {graph?.nodes.map((node) => (
                           <SelectItem key={node.id} value={node.id}>
                             {node.label || `Node ${node.id.slice(0, 8)}`}

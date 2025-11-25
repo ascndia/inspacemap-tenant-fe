@@ -56,6 +56,14 @@ export function PropertiesPanel() {
   const [panoramaMedia, setPanoramaMedia] = useState<MediaItem[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
 
+  // Area local state for tracking changes before applying
+  const [areaChanges, setAreaChanges] = useState<{
+    name?: string;
+    description?: string;
+    category?: string;
+  }>({});
+  const [hasAreaChanges, setHasAreaChanges] = useState(false);
+
   // Sync local state with selected node
   useEffect(() => {
     if (selectedNode) {
@@ -64,6 +72,21 @@ export function PropertiesPanel() {
       setFovValue(selectedNode.fov);
     }
   }, [selectedNode]);
+
+  // Sync area local state with selected area
+  useEffect(() => {
+    if (selectedArea) {
+      setAreaChanges({
+        name: selectedArea.name || "",
+        description: selectedArea.description || "",
+        category: selectedArea.category || "default",
+      });
+      setHasAreaChanges(false);
+    } else {
+      setAreaChanges({});
+      setHasAreaChanges(false);
+    }
+  }, [selectedArea]);
 
   // Calculate graph stats
   const graphStats = useMemo(() => {
@@ -178,6 +201,25 @@ export function PropertiesPanel() {
       await graphProvider.updateNode(selectedNode.id, updates);
     } catch (error) {
       console.error("Failed to update node:", error);
+    }
+  };
+
+  const handleAreaChange = (field: string, value: string) => {
+    setAreaChanges((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setHasAreaChanges(true);
+  };
+
+  const handleApplyAreaChanges = async () => {
+    if (!selectedArea || !hasAreaChanges) return;
+
+    try {
+      await graphProvider.updateArea(selectedArea.id, areaChanges);
+      setHasAreaChanges(false);
+    } catch (error) {
+      console.error("Failed to update area:", error);
     }
   };
 
@@ -454,12 +496,8 @@ export function PropertiesPanel() {
                 <div className="space-y-2">
                   <Label>Name</Label>
                   <Input
-                    value={selectedArea.name || ""}
-                    onChange={(e) => {
-                      graphProvider.updateArea(selectedArea.id, {
-                        name: e.target.value,
-                      });
-                    }}
+                    value={areaChanges.name || ""}
+                    onChange={(e) => handleAreaChange("name", e.target.value)}
                     placeholder="Enter area name"
                   />
                 </div>
@@ -467,12 +505,10 @@ export function PropertiesPanel() {
                 <div className="space-y-2">
                   <Label>Category</Label>
                   <Select
-                    value={selectedArea.category || "default"}
-                    onValueChange={(value) => {
-                      graphProvider.updateArea(selectedArea.id, {
-                        category: value,
-                      });
-                    }}
+                    value={areaChanges.category || "default"}
+                    onValueChange={(value) =>
+                      handleAreaChange("category", value)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -495,14 +531,31 @@ export function PropertiesPanel() {
                 <div className="space-y-2">
                   <Label>Description</Label>
                   <Input
-                    value={selectedArea.description || ""}
-                    onChange={(e) => {
-                      graphProvider.updateArea(selectedArea.id, {
-                        description: e.target.value,
-                      });
-                    }}
+                    value={areaChanges.description || ""}
+                    onChange={(e) =>
+                      handleAreaChange("description", e.target.value)
+                    }
                     placeholder="Enter area description"
                   />
+                </div>
+
+                {hasAreaChanges && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      You have unsaved changes. Click "Apply Changes" to save.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleApplyAreaChanges}
+                    disabled={!hasAreaChanges}
+                    className="w-full"
+                    variant={hasAreaChanges ? "default" : "secondary"}
+                  >
+                    Apply Changes
+                  </Button>
                 </div>
 
                 <Separator />
@@ -832,8 +885,16 @@ export function PropertiesPanel() {
         <Button
           className="w-full"
           disabled={!selectedNode && !selectedConnection && !selectedArea}
+          onClick={() => {
+            if (selectedArea && hasAreaChanges) {
+              handleApplyAreaChanges();
+            }
+          }}
+          variant={selectedArea && hasAreaChanges ? "default" : "secondary"}
         >
-          Apply Changes
+          {selectedArea && hasAreaChanges
+            ? "Apply Area Changes"
+            : "Apply Changes"}
         </Button>
       </div>
     </div>

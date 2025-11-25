@@ -1,8 +1,19 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-import View360, { EquirectProjection } from "@egjs/view360";
+import View360, { EquirectProjection, EVENTS } from "@egjs/view360";
 import { useGraphStore } from "@/stores/graph-store";
+
+const normalizeYaw = (yaw: number) => ((yaw % 360) + 360) % 360;
+const sanitizeYaw = (yaw?: number) =>
+  Math.round(Number.isFinite(yaw) ? normalizeYaw(yaw as number) : 0);
+const clampPitch = (pitch: number) => Math.max(-90, Math.min(90, pitch));
+const sanitizePitch = (pitch?: number) =>
+  clampPitch(Math.round(Number.isFinite(pitch) ? (pitch as number) : 0));
+const yawDiffDeg = (a: number, b: number) => {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+};
 
 interface HotspotData {
   nodeId: string;
@@ -36,9 +47,19 @@ export default function PanoramaViewer({
   const [currentPitch, setCurrentPitch] = useState(initialPitch);
   const lastReportedYaw = useRef(initialYaw);
   const lastReportedPitch = useRef(initialPitch);
+  const isUserInteracting = useRef(false);
+  const lastProgrammaticUpdate = useRef<number>(0);
+  const panoramaSource = useGraphStore((s) => s.panoramaLastUpdateSource);
+  const panoramaUpdatedAt = useGraphStore((s) => s.panoramaLastUpdatedAt);
+  const setPanoramaRotation = useGraphStore((s) => s.setPanoramaRotation);
+  const panoramaDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get panorama rotation from store
-  const { panoramaYaw, panoramaPitch } = useGraphStore();
+  // NOTE: The rotation source is passed via props (initialYaw/initialPitch).
+  // The parent (GraphCanvas) listens to viewer rotation via callbacks and updates
+  // the global store. This component receives the rotation via props and updates the
+  // View360 camera accordingly.
+
+  // No direct store subscription here - parent passes initialYaw/initialPitch.
 
   // 1. Kalkulasi Data Hotspot (Hanya menghitung Yaw/Pitch, TANPA posisi layar X/Y)
   const calculateHotspots = useCallback(() => {
@@ -94,25 +115,58 @@ export default function PanoramaViewer({
     return calculated;
   }, [selectedNode, graph, currentYaw]);
 
-  const isUserInteracting = useRef(false);
+  // Recalculate hotspots when graph/selection/rotation changes
+  useEffect(() => {
+    setHotspots(calculateHotspots() as HotspotData[]);
+  }, [calculateHotspots]);
 
   // Update rotation state when props change (but not during user interaction)
   useEffect(() => {
-    if (isUserInteracting.current) return; // Don't update camera during user interaction
+    if (isUserInteracting.current) {
+      console.log("Skipping viewer update due to user interaction");
+      return; // Don't update camera during user interaction
+    }
 
-    setCurrentYaw(initialYaw);
-    setCurrentPitch(initialPitch);
-    lastReportedYaw.current = initialYaw;
-    lastReportedPitch.current = initialPitch;
+    const yaw = Number.isFinite(initialYaw) ? normalizeYaw(initialYaw) : 0;
+    const pitch = clampPitch(Number.isFinite(initialPitch) ? initialPitch : 0);
+
+    // If the last update came from our own viewer within a small grace period,
+    // ignore this programmatic update to prevent feedback loops.
+    const now = Date.now();
+    const graceMs = 250;
+    if (
+      panoramaSource === "viewer" &&
+      panoramaUpdatedAt &&
+      now - panoramaUpdatedAt < graceMs
+    ) {
+      // Skip programmatic update that originated from this viewer
+      // but still update local refs so internal state remains consistent
+      console.log("Ignoring programmatic update from viewer (grace period)");
+      lastReportedYaw.current = yaw;
+      lastReportedPitch.current = pitch;
+      return;
+    }
+
+    console.log(
+      "Updating viewer from node initial values - yaw:",
+      yaw,
+      "pitch:",
+      pitch
+    );
+    setCurrentYaw(yaw);
+    setCurrentPitch(pitch);
+    lastReportedYaw.current = yaw;
+    lastReportedPitch.current = pitch;
+    lastProgrammaticUpdate.current = Date.now();
 
     // Update viewer rotation if it exists (but don't recreate viewer)
     if (viewerRef.current) {
       viewerRef.current.camera.lookAt({
-        yaw: (initialYaw * Math.PI) / 180,
-        pitch: (initialPitch * Math.PI) / 180,
+        yaw: (yaw * Math.PI) / 180,
+        pitch: (pitch * Math.PI) / 180,
       });
     }
-  }, [initialYaw, initialPitch]);
+  }, [initialYaw, initialPitch, panoramaSource, panoramaUpdatedAt]);
 
   // 2. Setup Viewer
   useEffect(() => {
@@ -130,70 +184,59 @@ export default function PanoramaViewer({
     viewerRef.current = viewer;
 
     // Set initial rotation after viewer is created
+    const initYaw = Number.isFinite(initialYaw) ? normalizeYaw(initialYaw) : 0;
+    const initPitch = clampPitch(
+      Number.isFinite(initialPitch) ? initialPitch : 0
+    );
     viewer.camera.lookAt({
-      yaw: (initialYaw * Math.PI) / 180,
-      pitch: (initialPitch * Math.PI) / 180,
+      yaw: (initYaw * Math.PI) / 180,
+      pitch: (initPitch * Math.PI) / 180,
     });
 
-    // Poll for camera changes instead of relying on events
-    let pollTimeoutId: NodeJS.Timeout;
-    const pollCameraChanges = () => {
-      if (!viewerRef.current) return;
+    // Listen to viewChange event for precise camera updates
+    const onViewChange = (evt: any) => {
+      const { yaw, pitch } = evt;
 
-      const yaw = (viewer.camera.yaw * 180) / Math.PI;
-      const pitch = (viewer.camera.pitch * 180) / Math.PI;
-
-      const yawDiff = Math.abs(yaw - lastReportedYaw.current);
-      const pitchDiff = Math.abs(pitch - lastReportedPitch.current);
-
-      if (yawDiff > 0.1 || pitchDiff > 0.1) {
-        console.log(
-          "Camera changed - yaw:",
-          yaw,
-          "pitch:",
-          pitch,
-          "diffs:",
-          yawDiff,
-          pitchDiff
-        );
-        console.log(
-          "Current store values - panoramaYaw:",
-          panoramaYaw,
-          "panoramaPitch:",
-          panoramaPitch
-        );
-        isUserInteracting.current = true;
-
-        setCurrentYaw(yaw);
-        setCurrentPitch(pitch);
-
-        console.log("Calling onRotationChange with yaw:", yaw);
-        onRotationChange?.(yaw);
-        onPitchChange?.(pitch);
-
-        lastReportedYaw.current = yaw;
-        lastReportedPitch.current = pitch;
-
-        // Reset interaction flag after delay
-        setTimeout(() => {
-          isUserInteracting.current = false;
-        }, 100);
+      // Ignore changes during programmatic updates (grace period)
+      const timeSinceProgrammaticUpdate =
+        Date.now() - lastProgrammaticUpdate.current;
+      if (timeSinceProgrammaticUpdate < 200) {
+        return;
       }
 
-      // Poll every 50ms instead of every frame for better performance
-      pollTimeoutId = setTimeout(pollCameraChanges, 50);
+      console.log("View change detected - yaw:", yaw, "pitch:", pitch);
+      isUserInteracting.current = true;
+
+      setCurrentYaw(yaw);
+      setCurrentPitch(pitch);
+
+      // Update store directly (debounced) to avoid parent round-trip. Also call callbacks for compatibility.
+      if (panoramaDebounceRef.current)
+        clearTimeout(panoramaDebounceRef.current);
+      panoramaDebounceRef.current = setTimeout(() => {
+        setPanoramaRotation(yaw, pitch, "viewer");
+        panoramaDebounceRef.current = null;
+      }, 100);
+      onRotationChange?.(yaw);
+      onPitchChange?.(pitch);
+
+      lastReportedYaw.current = yaw;
+      lastReportedPitch.current = pitch;
+
+      // Reset interaction flag after delay
+      setTimeout(() => {
+        isUserInteracting.current = false;
+      }, 100);
     };
 
-    // Start polling
-    console.log("Starting camera polling");
-    pollCameraChanges();
+    viewer.on(EVENTS.VIEW_CHANGE, onViewChange);
     const resizeObserver = new ResizeObserver(() => {
       viewer.resize();
     });
     resizeObserver.observe(containerRef.current);
 
     return () => {
-      clearTimeout(pollTimeoutId);
+      viewer.off(EVENTS.VIEW_CHANGE, onViewChange);
       resizeObserver.disconnect();
       viewer.destroy();
       viewerRef.current = null;

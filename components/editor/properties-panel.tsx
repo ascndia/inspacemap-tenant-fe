@@ -31,6 +31,7 @@ export function PropertiesPanel() {
   const selectedAreaId = graphStore.selectedAreaId;
   const graph = graphStore.graph;
   const panoramaYaw = graphStore.panoramaYaw;
+  const panoramaPitch = graphStore.panoramaPitch;
 
   // Get selected node using selector
   const selectedNode = useMemo(() => {
@@ -76,16 +77,8 @@ export function PropertiesPanel() {
       setHeadingValue(selectedNode.heading);
       setFovValue(selectedNode.fov);
       // Initialize free view rotation with panorama yaw if available, otherwise node rotation
-      const newFreeViewRotation = panoramaYaw || selectedNode.rotation;
-      console.log(
-        "Properties panel: syncing freeViewRotation to",
-        newFreeViewRotation,
-        "from panoramaYaw:",
-        panoramaYaw,
-        "or node.rotation:",
-        selectedNode.rotation
-      );
-      setFreeViewRotation(newFreeViewRotation);
+      const newFreeViewRotation = panoramaYaw ?? selectedNode.rotation ?? 0;
+      setFreeViewRotation(Math.round(newFreeViewRotation));
     }
   }, [selectedNode, panoramaYaw]);
 
@@ -468,18 +461,13 @@ export function PropertiesPanel() {
                     <Slider
                       value={[freeViewRotation]}
                       onValueChange={([value]) => {
-                        console.log(
-                          "Properties panel slider: onValueChange called with value:",
-                          value
-                        );
-                        setFreeViewRotation(value);
-                        graphStore.updateNode(selectedNode.id, {
-                          heading: value, // Update heading for panorama viewing
-                        });
-                        graphStore.setPanoramaRotation(value, 0); // Update panorama rotation
-                        console.log(
-                          "Properties panel slider: updated store with panoramaYaw:",
-                          value
+                        const nextYaw = Math.round(value);
+                        setFreeViewRotation(nextYaw);
+                        // Only update panorama rotation, not node heading (free view is separate from node rotation)
+                        graphStore.setPanoramaRotation(
+                          nextYaw,
+                          panoramaPitch ?? 0,
+                          "panel"
                         );
                       }}
                       min={0}
@@ -489,7 +477,7 @@ export function PropertiesPanel() {
                     />
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">
-                        Free View Rotation: {freeViewRotation}°
+                        Free View Rotation: {Math.round(freeViewRotation)}°
                       </span>
                       <Button
                         size="sm"

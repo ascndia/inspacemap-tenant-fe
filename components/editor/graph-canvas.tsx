@@ -452,49 +452,14 @@ export function GraphCanvas({
       // Initialize panorama rotation with node's current heading
       const node = graph?.nodes.find((n) => n.id === nodeId);
       if (node) {
-        graphStore.setPanoramaRotation(node.heading || 0, 0);
+        graphStore.setPanoramaRotation(node.heading || 0, 0, "nav");
       }
     },
     [setSelectedNode, setPanoramaNode, graph?.nodes, graphStore]
   );
 
-  const panoramaYawRef = useRef(panoramaYaw);
-  const panoramaPitchRef = useRef(panoramaPitch);
-
-  // Update refs when values change
-  useEffect(() => {
-    panoramaYawRef.current = panoramaYaw;
-  }, [panoramaYaw]);
-
-  useEffect(() => {
-    panoramaPitchRef.current = panoramaPitch;
-  }, [panoramaPitch]);
-
-  const handlePanoramaRotationChange = useCallback(
-    (yaw: number) => {
-      console.log(
-        "Graph canvas: handlePanoramaRotationChange called with yaw:",
-        yaw,
-        "current panoramaPitch:",
-        panoramaPitchRef.current
-      );
-      graphStore.setPanoramaRotation(yaw, panoramaPitchRef.current);
-    },
-    [graphStore]
-  );
-
-  const handlePanoramaPitchChange = useCallback(
-    (pitch: number) => {
-      console.log(
-        "Graph canvas: handlePanoramaPitchChange called with pitch:",
-        pitch,
-        "current panoramaYaw:",
-        panoramaYawRef.current
-      );
-      graphStore.setPanoramaRotation(panoramaYawRef.current, pitch);
-    },
-    [graphStore]
-  );
+  // Panorama rotation is live-synced directly from the PanoramaViewer
+  // so we don't need to set up intermediate callbacks in this parent.
 
   const handleAreaSelect = useCallback(
     (areaId: string) => {
@@ -743,8 +708,6 @@ export function GraphCanvas({
                 <PanoramaViewer
                   selectedNode={panoramaNode}
                   graph={graph}
-                  onRotationChange={handlePanoramaRotationChange}
-                  onPitchChange={handlePanoramaPitchChange}
                   initialYaw={panoramaYaw}
                   initialPitch={panoramaPitch}
                   onNavigateToNode={handleNavigateToNode}

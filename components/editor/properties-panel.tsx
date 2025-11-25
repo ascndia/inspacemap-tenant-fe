@@ -30,6 +30,7 @@ export function PropertiesPanel() {
   const selectedConnectionId = graphStore.selectedConnectionId;
   const selectedAreaId = graphStore.selectedAreaId;
   const graph = graphStore.graph;
+  const panoramaYaw = graphStore.panoramaYaw;
 
   // Get selected node using selector
   const selectedNode = useMemo(() => {
@@ -68,15 +69,25 @@ export function PropertiesPanel() {
   }>({});
   const [hasAreaChanges, setHasAreaChanges] = useState(false);
 
-  // Sync local state with selected node
+  // Sync local state with selected node and panorama rotation
   useEffect(() => {
     if (selectedNode) {
       setRotationValue(selectedNode.rotation);
       setHeadingValue(selectedNode.heading);
       setFovValue(selectedNode.fov);
-      setFreeViewRotation(selectedNode.rotation); // Initialize free view to node rotation
+      // Initialize free view rotation with panorama yaw if available, otherwise node rotation
+      const newFreeViewRotation = panoramaYaw || selectedNode.rotation;
+      console.log(
+        "Properties panel: syncing freeViewRotation to",
+        newFreeViewRotation,
+        "from panoramaYaw:",
+        panoramaYaw,
+        "or node.rotation:",
+        selectedNode.rotation
+      );
+      setFreeViewRotation(newFreeViewRotation);
     }
-  }, [selectedNode]);
+  }, [selectedNode, panoramaYaw]);
 
   // Cleanup debounce timeout on unmount or node change
   useEffect(() => {
@@ -204,15 +215,18 @@ export function PropertiesPanel() {
   };
 
   // Debounced label update
-  const handleLabelUpdate = useCallback((value: string) => {
-    if (labelDebounceRef.current) {
-      clearTimeout(labelDebounceRef.current);
-    }
-    
-    labelDebounceRef.current = setTimeout(() => {
-      handleNodeUpdate("label", value);
-    }, 500); // 500ms debounce
-  }, [selectedNode, graphProvider]);
+  const handleLabelUpdate = useCallback(
+    (value: string) => {
+      if (labelDebounceRef.current) {
+        clearTimeout(labelDebounceRef.current);
+      }
+
+      labelDebounceRef.current = setTimeout(() => {
+        handleNodeUpdate("label", value);
+      }, 500); // 500ms debounce
+    },
+    [selectedNode, graphProvider]
+  );
 
   // Update node rotation with current free view rotation
   const handleUpdateNodeRotation = () => {
@@ -454,10 +468,19 @@ export function PropertiesPanel() {
                     <Slider
                       value={[freeViewRotation]}
                       onValueChange={([value]) => {
+                        console.log(
+                          "Properties panel slider: onValueChange called with value:",
+                          value
+                        );
                         setFreeViewRotation(value);
                         graphStore.updateNode(selectedNode.id, {
                           heading: value, // Update heading for panorama viewing
                         });
+                        graphStore.setPanoramaRotation(value, 0); // Update panorama rotation
+                        console.log(
+                          "Properties panel slider: updated store with panoramaYaw:",
+                          value
+                        );
                       }}
                       min={0}
                       max={360}

@@ -49,6 +49,8 @@ export function GraphCanvas({
     panOffset,
     showPanoramaViewer,
     panoramaNodeId,
+    panoramaYaw,
+    panoramaPitch,
     isLoading,
     error,
     isDrawingArea,
@@ -446,8 +448,52 @@ export function GraphCanvas({
       setSelectedNode(nodeId);
       // Also set as panorama node to keep it open
       setPanoramaNode(nodeId);
+
+      // Initialize panorama rotation with node's current heading
+      const node = graph?.nodes.find((n) => n.id === nodeId);
+      if (node) {
+        graphStore.setPanoramaRotation(node.heading || 0, 0);
+      }
     },
-    [setSelectedNode, setPanoramaNode]
+    [setSelectedNode, setPanoramaNode, graph?.nodes, graphStore]
+  );
+
+  const panoramaYawRef = useRef(panoramaYaw);
+  const panoramaPitchRef = useRef(panoramaPitch);
+
+  // Update refs when values change
+  useEffect(() => {
+    panoramaYawRef.current = panoramaYaw;
+  }, [panoramaYaw]);
+
+  useEffect(() => {
+    panoramaPitchRef.current = panoramaPitch;
+  }, [panoramaPitch]);
+
+  const handlePanoramaRotationChange = useCallback(
+    (yaw: number) => {
+      console.log(
+        "Graph canvas: handlePanoramaRotationChange called with yaw:",
+        yaw,
+        "current panoramaPitch:",
+        panoramaPitchRef.current
+      );
+      graphStore.setPanoramaRotation(yaw, panoramaPitchRef.current);
+    },
+    [graphStore]
+  );
+
+  const handlePanoramaPitchChange = useCallback(
+    (pitch: number) => {
+      console.log(
+        "Graph canvas: handlePanoramaPitchChange called with pitch:",
+        pitch,
+        "current panoramaYaw:",
+        panoramaYawRef.current
+      );
+      graphStore.setPanoramaRotation(panoramaYawRef.current, pitch);
+    },
+    [graphStore]
   );
 
   const handleAreaSelect = useCallback(
@@ -697,10 +743,10 @@ export function GraphCanvas({
                 <PanoramaViewer
                   selectedNode={panoramaNode}
                   graph={graph}
-                  // onRotationChange={handleRotationChange}
-                  // onPitchChange={handlePitchChange}
-                  // rotationSpeed={0.5}
-                  // isDraggingNode={isDraggingNode}
+                  onRotationChange={handlePanoramaRotationChange}
+                  onPitchChange={handlePanoramaPitchChange}
+                  initialYaw={panoramaYaw}
+                  initialPitch={panoramaPitch}
                   onNavigateToNode={handleNavigateToNode}
                 />
               </div>

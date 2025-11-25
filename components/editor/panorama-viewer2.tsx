@@ -2,8 +2,7 @@
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import View360, { EquirectProjection } from "@egjs/view360";
-// Gunakan import CSS yang sesuai dengan struktur folder Anda (biasanya dist untuk beta)
-// import "@egjs/view360/dist/css/view360.min.css";
+import { useGraphStore } from "@/stores/graph-store";
 
 interface HotspotData {
   nodeId: string;
@@ -17,14 +16,29 @@ export default function PanoramaViewer({
   selectedNode,
   graph,
   onNavigateToNode,
+  onRotationChange,
+  onPitchChange,
+  initialYaw = 0,
+  initialPitch = 0,
 }: {
   selectedNode: any;
   graph?: any;
   onNavigateToNode: (nodeId: string) => void;
+  onRotationChange?: (yaw: number) => void;
+  onPitchChange?: (pitch: number) => void;
+  initialYaw?: number;
+  initialPitch?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<View360 | null>(null);
   const [hotspots, setHotspots] = useState<HotspotData[]>([]);
+  const [currentYaw, setCurrentYaw] = useState(initialYaw);
+  const [currentPitch, setCurrentPitch] = useState(initialPitch);
+  const lastReportedYaw = useRef(initialYaw);
+  const lastReportedPitch = useRef(initialPitch);
+
+  // Get panorama rotation from store
+  const { panoramaYaw, panoramaPitch } = useGraphStore();
 
   // 1. Kalkulasi Data Hotspot (Hanya menghitung Yaw/Pitch, TANPA posisi layar X/Y)
   const calculateHotspots = useCallback(() => {
@@ -59,7 +73,8 @@ export default function PanoramaViewer({
       const ny = dy / distance;
       const nz = dz / distance;
 
-      const headingRad = ((currentNode.heading || 0) * Math.PI) / 180;
+      // Use currentYaw (free view rotation) instead of node.heading
+      const headingRad = (currentYaw * Math.PI) / 180;
 
       const rx = nx * Math.cos(headingRad) - ny * Math.sin(headingRad);
       const ry = nx * Math.sin(headingRad) + ny * Math.cos(headingRad);
@@ -77,12 +92,27 @@ export default function PanoramaViewer({
       });
     }
     return calculated;
-  }, [selectedNode, graph]);
+  }, [selectedNode, graph, currentYaw]);
 
-  // Update data hotspot saat node berubah
+  const isUserInteracting = useRef(false);
+
+  // Update rotation state when props change (but not during user interaction)
   useEffect(() => {
-    setHotspots(calculateHotspots());
-  }, [calculateHotspots]);
+    if (isUserInteracting.current) return; // Don't update camera during user interaction
+
+    setCurrentYaw(initialYaw);
+    setCurrentPitch(initialPitch);
+    lastReportedYaw.current = initialYaw;
+    lastReportedPitch.current = initialPitch;
+
+    // Update viewer rotation if it exists (but don't recreate viewer)
+    if (viewerRef.current) {
+      viewerRef.current.camera.lookAt({
+        yaw: (initialYaw * Math.PI) / 180,
+        pitch: (initialPitch * Math.PI) / 180,
+      });
+    }
+  }, [initialYaw, initialPitch]);
 
   // 2. Setup Viewer
   useEffect(() => {
@@ -92,26 +122,83 @@ export default function PanoramaViewer({
       projection: new EquirectProjection({
         src: selectedNode.panorama_url,
       }),
-      // FIX 1: Hapus 'mouseDragDirection' (ini properti v3 yang bikin error)
-      // Di v4, drag sudah otomatis bekerja. Jika ingin membatasi, gunakan plugins: [new RotateControl({...})]
-
+      // Don't set initial rotation here - we'll set it after initialization
       // Matikan scroll zoom jika mengganggu
       wheelScrollable: false,
     });
 
     viewerRef.current = viewer;
 
+    // Set initial rotation after viewer is created
+    viewer.camera.lookAt({
+      yaw: (initialYaw * Math.PI) / 180,
+      pitch: (initialPitch * Math.PI) / 180,
+    });
+
+    // Poll for camera changes instead of relying on events
+    let pollTimeoutId: NodeJS.Timeout;
+    const pollCameraChanges = () => {
+      if (!viewerRef.current) return;
+
+      const yaw = (viewer.camera.yaw * 180) / Math.PI;
+      const pitch = (viewer.camera.pitch * 180) / Math.PI;
+
+      const yawDiff = Math.abs(yaw - lastReportedYaw.current);
+      const pitchDiff = Math.abs(pitch - lastReportedPitch.current);
+
+      if (yawDiff > 0.1 || pitchDiff > 0.1) {
+        console.log(
+          "Camera changed - yaw:",
+          yaw,
+          "pitch:",
+          pitch,
+          "diffs:",
+          yawDiff,
+          pitchDiff
+        );
+        console.log(
+          "Current store values - panoramaYaw:",
+          panoramaYaw,
+          "panoramaPitch:",
+          panoramaPitch
+        );
+        isUserInteracting.current = true;
+
+        setCurrentYaw(yaw);
+        setCurrentPitch(pitch);
+
+        console.log("Calling onRotationChange with yaw:", yaw);
+        onRotationChange?.(yaw);
+        onPitchChange?.(pitch);
+
+        lastReportedYaw.current = yaw;
+        lastReportedPitch.current = pitch;
+
+        // Reset interaction flag after delay
+        setTimeout(() => {
+          isUserInteracting.current = false;
+        }, 100);
+      }
+
+      // Poll every 50ms instead of every frame for better performance
+      pollTimeoutId = setTimeout(pollCameraChanges, 50);
+    };
+
+    // Start polling
+    console.log("Starting camera polling");
+    pollCameraChanges();
     const resizeObserver = new ResizeObserver(() => {
       viewer.resize();
     });
     resizeObserver.observe(containerRef.current);
 
     return () => {
+      clearTimeout(pollTimeoutId);
       resizeObserver.disconnect();
       viewer.destroy();
       viewerRef.current = null;
     };
-  }, [selectedNode?.panorama_url]);
+  }, [selectedNode?.panorama_url]); // Only recreate when panorama URL changes
 
   return (
     <div className="flex flex-col h-full">

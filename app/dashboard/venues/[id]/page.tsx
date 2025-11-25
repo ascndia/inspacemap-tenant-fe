@@ -24,6 +24,7 @@ import {
   Loader2,
   GalleryVertical,
   Map,
+  Square,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -358,6 +359,15 @@ export default function VenueDetailPage() {
                   >
                     <Map className="mr-2 h-4 w-4" />
                     Floor Plans
+                  </Button>
+                </Link>
+                <Link href={`/dashboard/venues/${id}/areas`}>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start cursor-pointer"
+                  >
+                    <Square className="mr-2 h-4 w-4" />
+                    Areas
                   </Button>
                 </Link>
                 <Link href={`/dashboard/venues/${id}/revision`}>

@@ -27,6 +27,7 @@ export interface MouseHandlerParams {
       isConnecting?: boolean;
       connectingFromId?: string | null;
       isDrawingArea?: boolean;
+      drawingAreaVertices?: BoundaryPoint[];
     };
   };
   panOffset: { x: number; y: number };
@@ -123,6 +124,9 @@ export function createMouseHandlers(
     setIsMiddleMousePanning,
   } = params;
 
+  // Extract drawing area vertices from state
+  const drawingAreaVertices = state.ui.drawingAreaVertices || [];
+
   // Helper function to check if point is inside polygon
   const isPointInPolygon = (
     point: { x: number; y: number },
@@ -185,6 +189,13 @@ export function createMouseHandlers(
     // Handle right-click context menu
     if (event.button === 2) {
       event.preventDefault();
+
+      // If drawing area and have enough vertices, finish drawing on right-click
+      if (state.ui.tool === "draw-area" && drawingAreaVertices.length >= 3) {
+        // Don't show context menu, just finish drawing
+        return;
+      }
+
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -324,7 +335,21 @@ export function createMouseHandlers(
         }
       }
     } else if (state.ui.tool === "draw-area") {
-      // Handle area drawing
+      // Check if clicking near the first vertex to close the polygon
+      if (drawingAreaVertices.length >= 3) {
+        const firstVertex = drawingAreaVertices[0];
+        const distance = Math.sqrt(
+          Math.pow(x - firstVertex.x, 2) + Math.pow(y - firstVertex.y, 2)
+        );
+
+        if (distance < 20 / zoom) {
+          // Close the polygon - don't add a new vertex, just finish drawing
+          // The area creation panel will handle the creation
+          return;
+        }
+      }
+
+      // Handle area drawing - add new vertex
       onDrawingVertexAdd?.({ x, y });
     } else if (state.ui.tool === "add-node") {
       onCanvasClick(x, y);

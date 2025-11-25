@@ -77,7 +77,14 @@ export function drawCanvas(params: DrawParams) {
     ui.drawingAreaVertices &&
     ui.drawingAreaVertices.length > 0
   ) {
-    drawAreaPreview(ctx, zoom, ui.drawingAreaVertices, ui.mousePosition);
+    const isDrawingComplete = ui.drawingAreaVertices.length >= 3;
+    drawAreaPreview(
+      ctx,
+      zoom,
+      ui.drawingAreaVertices,
+      ui.mousePosition,
+      isDrawingComplete
+    );
   }
 
   // Draw connection preview when connecting
@@ -469,7 +476,8 @@ function drawAreaPreview(
   ctx: CanvasRenderingContext2D,
   zoom: number,
   vertices: { x: number; y: number }[],
-  mousePosition?: { x: number; y: number }
+  mousePosition?: { x: number; y: number },
+  isDrawingComplete: boolean = false
 ) {
   if (vertices.length === 0) return;
 
@@ -485,8 +493,8 @@ function drawAreaPreview(
     ctx.lineTo(vertices[i].x, vertices[i].y);
   }
 
-  // Draw line to mouse position if available
-  if (mousePosition && vertices.length > 0) {
+  // Only draw line to mouse position if still actively drawing and not complete
+  if (mousePosition && !isDrawingComplete && vertices.length >= 2) {
     ctx.lineTo(mousePosition.x, mousePosition.y);
   }
 
@@ -499,10 +507,30 @@ function drawAreaPreview(
     ctx.fill();
   });
 
-  // Draw mouse position circle if drawing
-  if (mousePosition && vertices.length > 0) {
+  // Draw mouse position circle only when actively drawing
+  if (mousePosition && !isDrawingComplete && vertices.length >= 2) {
     ctx.beginPath();
     ctx.arc(mousePosition.x, mousePosition.y, 4 / zoom, 0, 2 * Math.PI);
     ctx.fill();
+  }
+
+  // Draw closing hint when near first vertex
+  if (vertices.length >= 3 && mousePosition) {
+    const firstVertex = vertices[0];
+    const distance = Math.sqrt(
+      Math.pow(mousePosition.x - firstVertex.x, 2) +
+        Math.pow(mousePosition.y - firstVertex.y, 2)
+    );
+
+    if (distance < 20 / zoom) {
+      // Draw a hint circle around the first vertex
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 2 / zoom;
+      ctx.setLineDash([5 / zoom, 5 / zoom]);
+      ctx.beginPath();
+      ctx.arc(firstVertex.x, firstVertex.y, 15 / zoom, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 }

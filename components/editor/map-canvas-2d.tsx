@@ -191,6 +191,7 @@ export function MapCanvas2D({
         isConnecting,
         connectingFromId,
         isDrawingArea,
+        drawingAreaVertices,
       },
     },
     panOffset,

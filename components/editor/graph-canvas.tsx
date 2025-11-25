@@ -12,6 +12,16 @@ import { CanvasToolbar } from "./canvas-toolbar";
 import { MapCanvas2D } from "./map-canvas-2d";
 import PanoramaViewer from "./panorama-viewer2";
 import { AreaCreationPanel } from "./area-creation-panel";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 interface GraphCanvasProps {
@@ -63,6 +73,10 @@ export function GraphCanvas({
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
   const [isDraggingNode, setIsDraggingNode] = useState(false);
+  const [showUnsavedAreaDialog, setShowUnsavedAreaDialog] = useState(false);
+  const [pendingToolChange, setPendingToolChange] = useState<string | null>(
+    null
+  );
 
   // Auto-show panorama viewer when panorama node is set
   useEffect(() => {
@@ -143,20 +157,46 @@ export function GraphCanvas({
     };
   }, []);
 
+  // Prevent leaving page with unsaved area drawings
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDrawingArea && drawingAreaVertices.length > 0) {
+        e.preventDefault();
+        e.returnValue =
+          "You have an unfinished area drawing. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDrawingArea, drawingAreaVertices.length]);
+
   const handleToolChange = useCallback(
-    (tool: string) => {
+    (newTool: string) => {
+      // If currently drawing an area and switching away, show confirmation
+      if (
+        isDrawingArea &&
+        newTool !== "draw-area" &&
+        drawingAreaVertices.length > 0
+      ) {
+        setPendingToolChange(newTool);
+        setShowUnsavedAreaDialog(true);
+        return;
+      }
+
       // Handle special tool changes
-      if (tool === "draw-area") {
+      if (newTool === "draw-area") {
         // Start area drawing mode
         graphStore.setDrawingAreaStart();
-      } else if (tool !== "draw-area" && isDrawingArea) {
+      } else if (newTool !== "draw-area" && isDrawingArea) {
         // End area drawing mode if switching away from draw-area tool
         graphStore.setDrawingAreaEnd();
         graphStore.clearDrawingVertices();
       }
 
       setTool(
-        tool as
+        newTool as
           | "select"
           | "move"
           | "add-node"
@@ -166,7 +206,7 @@ export function GraphCanvas({
           | "draw-area"
       );
     },
-    [graphStore, isDrawingArea]
+    [graphStore, isDrawingArea, drawingAreaVertices.length]
   );
 
   const handleZoomIn = useCallback(() => {
@@ -470,7 +510,32 @@ export function GraphCanvas({
     [drawingAreaVertices, graphProvider, graphStore]
   );
 
-  const selectedNode = graph?.nodes.find((n) => n.id === selectedNodeId);
+  const handleConfirmToolChange = useCallback(() => {
+    if (pendingToolChange) {
+      // End area drawing mode and clear vertices
+      graphStore.setDrawingAreaEnd();
+      graphStore.clearDrawingVertices();
+
+      // Apply the tool change
+      setTool(
+        pendingToolChange as
+          | "select"
+          | "move"
+          | "add-node"
+          | "connect"
+          | "pan"
+          | "zoom"
+          | "draw-area"
+      );
+    }
+    setShowUnsavedAreaDialog(false);
+    setPendingToolChange(null);
+  }, [pendingToolChange, graphStore]);
+
+  const handleCancelToolChange = useCallback(() => {
+    setShowUnsavedAreaDialog(false);
+    setPendingToolChange(null);
+  }, []);
 
   const panoramaNode = useMemo(() => {
     const node = graph?.nodes.find((n) => n.id === panoramaNodeId);
@@ -492,120 +557,151 @@ export function GraphCanvas({
   ]);
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      {/* Canvas Panel */}
-      <ResizablePanel defaultSize={showPanoramaViewer ? 60 : 100} minSize={30}>
-        <div className="flex flex-col h-full">
-          <CanvasToolbar
-            currentTool={tool}
-            onToolChange={handleToolChange}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onResetView={handleResetView}
-            onFloorplanSelect={handleFloorplanSelect}
-            onFloorplanUpdate={handleFloorplanUpdate}
-            canUndo={false} // TODO: Implement undo/redo in Zustand store
-            canRedo={false} // TODO: Implement undo/redo in Zustand store
-            onUndo={() => {}} // TODO: Implement undo/redo in Zustand store
-            onRedo={() => {}} // TODO: Implement undo/redo in Zustand store
-            onTogglePanoramaViewer={handleTogglePanoramaViewer}
-            onToggleGrid={handleToggleGrid}
-            onShowPropertiesPanelChange={onShowPropertiesPanelChange}
-            showPropertiesPanel={showPropertiesPanel}
-          />
-
-          {/* Canvas */}
-          <div
-            className="flex-1 bg-muted/10 overflow-hidden relative canvas-container"
-            style={{
-              touchAction: "none", // Prevent touch zoom on mobile
-              userSelect: "none", // Prevent text selection
-            }}
-          >
-            <MapCanvas2D
-              onNodeSelect={handleNodeSelect}
-              onCanvasClick={handleCanvasClick}
-              onNodeUpdate={handleNodeUpdate}
+    <>
+      <ResizablePanelGroup direction="horizontal" className="h-full">
+        {/* Canvas Panel */}
+        <ResizablePanel
+          defaultSize={showPanoramaViewer ? 60 : 100}
+          minSize={30}
+        >
+          <div className="flex flex-col h-full">
+            <CanvasToolbar
+              currentTool={tool}
               onToolChange={handleToolChange}
-              zoom={canvasZoom}
-              panOffset={canvasPanOffset}
-              onZoomChange={setCanvasZoom}
-              onPanChange={setCanvasPanOffset}
-              addNode={addNode}
-              removeNode={deleteNode}
-              onConnectionStart={handleConnectionStart}
-              onConnectionComplete={handleConnectionComplete}
-              onDeleteConnection={handleDeleteConnection}
-              pathPreview={pathPreview}
-              onAreaSelect={handleAreaSelect}
-              onAreaVertexUpdate={handleAreaVertexUpdate}
-              onDrawingVertexAdd={handleDrawingVertexAdd}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onResetView={handleResetView}
+              onFloorplanSelect={handleFloorplanSelect}
+              onFloorplanUpdate={handleFloorplanUpdate}
+              canUndo={false} // TODO: Implement undo/redo in Zustand store
+              canRedo={false} // TODO: Implement undo/redo in Zustand store
+              onUndo={() => {}} // TODO: Implement undo/redo in Zustand store
+              onRedo={() => {}} // TODO: Implement undo/redo in Zustand store
+              onTogglePanoramaViewer={handleTogglePanoramaViewer}
+              onToggleGrid={handleToggleGrid}
+              onShowPropertiesPanelChange={onShowPropertiesPanelChange}
+              showPropertiesPanel={showPropertiesPanel}
             />
-          </div>
 
-          {/* Status Bar */}
-          <div className="px-4 py-2 bg-background border-t text-xs text-muted-foreground">
-            {graph?.nodes.length || 0} Nodes • {graph?.connections.length || 0}{" "}
-            Connections • {graph?.areas.length || 0} Areas • Tool: {tool}
-          </div>
-        </div>
-      </ResizablePanel>
-
-      {isDrawingArea && (
-        <>
-          <ResizableHandle withHandle />
-
-          {/* Area Creation Panel */}
-          <ResizablePanel defaultSize={25} minSize={20}>
-            <AreaCreationPanel
-              drawingAreaVertices={drawingAreaVertices}
-              onCancel={() => {
-                graphStore.setDrawingAreaEnd();
-                graphStore.clearDrawingVertices();
+            {/* Canvas */}
+            <div
+              className="flex-1 bg-muted/10 overflow-hidden relative canvas-container"
+              style={{
+                touchAction: "none", // Prevent touch zoom on mobile
+                userSelect: "none", // Prevent text selection
               }}
-              onCreateArea={handleCreateArea}
-            />
-          </ResizablePanel>
-        </>
-      )}
-
-      {showPanoramaViewer && (
-        <>
-          <ResizableHandle withHandle />
-
-          {/* Panorama Viewer Panel */}
-          <ResizablePanel defaultSize={40} minSize={30}>
-            <div className="h-full bg-background border-l p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Panorama Viewer</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    togglePanoramaViewer();
-                    // Also clear the panorama node when closing
-                    if (showPanoramaViewer) {
-                      setPanoramaNode(null);
-                    }
-                  }}
-                  className="h-6 w-6 p-0"
-                >
-                  ×
-                </Button>
-              </div>
-              <PanoramaViewer
-                selectedNode={panoramaNode}
-                onRotationChange={handleRotationChange}
-                onPitchChange={handlePitchChange}
-                rotationSpeed={0.5}
-                isDraggingNode={isDraggingNode}
-                graph={graph}
-                onNavigateToNode={handleNavigateToNode}
+            >
+              <MapCanvas2D
+                onNodeSelect={handleNodeSelect}
+                onCanvasClick={handleCanvasClick}
+                onNodeUpdate={handleNodeUpdate}
+                onToolChange={handleToolChange}
+                zoom={canvasZoom}
+                panOffset={canvasPanOffset}
+                onZoomChange={setCanvasZoom}
+                onPanChange={setCanvasPanOffset}
+                addNode={addNode}
+                removeNode={deleteNode}
+                onConnectionStart={handleConnectionStart}
+                onConnectionComplete={handleConnectionComplete}
+                onDeleteConnection={handleDeleteConnection}
+                pathPreview={pathPreview}
+                onAreaSelect={handleAreaSelect}
+                onAreaVertexUpdate={handleAreaVertexUpdate}
+                onDrawingVertexAdd={handleDrawingVertexAdd}
               />
             </div>
-          </ResizablePanel>
-        </>
-      )}
-    </ResizablePanelGroup>
+
+            {/* Status Bar */}
+            <div className="px-4 py-2 bg-background border-t text-xs text-muted-foreground">
+              {graph?.nodes.length || 0} Nodes •{" "}
+              {graph?.connections.length || 0} Connections •{" "}
+              {graph?.areas.length || 0} Areas • Tool: {tool}
+            </div>
+          </div>
+        </ResizablePanel>
+
+        {isDrawingArea && (
+          <>
+            <ResizableHandle withHandle />
+
+            {/* Area Creation Panel */}
+            <ResizablePanel defaultSize={25} minSize={20}>
+              <AreaCreationPanel
+                drawingAreaVertices={drawingAreaVertices}
+                onCancel={() => {
+                  graphStore.setDrawingAreaEnd();
+                  graphStore.clearDrawingVertices();
+                }}
+                onCreateArea={handleCreateArea}
+              />
+            </ResizablePanel>
+          </>
+        )}
+
+        {showPanoramaViewer && (
+          <>
+            <ResizableHandle withHandle />
+
+            {/* Panorama Viewer Panel */}
+            <ResizablePanel defaultSize={40} minSize={30}>
+              <div className="h-full bg-background border-l p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold">Panorama Viewer</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      togglePanoramaViewer();
+                      // Also clear the panorama node when closing
+                      if (showPanoramaViewer) {
+                        setPanoramaNode(null);
+                      }
+                    }}
+                    className="h-6 w-6 p-0"
+                  >
+                    ×
+                  </Button>
+                </div>
+                <PanoramaViewer
+                  selectedNode={panoramaNode}
+                  graph={graph}
+                  // onRotationChange={handleRotationChange}
+                  // onPitchChange={handlePitchChange}
+                  // rotationSpeed={0.5}
+                  // isDraggingNode={isDraggingNode}
+                  onNavigateToNode={handleNavigateToNode}
+                />
+              </div>
+            </ResizablePanel>
+          </>
+        )}
+      </ResizablePanelGroup>
+
+      {/* Unsaved Area Confirmation Dialog */}
+      <AlertDialog
+        open={showUnsavedAreaDialog}
+        onOpenChange={setShowUnsavedAreaDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Area Drawing</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have an unfinished area drawing with{" "}
+              {drawingAreaVertices.length} vertices. Switching tools will
+              discard your current drawing. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelToolChange}>
+              Keep Drawing
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmToolChange}>
+              Discard & Switch Tool
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

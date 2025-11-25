@@ -303,12 +303,21 @@ export function createMouseHandlers(
       return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
     });
 
-    // Check if clicking on an area vertex (for editing)
-    const clickedVertex = clickedNode ? null : getAreaVertexAtPoint(x, y);
+    // Check if clicking on an area vertex (for editing) - but skip if in add-node mode
+    const clickedVertex =
+      state.ui.tool === "add-node"
+        ? null
+        : clickedNode
+        ? null
+        : getAreaVertexAtPoint(x, y);
 
-    // Check if clicking inside an area
+    // Check if clicking inside an area - but skip if in add-node mode
     const clickedArea =
-      clickedNode || clickedVertex ? null : getAreaAtPoint(x, y);
+      state.ui.tool === "add-node"
+        ? null
+        : clickedNode || clickedVertex
+        ? null
+        : getAreaAtPoint(x, y);
 
     if (clickedVertex) {
       // Handle area vertex dragging

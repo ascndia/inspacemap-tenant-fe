@@ -16,7 +16,7 @@ import { useGraph } from "@/providers/GraphProvider";
 import { useGraphStore } from "@/stores/graph-store";
 import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { mediaService } from "@/lib/services/media-service";
 import { MediaItem } from "@/types/media";
 import { MediaPicker } from "@/components/media/media-picker";
@@ -52,9 +52,13 @@ export function PropertiesPanel() {
   const [rotationValue, setRotationValue] = useState(0);
   const [headingValue, setHeadingValue] = useState(0);
   const [fovValue, setFovValue] = useState(60);
+  const [freeViewRotation, setFreeViewRotation] = useState(0);
 
   const [panoramaMedia, setPanoramaMedia] = useState<MediaItem[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+
+  // Debounce ref for label updates
+  const labelDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Area local state for tracking changes before applying
   const [areaChanges, setAreaChanges] = useState<{
@@ -70,23 +74,18 @@ export function PropertiesPanel() {
       setRotationValue(selectedNode.rotation);
       setHeadingValue(selectedNode.heading);
       setFovValue(selectedNode.fov);
+      setFreeViewRotation(selectedNode.rotation); // Initialize free view to node rotation
     }
   }, [selectedNode]);
 
-  // Sync area local state with selected area
+  // Cleanup debounce timeout on unmount or node change
   useEffect(() => {
-    if (selectedArea) {
-      setAreaChanges({
-        name: selectedArea.name || "",
-        description: selectedArea.description || "",
-        category: selectedArea.category || "default",
-      });
-      setHasAreaChanges(false);
-    } else {
-      setAreaChanges({});
-      setHasAreaChanges(false);
-    }
-  }, [selectedArea]);
+    return () => {
+      if (labelDebounceRef.current) {
+        clearTimeout(labelDebounceRef.current);
+      }
+    };
+  }, [selectedNode]);
 
   // Calculate graph stats
   const graphStats = useMemo(() => {
@@ -204,6 +203,24 @@ export function PropertiesPanel() {
     }
   };
 
+  // Debounced label update
+  const handleLabelUpdate = useCallback((value: string) => {
+    if (labelDebounceRef.current) {
+      clearTimeout(labelDebounceRef.current);
+    }
+    
+    labelDebounceRef.current = setTimeout(() => {
+      handleNodeUpdate("label", value);
+    }, 500); // 500ms debounce
+  }, [selectedNode, graphProvider]);
+
+  // Update node rotation with current free view rotation
+  const handleUpdateNodeRotation = () => {
+    if (!selectedNode) return;
+    setRotationValue(freeViewRotation);
+    handleNodeUpdate("rotation", freeViewRotation);
+  };
+
   const handleAreaChange = (field: string, value: string) => {
     setAreaChanges((prev) => ({
       ...prev,
@@ -277,7 +294,7 @@ export function PropertiesPanel() {
                   <Label>Label</Label>
                   <Input
                     value={selectedNode.label || ""}
-                    onChange={(e) => handleNodeUpdate("label", e.target.value)}
+                    onChange={(e) => handleLabelUpdate(e.target.value)}
                     placeholder="Enter node label"
                   />
                 </div>
@@ -392,26 +409,75 @@ export function PropertiesPanel() {
                       }
                     />
                   )}
+                  {(selectedNode.panorama_asset_id ||
+                    selectedNode.panorama_url) && (
+                    <div className="space-y-2">
+                      <Button
+                        onClick={() => {
+                          // Import the graph store to toggle panorama viewer
+                          const {
+                            useGraphStore,
+                          } = require("@/stores/graph-store");
+                          const graphStore = useGraphStore.getState();
+                          graphStore.setPanoramaNode(selectedNode.id);
+                        }}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        View Panorama
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Rotation: {rotationValue}°</Label>
-                  <Slider
-                    value={[rotationValue]}
-                    onValueChange={([value]) => {
-                      setRotationValue(value);
-                      graphStore.updateNode(selectedNode.id, {
-                        rotation: value,
-                      });
-                    }}
-                    onPointerUp={() =>
-                      handleNodeUpdate("rotation", rotationValue)
-                    }
-                    min={0}
-                    max={360}
-                    step={1}
-                    className="w-full"
-                  />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Rotation</Label>
+                      <div className="flex gap-2 text-xs">
+                        <button
+                          className="px-2 py-1 bg-muted hover:bg-muted/80 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                          onClick={() => setFreeViewRotation(rotationValue)}
+                          title="Set free view to node rotation"
+                        >
+                          Node: {rotationValue}°
+                        </button>
+                        <button
+                          className="px-2 py-1 bg-muted hover:bg-muted/80 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                          onClick={() => setFreeViewRotation(freeViewRotation)}
+                          title="Current free view rotation"
+                        >
+                          View: {freeViewRotation}°
+                        </button>
+                      </div>
+                    </div>
+                    <Slider
+                      value={[freeViewRotation]}
+                      onValueChange={([value]) => {
+                        setFreeViewRotation(value);
+                        graphStore.updateNode(selectedNode.id, {
+                          heading: value, // Update heading for panorama viewing
+                        });
+                      }}
+                      min={0}
+                      max={360}
+                      step={1}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-muted-foreground">
+                        Free View Rotation: {freeViewRotation}°
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleUpdateNodeRotation}
+                        disabled={freeViewRotation === rotationValue}
+                      >
+                        Update Node
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -445,43 +511,6 @@ export function PropertiesPanel() {
                     className="w-full"
                   />
                 </div>
-
-                {(selectedNode.panorama_asset_id ||
-                  selectedNode.panorama_url) && (
-                  <div className="space-y-2">
-                    <Button
-                      onClick={() => {
-                        // Import the graph store to toggle panorama viewer
-                        const {
-                          useGraphStore,
-                        } = require("@/stores/graph-store");
-                        const graphStore = useGraphStore.getState();
-                        graphStore.setPanoramaNode(selectedNode.id);
-                      }}
-                      className="w-full"
-                      variant="outline"
-                    >
-                      View Panorama
-                    </Button>
-                  </div>
-                )}
-
-                {(selectedNode.panorama_asset_id ||
-                  selectedNode.panorama_url) && (
-                  <div className="space-y-2">
-                    <Button
-                      onClick={() => {
-                        // Set panorama node to show panorama viewer
-                        graphStore.setPanoramaNode(selectedNode.id);
-                      }}
-                      className="w-full"
-                      variant="outline"
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Panorama
-                    </Button>
-                  </div>
-                )}
               </>
             ) : (
               <div className="p-4 text-center text-muted-foreground text-sm border border-dashed rounded-lg">

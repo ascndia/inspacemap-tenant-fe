@@ -1,7 +1,14 @@
 // stores/graph-store.ts
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { GraphData, GraphNode, GraphConnection, Vector3 } from "@/types/graph";
+import {
+  GraphData,
+  GraphNode,
+  GraphConnection,
+  Vector3,
+  Area,
+  BoundaryPoint,
+} from "@/types/graph";
 
 interface GraphStore {
   // Data State
@@ -13,13 +20,23 @@ interface GraphStore {
   // UI State
   selectedNodeId: string | null;
   selectedConnectionId: string | null;
-  tool: "select" | "move" | "add-node" | "connect" | "pan" | "zoom";
+  selectedAreaId: string | null;
+  tool:
+    | "select"
+    | "move"
+    | "add-node"
+    | "connect"
+    | "pan"
+    | "zoom"
+    | "draw-area";
   zoom: number;
   panOffset: { x: number; y: number };
   showPanoramaViewer: boolean;
   panoramaNodeId: string | null;
   isConnecting: boolean;
   connectingFromId: string | null;
+  isDrawingArea: boolean;
+  drawingAreaVertices: BoundaryPoint[];
 
   // Actions
   setGraph: (graph: GraphData | null) => void;
@@ -35,8 +52,15 @@ interface GraphStore {
   deleteConnection: (connectionId: string) => void;
   updateFloorplan: (updates: Partial<GraphData["floorplan"]>) => void;
 
+  // Area Operations
+  addArea: (area: Omit<Area, "id" | "createdAt" | "updatedAt">) => void;
+  updateArea: (areaId: string, updates: Partial<Area>) => void;
+  deleteArea: (areaId: string) => void;
+  setAreaStartNode: (areaId: string, nodeId: string) => void;
+
   // UI Operations
   setSelectedNode: (nodeId: string | null) => void;
+  setSelectedArea: (areaId: string | null) => void;
   setTool: (tool: GraphStore["tool"]) => void;
   setZoom: (zoom: number) => void;
   setPanOffset: (offset: { x: number; y: number }) => void;
@@ -44,10 +68,15 @@ interface GraphStore {
   setPanoramaNode: (nodeId: string | null) => void;
   setConnectingStart: (nodeId: string) => void;
   setConnectingEnd: () => void;
+  setDrawingAreaStart: () => void;
+  setDrawingAreaEnd: () => void;
+  addDrawingVertex: (point: BoundaryPoint) => void;
+  clearDrawingVertices: () => void;
 
   // Computed values
   selectedNode: GraphNode | null;
   selectedConnection: GraphConnection | null;
+  selectedArea: Area | null;
   panoramaNode: GraphNode | null;
 }
 
@@ -62,6 +91,7 @@ export const useGraphStore = create<GraphStore>()(
 
       selectedNodeId: null,
       selectedConnectionId: null,
+      selectedAreaId: null,
       tool: "select",
       zoom: 1,
       panOffset: { x: 0, y: 0 },
@@ -69,6 +99,8 @@ export const useGraphStore = create<GraphStore>()(
       panoramaNodeId: null,
       isConnecting: false,
       connectingFromId: null,
+      isDrawingArea: false,
+      drawingAreaVertices: [],
 
       // Basic Setters
       setGraph: (graph) => set({ graph }),
@@ -236,10 +268,92 @@ export const useGraphStore = create<GraphStore>()(
         set({ graph: updatedGraph });
       },
 
+      // Area Operations
+      addArea: (areaData) => {
+        const { graph } = get();
+        if (!graph) return;
+
+        const newArea: Area = {
+          ...areaData,
+          id: crypto.randomUUID(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        const updatedGraph = {
+          ...graph,
+          areas: [...graph.areas, newArea],
+          updatedAt: new Date(),
+        };
+
+        set({ graph: updatedGraph });
+      },
+
+      updateArea: (areaId, updates) => {
+        const { graph } = get();
+        if (!graph) return;
+
+        const updatedAreas = graph.areas.map((area) =>
+          area.id === areaId
+            ? { ...area, ...updates, updatedAt: new Date() }
+            : area
+        );
+
+        const updatedGraph = {
+          ...graph,
+          areas: updatedAreas,
+          updatedAt: new Date(),
+        };
+
+        set({ graph: updatedGraph });
+      },
+
+      deleteArea: (areaId) => {
+        const { graph } = get();
+        if (!graph) return;
+
+        const updatedAreas = graph.areas.filter((area) => area.id !== areaId);
+
+        const updatedGraph = {
+          ...graph,
+          areas: updatedAreas,
+          updatedAt: new Date(),
+        };
+
+        set({ graph: updatedGraph });
+      },
+
+      setAreaStartNode: (areaId, nodeId) => {
+        const { graph } = get();
+        if (!graph) return;
+
+        const updatedAreas = graph.areas.map((area) =>
+          area.id === areaId
+            ? { ...area, start_node_id: nodeId, updatedAt: new Date() }
+            : area
+        );
+
+        const updatedGraph = {
+          ...graph,
+          areas: updatedAreas,
+          updatedAt: new Date(),
+        };
+
+        set({ graph: updatedGraph });
+      },
+
       // UI Operations
       setSelectedNode: (nodeId) =>
         set({
           selectedNodeId: nodeId,
+          selectedConnectionId: null,
+          selectedAreaId: null,
+        }),
+
+      setSelectedArea: (areaId) =>
+        set({
+          selectedAreaId: areaId,
+          selectedNodeId: null,
           selectedConnectionId: null,
         }),
 
@@ -261,6 +375,23 @@ export const useGraphStore = create<GraphStore>()(
           isConnecting: false,
           connectingFromId: null,
         }),
+      setDrawingAreaStart: () =>
+        set({
+          isDrawingArea: true,
+          drawingAreaVertices: [],
+        }),
+      setDrawingAreaEnd: () =>
+        set({
+          isDrawingArea: false,
+        }),
+      addDrawingVertex: (point) =>
+        set((state) => ({
+          drawingAreaVertices: [...state.drawingAreaVertices, point],
+        })),
+      clearDrawingVertices: () =>
+        set({
+          drawingAreaVertices: [],
+        }),
 
       // Computed values
       get selectedNode() {
@@ -273,6 +404,11 @@ export const useGraphStore = create<GraphStore>()(
         return (
           graph?.connections.find((c) => c.id === selectedConnectionId) || null
         );
+      },
+
+      get selectedArea() {
+        const { graph, selectedAreaId } = get();
+        return graph?.areas.find((a) => a.id === selectedAreaId) || null;
       },
 
       get panoramaNode() {

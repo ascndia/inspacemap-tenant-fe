@@ -91,6 +91,7 @@ export interface GraphData {
   name: string;
   nodes: GraphNode[];
   connections: GraphConnection[];
+  areas: Area[];
   floorplan?: Floorplan;
   panoramas: PanoramaImage[];
   settings: GraphSettings;
@@ -225,11 +226,22 @@ export type GraphAction =
 export interface GraphUIState {
   selectedNodeId: string | null;
   selectedConnectionId: string | null;
+  selectedAreaId: string | null;
   hoveredNodeId: string | null;
   hoveredConnectionId: string | null;
+  hoveredAreaId: string | null;
   isConnecting: boolean;
   connectingFromId: string | null;
-  tool: "select" | "add-node" | "connect" | "pan" | "zoom";
+  isDrawingArea: boolean;
+  drawingAreaVertices: BoundaryPoint[];
+  tool:
+    | "select"
+    | "move"
+    | "add-node"
+    | "connect"
+    | "pan"
+    | "zoom"
+    | "draw-area";
   zoom: number;
   panOffset: Vector3;
   showProperties: boolean;
@@ -271,16 +283,29 @@ export interface Area {
   id: string;
   floorId: string;
   name: string;
-  category: string; // 'entrance', 'dining', 'entertainment', etc.
-  bounds?: {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-  };
+  description?: string;
+  category: string; // 'meeting_room', 'office', 'lobby', etc.
+  latitude?: number;
+  longitude?: number;
+  boundary: BoundaryPoint[]; // Array of points defining the polygon
+  cover_image_id?: string;
+  gallery?: AreaGalleryItem[];
+  start_node_id?: string; // ID of the starting node for navigation
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface BoundaryPoint {
+  x: number;
+  y: number;
+}
+
+export interface AreaGalleryItem {
+  media_asset_id: string;
+  sort_order: number;
+  caption?: string;
+  is_visible: boolean;
 }
 
 // Graph Revision Types (for API integration)

@@ -15,6 +15,7 @@ import {
   Edit,
   Grid3X3,
   Settings,
+  Square,
 } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
 
@@ -98,6 +99,17 @@ export function CanvasToolbar({
         onClick={() => onToolChange("connect")}
       >
         <Link className="h-4 w-4" />
+      </Button>
+
+      <div className="h-6 w-px bg-border mx-2" />
+
+      <Button
+        variant={currentTool === "draw-area" ? "default" : "ghost"}
+        size="sm"
+        title="Draw Area"
+        onClick={() => onToolChange("draw-area")}
+      >
+        <Square className="h-4 w-4" />
       </Button>
 
       <div className="h-6 w-px bg-border mx-2" />

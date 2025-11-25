@@ -27,6 +27,13 @@ interface MapCanvas2DProps {
   onConnectionStart?: (nodeId: string) => void;
   onConnectionComplete?: (fromNodeId: string, toNodeId: string) => void;
   onDeleteConnection?: (connectionId: string) => void;
+  onAreaSelect?: (areaId: string) => void;
+  onAreaVertexUpdate?: (
+    areaId: string,
+    vertexIndex: number,
+    position: { x: number; y: number }
+  ) => void;
+  onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
 }
 
 export function MapCanvas2D({
@@ -44,6 +51,9 @@ export function MapCanvas2D({
   onConnectionStart,
   onConnectionComplete,
   onDeleteConnection,
+  onAreaSelect,
+  onAreaVertexUpdate,
+  onDrawingVertexAdd,
 }: MapCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const graphStore = useGraphStore();
@@ -60,6 +70,9 @@ export function MapCanvas2D({
     setPanoramaNode,
     isConnecting,
     connectingFromId,
+    selectedAreaId,
+    isDrawingArea,
+    drawingAreaVertices,
   } = graphStore;
 
   const [isDragging, setIsDragging] = useState(false);
@@ -84,6 +97,7 @@ export function MapCanvas2D({
     nodeId?: string;
     position?: { x: number; y: number };
   } | null>(null);
+  const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null);
 
   // Load panorama media
   useEffect(() => {
@@ -144,10 +158,14 @@ export function MapCanvas2D({
       ui: {
         showGrid: graph?.settings.showGrid ?? true,
         selectedNodeId,
+        selectedAreaId,
         isConnecting,
         connectingFromId,
         hoveredNodeId,
+        hoveredAreaId,
         mousePosition,
+        isDrawingArea,
+        drawingAreaVertices,
       },
       pathPreview,
     });
@@ -172,6 +190,7 @@ export function MapCanvas2D({
         snapToGrid: graph?.settings.snapToGrid ?? true,
         isConnecting,
         connectingFromId,
+        isDrawingArea,
       },
     },
     panOffset,
@@ -183,6 +202,9 @@ export function MapCanvas2D({
     onZoomChange,
     onConnectionStart,
     onConnectionComplete,
+    onAreaSelect,
+    onAreaVertexUpdate,
+    onDrawingVertexAdd,
     contextMenu,
     setContextMenu,
     isDragging,
@@ -197,6 +219,8 @@ export function MapCanvas2D({
     setPanStart,
     hoveredNodeId,
     setHoveredNodeId,
+    hoveredAreaId,
+    setHoveredAreaId,
     mousePosition,
     setMousePosition,
     isMiddleMousePanning,

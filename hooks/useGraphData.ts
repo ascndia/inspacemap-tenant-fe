@@ -1,7 +1,13 @@
 // hooks/useGraphData.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { GraphService } from "@/lib/services/graph-service";
-import { GraphData, GraphNode, Vector3 } from "@/types/graph";
+import {
+  GraphData,
+  GraphNode,
+  Vector3,
+  Area,
+  BoundaryPoint,
+} from "@/types/graph";
 import { useGraphStore } from "../stores/graph-store";
 import React from "react";
 
@@ -411,4 +417,195 @@ export function useAutoSave(
 
     return () => clearTimeout(timeout);
   }, [graph, venueId, revisionId, floorId, saveGraph]);
+}
+
+// Create Area Mutation
+export function useCreateArea() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      venueId,
+      revisionId,
+      floorId,
+      areaData,
+    }: {
+      venueId: string;
+      revisionId: string;
+      floorId: string;
+      areaData: {
+        name: string;
+        description?: string;
+        category: string;
+        boundary: BoundaryPoint[];
+        cover_image_id?: string;
+        gallery?: any[];
+      };
+    }) => {
+      const graphService = new GraphService(venueId, revisionId, floorId);
+      const newArea = await graphService.createArea(areaData);
+      return newArea;
+    },
+    onSuccess: (newArea, variables) => {
+      // Update the cache directly instead of invalidating
+      queryClient.setQueryData(
+        graphKeys.floor(
+          variables.venueId,
+          variables.revisionId,
+          variables.floorId
+        ),
+        (oldData: GraphData | undefined) => {
+          if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
+          return {
+            ...oldData,
+            areas: [...oldData.areas, newArea],
+            settings: currentGraph?.settings || oldData.settings,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      );
+    },
+  });
+}
+
+// Update Area Mutation
+export function useUpdateArea() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      venueId,
+      revisionId,
+      floorId,
+      areaId,
+      updates,
+    }: {
+      venueId: string;
+      revisionId: string;
+      floorId: string;
+      areaId: string;
+      updates: Partial<Area>;
+    }) => {
+      const graphService = new GraphService(venueId, revisionId, floorId);
+      await graphService.updateArea(areaId, updates);
+      return { areaId, updates };
+    },
+    onSuccess: (data, variables) => {
+      // Update the cache directly instead of invalidating
+      queryClient.setQueryData(
+        graphKeys.floor(
+          variables.venueId,
+          variables.revisionId,
+          variables.floorId
+        ),
+        (oldData: GraphData | undefined) => {
+          if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
+          return {
+            ...oldData,
+            areas: oldData.areas.map((area) =>
+              area.id === variables.areaId
+                ? { ...area, ...variables.updates }
+                : area
+            ),
+            settings: currentGraph?.settings || oldData.settings,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      );
+    },
+  });
+}
+
+// Delete Area Mutation
+export function useDeleteArea() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      venueId,
+      revisionId,
+      floorId,
+      areaId,
+    }: {
+      venueId: string;
+      revisionId: string;
+      floorId: string;
+      areaId: string;
+    }) => {
+      const graphService = new GraphService(venueId, revisionId, floorId);
+      await graphService.deleteArea(areaId);
+      return areaId;
+    },
+    onSuccess: (deletedAreaId, variables) => {
+      // Update the cache directly instead of invalidating
+      queryClient.setQueryData(
+        graphKeys.floor(
+          variables.venueId,
+          variables.revisionId,
+          variables.floorId
+        ),
+        (oldData: GraphData | undefined) => {
+          if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
+          return {
+            ...oldData,
+            areas: oldData.areas.filter((area) => area.id !== deletedAreaId),
+            settings: currentGraph?.settings || oldData.settings,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      );
+    },
+  });
+}
+
+// Set Area Start Node Mutation
+export function useSetAreaStartNode() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      venueId,
+      revisionId,
+      floorId,
+      areaId,
+      nodeId,
+    }: {
+      venueId: string;
+      revisionId: string;
+      floorId: string;
+      areaId: string;
+      nodeId: string;
+    }) => {
+      const graphService = new GraphService(venueId, revisionId, floorId);
+      await graphService.setAreaStartNode(areaId, nodeId);
+      return { areaId, nodeId };
+    },
+    onSuccess: (data, variables) => {
+      // Update the cache directly instead of invalidating
+      queryClient.setQueryData(
+        graphKeys.floor(
+          variables.venueId,
+          variables.revisionId,
+          variables.floorId
+        ),
+        (oldData: GraphData | undefined) => {
+          if (!oldData) return oldData;
+          const currentGraph = useGraphStore.getState().graph;
+          return {
+            ...oldData,
+            areas: oldData.areas.map((area) =>
+              area.id === variables.areaId
+                ? { ...area, start_node_id: variables.nodeId }
+                : area
+            ),
+            settings: currentGraph?.settings || oldData.settings,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      );
+    },
+  });
 }

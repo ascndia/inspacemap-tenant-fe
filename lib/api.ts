@@ -570,3 +570,33 @@ export const getFloor = async (floorId: string): Promise<any> => {
   const response = await api.get(`/editor/floors/${floorId}`);
   return response.data;
 };
+
+// Area API functions
+export const createArea = async (
+  floorId: string,
+  areaData: any
+): Promise<any> => {
+  const response = await api.post(`/editor/floors/${floorId}/areas`, areaData);
+  return response.data;
+};
+
+export const updateArea = async (
+  areaId: string,
+  areaData: any
+): Promise<any> => {
+  const response = await api.put(`/editor/areas/${areaId}`, areaData);
+  return response.data;
+};
+
+export const deleteArea = async (areaId: string): Promise<any> => {
+  const response = await api.delete(`/editor/areas/${areaId}`);
+  return response.data;
+};
+
+export const setAreaStartNode = async (
+  areaId: string,
+  data: { node_id: string }
+): Promise<any> => {
+  const response = await api.put(`/editor/areas/${areaId}/start-node`, data);
+  return response.data;
+};

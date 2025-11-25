@@ -10,6 +10,10 @@ import {
   useAddConnection,
   useDeleteConnection,
   useUpdateFloorplan,
+  useCreateArea,
+  useUpdateArea,
+  useDeleteArea,
+  useSetAreaStartNode,
 } from "@/hooks/useGraphData";
 import { useGraphStore } from "../stores/graph-store";
 import { GraphNode, Vector3, GraphData } from "@/types/graph";
@@ -102,6 +106,10 @@ export function useGraph() {
   const addConnectionMutation = useAddConnection();
   const deleteConnectionMutation = useDeleteConnection();
   const updateFloorplanMutation = useUpdateFloorplan();
+  const createAreaMutation = useCreateArea();
+  const updateAreaMutation = useUpdateArea();
+  const deleteAreaMutation = useDeleteArea();
+  const setAreaStartNodeMutation = useSetAreaStartNode();
 
   return {
     // State from Zustand store
@@ -188,6 +196,67 @@ export function useGraph() {
           revisionId: revisionId || "",
           floorId: floorId || "",
           floorplanData,
+        });
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    createArea: async (areaData: {
+      name: string;
+      description?: string;
+      category: string;
+      boundary: { x: number; y: number }[];
+      cover_image_id?: string;
+      gallery?: any[];
+    }) => {
+      try {
+        await createAreaMutation.mutateAsync({
+          venueId: venueId || "",
+          revisionId: revisionId || "",
+          floorId: floorId || "",
+          areaData,
+        });
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    updateArea: async (areaId: string, updates: any) => {
+      try {
+        await updateAreaMutation.mutateAsync({
+          venueId: venueId || "",
+          revisionId: revisionId || "",
+          floorId: floorId || "",
+          areaId,
+          updates,
+        });
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    deleteArea: async (areaId: string) => {
+      try {
+        await deleteAreaMutation.mutateAsync({
+          venueId: venueId || "",
+          revisionId: revisionId || "",
+          floorId: floorId || "",
+          areaId,
+        });
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    setAreaStartNode: async (areaId: string, nodeId: string) => {
+      try {
+        await setAreaStartNodeMutation.mutateAsync({
+          venueId: venueId || "",
+          revisionId: revisionId || "",
+          floorId: floorId || "",
+          areaId,
+          nodeId,
         });
       } catch (error) {
         throw error;

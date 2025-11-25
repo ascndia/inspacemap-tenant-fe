@@ -21,6 +21,10 @@ import {
   deleteFloor,
   getFloors,
   getFloor,
+  createArea,
+  updateArea,
+  deleteArea,
+  setAreaStartNode,
 } from "@/lib/api";
 import type {
   GraphRevision,
@@ -429,6 +433,61 @@ export class GraphRevisionService {
     } catch (error) {
       console.error("Failed to fetch floor:", error);
       throw new Error("Failed to fetch floor");
+    }
+  }
+
+  /**
+   * Create a new area
+   */
+  static async createArea(floorId: string, areaData: any): Promise<any> {
+    try {
+      const response = await createArea(floorId, areaData);
+      return response;
+    } catch (error) {
+      console.error("Failed to create area:", error);
+      throw new Error("Failed to create area");
+    }
+  }
+
+  /**
+   * Update an existing area
+   */
+  static async updateArea(areaId: string, areaData: any): Promise<any> {
+    try {
+      const response = await updateArea(areaId, areaData);
+      return response;
+    } catch (error) {
+      console.error("Failed to update area:", error);
+      throw new Error("Failed to update area");
+    }
+  }
+
+  /**
+   * Delete an area
+   */
+  static async deleteArea(areaId: string): Promise<any> {
+    try {
+      const response = await deleteArea(areaId);
+      return response;
+    } catch (error) {
+      console.error("Failed to delete area:", error);
+      throw new Error("Failed to delete area");
+    }
+  }
+
+  /**
+   * Set area start node
+   */
+  static async setAreaStartNode(
+    areaId: string,
+    data: { node_id: string }
+  ): Promise<any> {
+    try {
+      const response = await setAreaStartNode(areaId, data);
+      return response;
+    } catch (error) {
+      console.error("Failed to set area start node:", error);
+      throw new Error("Failed to set area start node");
     }
   }
 }

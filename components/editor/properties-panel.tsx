@@ -28,6 +28,7 @@ export function PropertiesPanel() {
 
   const selectedNodeId = graphStore.selectedNodeId;
   const selectedConnectionId = graphStore.selectedConnectionId;
+  const selectedAreaId = graphStore.selectedAreaId;
   const graph = graphStore.graph;
 
   // Get selected node using selector
@@ -41,6 +42,12 @@ export function PropertiesPanel() {
     if (!graph || !selectedConnectionId) return null;
     return graph.connections.find((c) => c.id === selectedConnectionId) || null;
   }, [graph, selectedConnectionId]);
+
+  // Get selected area using selector
+  const selectedArea = useMemo(() => {
+    if (!graph || !selectedAreaId) return null;
+    return graph.areas.find((a) => a.id === selectedAreaId) || null;
+  }, [graph, selectedAreaId]);
 
   const [rotationValue, setRotationValue] = useState(0);
   const [headingValue, setHeadingValue] = useState(0);
@@ -204,6 +211,9 @@ export function PropertiesPanel() {
           <TabsList className="w-full">
             <TabsTrigger value="node" className="flex-1">
               Node
+            </TabsTrigger>
+            <TabsTrigger value="area" className="flex-1">
+              Area
             </TabsTrigger>
             <TabsTrigger value="connection" className="flex-1">
               Connection
@@ -434,6 +444,155 @@ export function PropertiesPanel() {
             ) : (
               <div className="p-4 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
                 Select a node to edit properties
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="area" className="space-y-4 mt-0">
+            {selectedArea ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input
+                    value={selectedArea.name || ""}
+                    onChange={(e) => {
+                      graphProvider.updateArea(selectedArea.id, {
+                        name: e.target.value,
+                      });
+                    }}
+                    placeholder="Enter area name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select
+                    value={selectedArea.category || "default"}
+                    onValueChange={(value) => {
+                      graphProvider.updateArea(selectedArea.id, {
+                        category: value,
+                      });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Default</SelectItem>
+                      <SelectItem value="room">Room</SelectItem>
+                      <SelectItem value="corridor">Corridor</SelectItem>
+                      <SelectItem value="staircase">Staircase</SelectItem>
+                      <SelectItem value="elevator">Elevator</SelectItem>
+                      <SelectItem value="entrance">Entrance</SelectItem>
+                      <SelectItem value="exit">Exit</SelectItem>
+                      <SelectItem value="parking">Parking</SelectItem>
+                      <SelectItem value="garden">Garden</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Input
+                    value={selectedArea.description || ""}
+                    onChange={(e) => {
+                      graphProvider.updateArea(selectedArea.id, {
+                        description: e.target.value,
+                      });
+                    }}
+                    placeholder="Enter area description"
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>Start Node</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={selectedArea.start_node_id || ""}
+                      onValueChange={(value) => {
+                        graphProvider.setAreaStartNode(
+                          selectedArea.id,
+                          value || null
+                        );
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select start node" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {graph?.nodes.map((node) => (
+                          <SelectItem key={node.id} value={node.id}>
+                            {node.label || `Node ${node.id.slice(0, 8)}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        graphProvider.setAreaStartNode(selectedArea.id, null);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  {selectedArea.start_node_id && (
+                    <p className="text-xs text-muted-foreground">
+                      Start node helps with navigation and area identification
+                    </p>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>Area Actions</Label>
+                  <div className="space-y-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full"
+                      onClick={async () => {
+                        if (
+                          confirm("Are you sure you want to delete this area?")
+                        ) {
+                          try {
+                            await graphProvider.deleteArea(selectedArea.id);
+                          } catch (error) {
+                            console.error("Failed to delete area:", error);
+                          }
+                        }
+                      }}
+                    >
+                      Delete Area
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>
+                    <strong>Vertices:</strong> {selectedArea.boundary.length}
+                  </p>
+                  <p>
+                    <strong>Area ID:</strong> {selectedArea.id.slice(0, 8)}
+                  </p>
+                  {selectedArea.gallery_items &&
+                    selectedArea.gallery_items.length > 0 && (
+                      <p>
+                        <strong>Gallery Items:</strong>{" "}
+                        {selectedArea.gallery_items.length}
+                      </p>
+                    )}
+                </div>
+              </>
+            ) : (
+              <div className="p-4 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
+                Select an area to edit properties
               </div>
             )}
           </TabsContent>
@@ -673,7 +832,7 @@ export function PropertiesPanel() {
         </Button>
         <Button
           className="w-full"
-          disabled={!selectedNode && !selectedConnection}
+          disabled={!selectedNode && !selectedConnection && !selectedArea}
         >
           Apply Changes
         </Button>

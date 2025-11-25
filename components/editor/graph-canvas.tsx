@@ -11,6 +11,7 @@ import {
 import { CanvasToolbar } from "./canvas-toolbar";
 import { MapCanvas2D } from "./map-canvas-2d";
 import PanoramaViewer from "./panorama-viewer2";
+import { AreaCreationPanel } from "./area-creation-panel";
 import { Button } from "@/components/ui/button";
 
 interface GraphCanvasProps {
@@ -32,6 +33,7 @@ export function GraphCanvas({
     graph,
     selectedNodeId,
     selectedConnectionId,
+    selectedAreaId,
     tool,
     zoom,
     panOffset,
@@ -39,6 +41,8 @@ export function GraphCanvas({
     panoramaNodeId,
     isLoading,
     error,
+    isDrawingArea,
+    drawingAreaVertices,
   } = graphStore;
 
   // Extract functions from GraphProvider (with React Query integration)
@@ -386,6 +390,66 @@ export function GraphCanvas({
     [setSelectedNode, setPanoramaNode]
   );
 
+  const handleAreaSelect = useCallback(
+    (areaId: string) => {
+      graphStore.setSelectedArea(areaId);
+    },
+    [graphStore]
+  );
+
+  const handleAreaVertexUpdate = useCallback(
+    (
+      areaId: string,
+      vertexIndex: number,
+      position: { x: number; y: number }
+    ) => {
+      const area = graph?.areas.find((a) => a.id === areaId);
+      if (area) {
+        const newBoundary = [...area.boundary];
+        newBoundary[vertexIndex] = position;
+        graphProvider.updateArea(areaId, { boundary: newBoundary });
+      }
+    },
+    [graph?.areas, graphProvider]
+  );
+
+  const handleDrawingVertexAdd = useCallback(
+    (position: { x: number; y: number }) => {
+      graphStore.addDrawingVertex(position);
+    },
+    [graphStore]
+  );
+
+  const handleCreateArea = useCallback(
+    async (areaData: {
+      name: string;
+      category: string;
+      description?: string;
+    }) => {
+      if (drawingAreaVertices.length < 3) {
+        alert("An area must have at least 3 vertices");
+        return;
+      }
+
+      try {
+        await graphProvider.createArea({
+          name: areaData.name,
+          category: areaData.category,
+          description: areaData.description || "",
+          boundary: drawingAreaVertices,
+        });
+
+        // Clear drawing state
+        graphStore.setDrawingAreaStart(false);
+        graphStore.setDrawingAreaEnd();
+      } catch (error) {
+        console.error("Failed to create area:", error);
+        alert("Failed to create area. Please try again.");
+      }
+    },
+    [drawingAreaVertices, graphProvider, graphStore]
+  );
+
   const selectedNode = graph?.nodes.find((n) => n.id === selectedNodeId);
 
   const panoramaNode = useMemo(() => {
@@ -453,16 +517,37 @@ export function GraphCanvas({
               onConnectionComplete={handleConnectionComplete}
               onDeleteConnection={handleDeleteConnection}
               pathPreview={pathPreview}
+              onAreaSelect={handleAreaSelect}
+              onAreaVertexUpdate={handleAreaVertexUpdate}
+              onDrawingVertexAdd={handleDrawingVertexAdd}
             />
           </div>
 
           {/* Status Bar */}
           <div className="px-4 py-2 bg-background border-t text-xs text-muted-foreground">
             {graph?.nodes.length || 0} Nodes • {graph?.connections.length || 0}{" "}
-            Connections • Tool: {tool}
+            Connections • {graph?.areas.length || 0} Areas • Tool: {tool}
           </div>
         </div>
       </ResizablePanel>
+
+      {isDrawingArea && (
+        <>
+          <ResizableHandle withHandle />
+
+          {/* Area Creation Panel */}
+          <ResizablePanel defaultSize={25} minSize={20}>
+            <AreaCreationPanel
+              drawingAreaVertices={drawingAreaVertices}
+              onCancel={() => {
+                graphStore.setDrawingAreaStart(false);
+                graphStore.setDrawingAreaEnd();
+              }}
+              onCreateArea={handleCreateArea}
+            />
+          </ResizablePanel>
+        </>
+      )}
 
       {showPanoramaViewer && (
         <>

@@ -7,6 +7,8 @@ import type {
   GraphConnection,
   Vector3,
   Floorplan,
+  Area,
+  BoundaryPoint,
 } from "@/types/graph";
 
 export class GraphService {
@@ -347,6 +349,100 @@ export class GraphService {
       return response;
     } catch (error) {
       console.error("Failed to update floorplan:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new area
+   */
+  async createArea(areaData: {
+    name: string;
+    description?: string;
+    category: string;
+    boundary: BoundaryPoint[];
+    cover_image_id?: string;
+    gallery?: any[];
+  }): Promise<Area> {
+    try {
+      const apiAreaData = {
+        name: areaData.name,
+        description: areaData.description,
+        category: areaData.category,
+        boundary: areaData.boundary,
+        cover_image_id: areaData.cover_image_id,
+        gallery: areaData.gallery,
+      };
+
+      const createdArea = await GraphRevisionService.createArea(
+        this.floorId,
+        apiAreaData
+      );
+
+      return {
+        id: createdArea.data.id,
+        floorId: this.floorId,
+        name: areaData.name,
+        description: areaData.description,
+        category: areaData.category,
+        boundary: areaData.boundary,
+        cover_image_id: areaData.cover_image_id,
+        gallery: areaData.gallery,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    } catch (error) {
+      console.error("Failed to create area:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing area
+   */
+  async updateArea(areaId: string, updates: Partial<Area>): Promise<void> {
+    try {
+      const apiUpdates: any = {};
+
+      if (updates.name !== undefined) apiUpdates.name = updates.name;
+      if (updates.description !== undefined)
+        apiUpdates.description = updates.description;
+      if (updates.category !== undefined)
+        apiUpdates.category = updates.category;
+      if (updates.boundary !== undefined)
+        apiUpdates.boundary = updates.boundary;
+      if (updates.cover_image_id !== undefined)
+        apiUpdates.cover_image_id = updates.cover_image_id;
+      if (updates.floor_id !== undefined)
+        apiUpdates.floor_id = updates.floor_id;
+
+      await GraphRevisionService.updateArea(areaId, apiUpdates);
+    } catch (error) {
+      console.error("Failed to update area:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an area
+   */
+  async deleteArea(areaId: string): Promise<void> {
+    try {
+      await GraphRevisionService.deleteArea(areaId);
+    } catch (error) {
+      console.error("Failed to delete area:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set area start node
+   */
+  async setAreaStartNode(areaId: string, nodeId: string): Promise<void> {
+    try {
+      await GraphRevisionService.setAreaStartNode(areaId, { node_id: nodeId });
+    } catch (error) {
+      console.error("Failed to set area start node:", error);
       throw error;
     }
   }

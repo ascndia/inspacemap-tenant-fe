@@ -1,6 +1,6 @@
 "use client";
 
-import { GraphNode } from "@/types/graph";
+import { GraphNode, Area } from "@/types/graph";
 import { getConnectionAtPoint } from "./canvas-drawing";
 
 export interface MouseEventHandlers {
@@ -17,6 +17,7 @@ export interface MouseHandlerParams {
   state: {
     graph: {
       nodes: GraphNode[];
+      areas: Area[];
       settings: { gridSize: number };
       connections: any[];
     } | null;
@@ -25,6 +26,7 @@ export interface MouseHandlerParams {
       snapToGrid: boolean;
       isConnecting?: boolean;
       connectingFromId?: string | null;
+      isDrawingArea?: boolean;
     };
   };
   panOffset: { x: number; y: number };
@@ -36,11 +38,19 @@ export interface MouseHandlerParams {
   onZoomChange: (zoom: number) => void;
   onConnectionStart?: (nodeId: string) => void;
   onConnectionComplete?: (fromNodeId: string, toNodeId: string) => void;
+  onAreaSelect?: (areaId: string) => void;
+  onAreaVertexUpdate?: (
+    areaId: string,
+    vertexIndex: number,
+    position: { x: number; y: number }
+  ) => void;
+  onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
   contextMenu: {
     x: number;
     y: number;
     nodeId?: string;
     connectionId?: string;
+    areaId?: string;
   } | null;
   setContextMenu: (
     menu: {
@@ -48,6 +58,7 @@ export interface MouseHandlerParams {
       y: number;
       nodeId?: string;
       connectionId?: string;
+      areaId?: string;
     } | null
   ) => void;
   isDragging: boolean;
@@ -62,6 +73,8 @@ export interface MouseHandlerParams {
   setPanStart: (start: { x: number; y: number }) => void;
   hoveredNodeId: string | null;
   setHoveredNodeId: (nodeId: string | null) => void;
+  hoveredAreaId: string | null;
+  setHoveredAreaId: (areaId: string | null) => void;
   mousePosition: { x: number; y: number };
   setMousePosition: (position: { x: number; y: number }) => void;
   onToolChange?: (tool: string) => void;
@@ -84,6 +97,9 @@ export function createMouseHandlers(
     onZoomChange,
     onConnectionStart,
     onConnectionComplete,
+    onAreaSelect,
+    onAreaVertexUpdate,
+    onDrawingVertexAdd,
     contextMenu,
     setContextMenu,
     isDragging,
@@ -98,12 +114,72 @@ export function createMouseHandlers(
     setPanStart,
     hoveredNodeId,
     setHoveredNodeId,
+    hoveredAreaId,
+    setHoveredAreaId,
     mousePosition,
     setMousePosition,
     onToolChange,
     isMiddleMousePanning,
     setIsMiddleMousePanning,
   } = params;
+
+  // Helper function to check if point is inside polygon
+  const isPointInPolygon = (
+    point: { x: number; y: number },
+    polygon: { x: number; y: number }[]
+  ): boolean => {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      if (
+        polygon[i].y > point.y !== polygon[j].y > point.y &&
+        point.x <
+          ((polygon[j].x - polygon[i].x) * (point.y - polygon[i].y)) /
+            (polygon[j].y - polygon[i].y) +
+            polygon[i].x
+      ) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  };
+
+  // Helper function to find area at point
+  const getAreaAtPoint = (x: number, y: number): Area | null => {
+    if (!state.graph?.areas) return null;
+
+    // Check areas in reverse order (top to bottom)
+    for (let i = state.graph.areas.length - 1; i >= 0; i--) {
+      const area = state.graph.areas[i];
+      if (
+        area.boundary.length >= 3 &&
+        isPointInPolygon({ x, y }, area.boundary)
+      ) {
+        return area;
+      }
+    }
+    return null;
+  };
+
+  // Helper function to find area vertex at point
+  const getAreaVertexAtPoint = (
+    x: number,
+    y: number
+  ): { area: Area; vertexIndex: number } | null => {
+    if (!state.graph?.areas) return null;
+
+    const tolerance = 8 / zoom;
+    for (const area of state.graph.areas) {
+      for (let i = 0; i < area.boundary.length; i++) {
+        const vertex = area.boundary[i];
+        const dx = vertex.x - x;
+        const dy = vertex.y - y;
+        if (Math.sqrt(dx * dx + dy * dy) < tolerance) {
+          return { area, vertexIndex: i };
+        }
+      }
+    }
+    return null;
+  };
 
   const handleMouseDown = (event: React.MouseEvent) => {
     // Handle right-click context menu
@@ -133,23 +209,28 @@ export function createMouseHandlers(
         return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
       });
 
-      // Only check for connection if no node was found (prioritize nodes over connections)
-      const clickedConnection = clickedNode
-        ? null
-        : state.graph?.connections
-        ? getConnectionAtPoint(
-            x,
-            y,
-            state.graph.connections,
-            state.graph.nodes,
-            5 / zoom
-          )
-        : null;
+      // Check if right-clicking on an area
+      const clickedArea = clickedNode ? null : getAreaAtPoint(x, y);
+
+      // Only check for connection if no node or area was found (prioritize nodes/areas over connections)
+      const clickedConnection =
+        clickedNode || clickedArea
+          ? null
+          : state.graph?.connections
+          ? getConnectionAtPoint(
+              x,
+              y,
+              state.graph.connections,
+              state.graph.nodes,
+              5 / zoom
+            )
+          : null;
 
       setContextMenu({
         x: menuX,
         y: menuY,
         nodeId: clickedNode?.id,
+        areaId: clickedArea?.id,
         connectionId: clickedConnection?.id,
       });
       return;
@@ -194,7 +275,28 @@ export function createMouseHandlers(
       return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
     });
 
-    if (clickedNode) {
+    // Check if clicking on an area vertex (for editing)
+    const clickedVertex = clickedNode ? null : getAreaVertexAtPoint(x, y);
+
+    // Check if clicking inside an area
+    const clickedArea =
+      clickedNode || clickedVertex ? null : getAreaAtPoint(x, y);
+
+    if (clickedVertex) {
+      // Handle area vertex dragging
+      onAreaSelect?.(clickedVertex.area.id);
+      setIsDragging(true);
+      setDragNode(
+        `area-vertex-${clickedVertex.area.id}-${clickedVertex.vertexIndex}`
+      );
+      setDragStart({
+        x: x - clickedVertex.area.boundary[clickedVertex.vertexIndex].x,
+        y: y - clickedVertex.area.boundary[clickedVertex.vertexIndex].y,
+      });
+    } else if (clickedArea) {
+      // Handle area selection
+      onAreaSelect?.(clickedArea.id);
+    } else if (clickedNode) {
       if (state.ui.tool === "select") {
         // In select mode, only select the node, don't start dragging
         onNodeSelect(clickedNode.id);
@@ -221,6 +323,9 @@ export function createMouseHandlers(
           onConnectionStart?.(clickedNode.id);
         }
       }
+    } else if (state.ui.tool === "draw-area") {
+      // Handle area drawing
+      onDrawingVertexAdd?.({ x, y });
     } else if (state.ui.tool === "add-node") {
       onCanvasClick(x, y);
     }
@@ -244,13 +349,31 @@ export function createMouseHandlers(
       return Math.sqrt(dx * dx + dy * dy) < 10 / zoom;
     });
 
+    // Detect hovered area
+    const hoveredArea = hoveredNode ? null : getAreaAtPoint(x, y);
+
     // Update hover state
     if (hoveredNode) {
       if (hoveredNodeId !== hoveredNode.id) {
         setHoveredNodeId(hoveredNode.id);
       }
-    } else if (hoveredNodeId !== null) {
-      setHoveredNodeId(null);
+      if (hoveredAreaId !== null) {
+        setHoveredAreaId(null);
+      }
+    } else if (hoveredArea) {
+      if (hoveredAreaId !== hoveredArea.id) {
+        setHoveredAreaId(hoveredArea.id);
+      }
+      if (hoveredNodeId !== null) {
+        setHoveredNodeId(null);
+      }
+    } else {
+      if (hoveredNodeId !== null) {
+        setHoveredNodeId(null);
+      }
+      if (hoveredAreaId !== null) {
+        setHoveredAreaId(null);
+      }
     }
 
     // Handle middle mouse panning
@@ -274,21 +397,46 @@ export function createMouseHandlers(
 
     // Handle node dragging for real-time visual feedback
     if (isDragging && dragNode) {
-      const node = state.graph?.nodes.find((n) => n.id === dragNode);
-      if (node && !node.locked) {
-        // Calculate new position
-        let newX = x - dragStart.x;
-        let newY = y - dragStart.y;
+      if (dragNode.startsWith("area-vertex-")) {
+        // Handle area vertex dragging
+        const parts = dragNode.split("-");
+        const areaId = parts[2];
+        const vertexIndex = parseInt(parts[3]);
 
-        // Snap to grid if enabled
-        if (state.ui.snapToGrid) {
-          const gridSize = state.graph?.settings.gridSize || 20;
-          newX = Math.round(newX / gridSize) * gridSize;
-          newY = Math.round(newY / gridSize) * gridSize;
+        const area = state.graph?.areas.find((a) => a.id === areaId);
+        if (area) {
+          // Calculate new position
+          let newX = x - dragStart.x;
+          let newY = y - dragStart.y;
+
+          // Snap to grid if enabled
+          if (state.ui.snapToGrid) {
+            const gridSize = state.graph?.settings.gridSize || 20;
+            newX = Math.round(newX / gridSize) * gridSize;
+            newY = Math.round(newY / gridSize) * gridSize;
+          }
+
+          // Update area vertex position
+          onAreaVertexUpdate?.(areaId, vertexIndex, { x: newX, y: newY });
         }
+      } else {
+        // Handle node dragging
+        const node = state.graph?.nodes.find((n) => n.id === dragNode);
+        if (node && !node.locked) {
+          // Calculate new position
+          let newX = x - dragStart.x;
+          let newY = y - dragStart.y;
 
-        // Update node position in real-time for visual feedback (isDragging = true)
-        onNodeUpdate(dragNode, { position: { x: newX, y: newY } }, true);
+          // Snap to grid if enabled
+          if (state.ui.snapToGrid) {
+            const gridSize = state.graph?.settings.gridSize || 20;
+            newX = Math.round(newX / gridSize) * gridSize;
+            newY = Math.round(newY / gridSize) * gridSize;
+          }
+
+          // Update node position in real-time for visual feedback (isDragging = true)
+          onNodeUpdate(dragNode, { position: { x: newX, y: newY } }, true);
+        }
       }
     }
   };
@@ -296,13 +444,18 @@ export function createMouseHandlers(
   const handleMouseUp = () => {
     // If we were dragging a node, sync final position with backend
     if (isDragging && dragNode) {
-      const node = state.graph?.nodes.find((n) => n.id === dragNode);
-      if (node) {
-        // Get current position from the node (already updated during dragging)
-        const finalPosition = node.position;
+      if (dragNode.startsWith("area-vertex-")) {
+        // Area vertex dragging is already handled in real-time
+        // No additional sync needed as onAreaVertexUpdate handles it
+      } else {
+        const node = state.graph?.nodes.find((n) => n.id === dragNode);
+        if (node) {
+          // Get current position from the node (already updated during dragging)
+          const finalPosition = node.position;
 
-        // Sync with backend (isDragging = false to trigger API call)
-        onNodeUpdate(dragNode, { position: finalPosition }, false);
+          // Sync with backend (isDragging = false to trigger API call)
+          onNodeUpdate(dragNode, { position: finalPosition }, false);
+        }
       }
     }
 

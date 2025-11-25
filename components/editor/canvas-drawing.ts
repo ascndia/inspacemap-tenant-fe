@@ -1,6 +1,6 @@
 "use client";
 
-import { GraphNode, GraphConnection } from "@/types/graph";
+import { GraphNode, GraphConnection, Area } from "@/types/graph";
 
 export interface DrawParams {
   ctx: CanvasRenderingContext2D;
@@ -11,16 +11,21 @@ export interface DrawParams {
   graph: {
     nodes: GraphNode[];
     connections: GraphConnection[];
+    areas: Area[];
     floorplan?: any;
     settings: any;
   };
   ui: {
     showGrid: boolean;
     selectedNodeId: string | null;
+    selectedAreaId: string | null;
     isConnecting?: boolean;
     connectingFromId?: string | null;
     hoveredNodeId?: string | null;
+    hoveredAreaId?: string | null;
     mousePosition?: { x: number; y: number };
+    isDrawingArea?: boolean;
+    drawingAreaVertices?: { x: number; y: number }[];
   };
   pathPreview: string[] | null;
 }
@@ -62,6 +67,18 @@ export function drawCanvas(params: DrawParams) {
 
   // Draw connections
   drawConnections(ctx, zoom, graph.connections, graph.nodes);
+
+  // Draw areas
+  drawAreas(ctx, zoom, graph.areas, ui.selectedAreaId, ui.hoveredAreaId);
+
+  // Draw area drawing preview
+  if (
+    ui.isDrawingArea &&
+    ui.drawingAreaVertices &&
+    ui.drawingAreaVertices.length > 0
+  ) {
+    drawAreaPreview(ctx, zoom, ui.drawingAreaVertices, ui.mousePosition);
+  }
 
   // Draw connection preview when connecting
   if (ui.isConnecting && ui.connectingFromId && ui.mousePosition) {
@@ -373,4 +390,119 @@ function drawNodes(
       node.position.y - radius - 5 / zoom
     );
   });
+}
+
+function drawAreas(
+  ctx: CanvasRenderingContext2D,
+  zoom: number,
+  areas: Area[],
+  selectedAreaId: string | null,
+  hoveredAreaId: string | null
+) {
+  areas.forEach((area) => {
+    const isSelected = selectedAreaId === area.id;
+    const isHovered = hoveredAreaId === area.id;
+
+    // Set area color based on category
+    const categoryColors: Record<string, string> = {
+      meeting_room: "#3b82f6",
+      office: "#10b981",
+      lobby: "#f59e0b",
+      dining: "#ef4444",
+      entertainment: "#8b5cf6",
+      service: "#f97316",
+    };
+
+    const fillColor = categoryColors[area.category] || "#6b7280";
+    const strokeColor = isSelected
+      ? "#1e40af"
+      : isHovered
+      ? "#374151"
+      : "#4b5563";
+
+    // Draw filled polygon
+    ctx.fillStyle = fillColor + "40"; // 25% opacity
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = isSelected ? 3 / zoom : 2 / zoom;
+
+    ctx.beginPath();
+    if (area.boundary.length > 0) {
+      ctx.moveTo(area.boundary[0].x, area.boundary[0].y);
+      for (let i = 1; i < area.boundary.length; i++) {
+        ctx.lineTo(area.boundary[i].x, area.boundary[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Draw vertex handles for selected area
+    if (isSelected) {
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#1e40af";
+      ctx.lineWidth = 1 / zoom;
+
+      area.boundary.forEach((vertex) => {
+        ctx.beginPath();
+        ctx.arc(vertex.x, vertex.y, 6 / zoom, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+      });
+    }
+
+    // Draw area label
+    if (area.boundary.length > 0) {
+      const centerX =
+        area.boundary.reduce((sum, p) => sum + p.x, 0) / area.boundary.length;
+      const centerY =
+        area.boundary.reduce((sum, p) => sum + p.y, 0) / area.boundary.length;
+
+      ctx.fillStyle = "#000000";
+      ctx.font = `${14 / zoom}px Arial`;
+      ctx.textAlign = "center";
+      ctx.fillText(area.name, centerX, centerY);
+    }
+  });
+}
+
+function drawAreaPreview(
+  ctx: CanvasRenderingContext2D,
+  zoom: number,
+  vertices: { x: number; y: number }[],
+  mousePosition?: { x: number; y: number }
+) {
+  if (vertices.length === 0) return;
+
+  // Draw existing vertices and lines
+  ctx.strokeStyle = "#3b82f6";
+  ctx.lineWidth = 2 / zoom;
+  ctx.fillStyle = "#3b82f6";
+
+  // Draw lines between vertices
+  ctx.beginPath();
+  ctx.moveTo(vertices[0].x, vertices[0].y);
+  for (let i = 1; i < vertices.length; i++) {
+    ctx.lineTo(vertices[i].x, vertices[i].y);
+  }
+
+  // Draw line to mouse position if available
+  if (mousePosition && vertices.length > 0) {
+    ctx.lineTo(mousePosition.x, mousePosition.y);
+  }
+
+  ctx.stroke();
+
+  // Draw vertex circles
+  vertices.forEach((vertex) => {
+    ctx.beginPath();
+    ctx.arc(vertex.x, vertex.y, 4 / zoom, 0, 2 * Math.PI);
+    ctx.fill();
+  });
+
+  // Draw mouse position circle if drawing
+  if (mousePosition && vertices.length > 0) {
+    ctx.beginPath();
+    ctx.arc(mousePosition.x, mousePosition.y, 4 / zoom, 0, 2 * Math.PI);
+    ctx.fill();
+  }
 }

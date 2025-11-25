@@ -49,23 +49,11 @@ import {
 import Link from "next/link";
 import { venueService } from "@/lib/services/venue-service";
 import { areaService } from "@/lib/services/area-service";
+import { GraphRevisionService } from "@/lib/services/graph-revision-service";
 import { useAccessControl } from "@/lib/hooks/use-access-control";
 import type { VenueDetail } from "@/types/venue";
-
-interface AreaSummary {
-  id: string;
-  name: string;
-  description?: string;
-  category: string;
-  floor_name: string;
-  revision_name: string;
-  revision_status: "draft" | "published";
-  boundary_points: number;
-  cover_image_id?: string;
-  gallery_count: number;
-  created_at: string;
-  updated_at: string;
-}
+import type { AreaSummary } from "@/lib/services/area-service";
+import type { GraphRevision } from "@/types/graph";
 
 export default function VenueAreasPage() {
   const params = useParams();
@@ -74,11 +62,13 @@ export default function VenueAreasPage() {
 
   const [venue, setVenue] = useState<VenueDetail | null>(null);
   const [areas, setAreas] = useState<AreaSummary[]>([]);
+  const [revisions, setRevisions] = useState<GraphRevision[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [floorFilter, setFloorFilter] = useState<string>("all");
   const [revisionFilter, setRevisionFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("published");
 
   // Edit dialog state
   const [editingArea, setEditingArea] = useState<AreaSummary | null>(null);
@@ -99,14 +89,12 @@ export default function VenueAreasPage() {
           setVenue(venueResponse.data);
         }
 
+        // Fetch available revisions
+        const revisionsData = await GraphRevisionService.getRevisions(venueId);
+        setRevisions(revisionsData);
+
         // Fetch areas for this venue
-        const areasResponse = await areaService.getVenueAreas(venueId);
-        if (areasResponse.success) {
-          setAreas(areasResponse.data || []);
-        } else {
-          console.error("Failed to fetch areas:", areasResponse.error);
-          setAreas([]);
-        }
+        await fetchAreas();
       } catch (error) {
         console.error("Failed to fetch venue areas:", error);
       } finally {
@@ -119,20 +107,45 @@ export default function VenueAreasPage() {
     }
   }, [venueId]);
 
-  const filteredAreas = areas.filter((area) => {
-    const matchesSearch =
-      area.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      area.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const fetchAreas = async () => {
+    try {
+      const params: any = {};
+      if (revisionFilter !== "all") {
+        params.revision_id = revisionFilter;
+      }
+      if (floorFilter !== "all") {
+        params.floor_id = floorFilter;
+      }
+      if (statusFilter !== "published") {
+        params.status = statusFilter;
+      }
+      if (searchQuery) {
+        params.name = searchQuery;
+      }
+      if (categoryFilter !== "all") {
+        params.category = categoryFilter;
+      }
 
-    const matchesCategory =
-      categoryFilter === "all" || area.category === categoryFilter;
-    const matchesFloor =
-      floorFilter === "all" || area.floor_name === floorFilter;
-    const matchesRevision =
-      revisionFilter === "all" || area.revision_status === revisionFilter;
+      const areasResponse = await areaService.getVenueAreas(venueId, params);
+      if (areasResponse.success) {
+        setAreas(areasResponse.data || []);
+      } else {
+        console.error("Failed to fetch areas:", areasResponse.error);
+        setAreas([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch areas:", error);
+      setAreas([]);
+    }
+  };
 
-    return matchesSearch && matchesCategory && matchesFloor && matchesRevision;
-  });
+  useEffect(() => {
+    if (venueId) {
+      fetchAreas();
+    }
+  }, [revisionFilter, floorFilter, statusFilter, searchQuery, categoryFilter]);
+
+  const filteredAreas = areas; // API now handles filtering
 
   const handleEditArea = (area: AreaSummary) => {
     setEditingArea(area);
@@ -240,24 +253,14 @@ export default function VenueAreasPage() {
                 <SelectItem value="corridor">Corridor</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={floorFilter} onValueChange={setFloorFilter}>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Floor" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Floors</SelectItem>
-                <SelectItem value="Ground Floor">Ground Floor</SelectItem>
-                <SelectItem value="2nd Floor">2nd Floor</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={revisionFilter} onValueChange={setRevisionFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Revision" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Revisions</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -269,7 +272,8 @@ export default function VenueAreasPage() {
         <CardHeader>
           <CardTitle>Areas ({filteredAreas.length})</CardTitle>
           <CardDescription>
-            Click on any area to edit details or manage gallery
+            Click on any area to view and edit details, including gallery
+            management
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -279,73 +283,102 @@ export default function VenueAreasPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Floor</TableHead>
-                <TableHead>Revision</TableHead>
+                <TableHead>Revision ID</TableHead>
                 <TableHead>Gallery</TableHead>
                 <TableHead>Updated</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAreas.map((area) => (
-                <TableRow key={area.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{area.name}</div>
-                      {area.description && (
-                        <div className="text-sm text-muted-foreground truncate max-w-xs">
-                          {area.description}
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getCategoryColor(area.category)}>
-                      {area.category.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{area.floor_name}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          area.revision_status === "published"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {area.revision_status}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {area.revision_name}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                      <span>{area.gallery_count}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {new Date(area.updated_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
+              {filteredAreas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12">
+                    <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No areas found</h3>
+                    <p className="text-muted-foreground mb-4">
+                      {revisionFilter !== "all" ||
+                      floorFilter !== "all" ||
+                      statusFilter !== "published" ||
+                      searchQuery ||
+                      categoryFilter !== "all"
+                        ? "Try adjusting your filters or search terms."
+                        : "Get started by creating your first area in the editor."}
+                    </p>
+                    {(revisionFilter !== "all" ||
+                      floorFilter !== "all" ||
+                      statusFilter !== "published" ||
+                      searchQuery ||
+                      categoryFilter !== "all") && (
                       <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditArea(area)}
-                        disabled={area.revision_status === "published"}
+                        variant="outline"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setCategoryFilter("all");
+                          setFloorFilter("all");
+                          setRevisionFilter("all");
+                          setStatusFilter("published");
+                        }}
                       >
-                        <Edit className="h-4 w-4" />
+                        Clear Filters
                       </Button>
-                      <Button variant="ghost" size="sm">
-                        <ImageIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    )}
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredAreas.map((area) => (
+                  <TableRow key={area.id}>
+                    <TableCell>
+                      <Link
+                        href={`/dashboard/venues/${venueId}/areas/${area.id}`}
+                        className="hover:underline"
+                      >
+                        <div>
+                          <div className="font-medium">{area.name}</div>
+                          {area.description && (
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              {area.description}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getCategoryColor(area.category)}>
+                        {area.category.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{area.floor_name}</TableCell>
+                    <TableCell>{area.revision_id}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        <span>{area.gallery_count}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(area.updated_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditArea(area)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Link
+                          href={`/dashboard/venues/${venueId}/areas/${area.id}`}
+                        >
+                          <Button variant="ghost" size="sm">
+                            <ImageIcon className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

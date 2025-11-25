@@ -16,6 +16,33 @@ export interface AreaData {
   updated_at: string;
 }
 
+export interface AreaEditorDetail {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  boundary: BoundaryPoint[];
+  start_node_id?: string;
+  floor_id: string;
+  floor_name: string;
+  revision_id: string;
+  cover_image_id?: string;
+  cover_url: string;
+  gallery: AreaGalleryDetail[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AreaGalleryDetail {
+  media_id: string;
+  url: string;
+  thumbnail_url: string;
+  caption: string;
+  sort_order: number;
+}
+
 export interface BoundaryPoint {
   x: number;
   y: number;
@@ -56,11 +83,10 @@ export interface AreaSummary {
   name: string;
   description?: string;
   category: string;
+  floor_id: string;
   floor_name: string;
-  revision_name: string;
-  revision_status: "draft" | "published";
-  boundary_points: number;
-  cover_image_id?: string;
+  revision_id: string;
+  cover_url?: string;
   gallery_count: number;
   created_at: string;
   updated_at: string;
@@ -71,19 +97,83 @@ class AreaService {
    * Get all areas for a venue
    */
   async getVenueAreas(
-    venueId: string
+    venueId: string,
+    params?: {
+      revision_id?: string;
+      floor_id?: string;
+      status?: "published" | "draft" | "all";
+      limit?: number;
+      offset?: number;
+      name?: string;
+      category?: string;
+    }
   ): Promise<{ success: boolean; data?: AreaSummary[]; error?: string }> {
     try {
-      const response = await api.get(`/editor/venues/${venueId}/areas`);
-      if (response.data?.success) {
-        return response.data;
-      } else {
-        return {
-          success: false,
-          error: "Invalid response structure",
-        };
+      const response = await api.get(`/venues/${venueId}/areas`, { params });
+      console.log("Areas API response:", response.data);
+      console.log("Response status:", response.status);
+
+      // Handle direct response structure: { areas: [...], total: number, limit: number, offset: number }
+      if (
+        response.data &&
+        typeof response.data === "object" &&
+        "areas" in response.data
+      ) {
+        const areas = response.data.areas;
+        console.log("Areas value:", areas, "Type:", typeof areas);
+
+        if (Array.isArray(areas)) {
+          console.log("Returning areas array with", areas.length, "items");
+          return {
+            success: true,
+            data: areas,
+          };
+        } else if (areas === null || areas === undefined) {
+          console.log("Areas is null/undefined, returning empty array");
+          return {
+            success: true,
+            data: [],
+          };
+        }
       }
+
+      // Handle wrapped response structure: { success: true, data: { areas: [...] } }
+      if (
+        response.data?.success &&
+        response.data?.data &&
+        "areas" in response.data.data
+      ) {
+        const areas = response.data.data.areas;
+        if (Array.isArray(areas)) {
+          console.log(
+            "Returning wrapped areas array with",
+            areas.length,
+            "items"
+          );
+          return {
+            success: true,
+            data: areas,
+          };
+        }
+      }
+
+      console.error(
+        "Invalid response structure. Expected 'areas' field in response.data. Got:",
+        response.data
+      );
+      return {
+        success: false,
+        error: `Invalid response structure. Response: ${JSON.stringify(
+          response.data
+        )}`,
+      };
     } catch (error: any) {
+      console.error("Failed to fetch venue areas:", error);
+      console.error("Error details:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
       return {
         success: false,
         error: error.message || "Failed to fetch venue areas",
@@ -92,11 +182,11 @@ class AreaService {
   }
 
   /**
-   * Get a specific area by ID
+   * Get a specific area by ID with complete details including gallery
    */
   async getArea(
     areaId: string
-  ): Promise<{ success: boolean; data?: AreaData; error?: string }> {
+  ): Promise<{ success: boolean; data?: AreaEditorDetail; error?: string }> {
     try {
       const response = await api.get(`/editor/areas/${areaId}`);
       if (response.data?.success && response.data?.data) {

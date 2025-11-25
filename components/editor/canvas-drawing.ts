@@ -343,7 +343,6 @@ function drawNodes(
     const isConnectingFrom = connectingFromId === node.id;
     const isHovered = hoveredNodeId === node.id;
     const isValidTarget = isConnecting && connectingFromId !== node.id;
-
     // Determine radius based on state
     let radius = 8 / zoom;
     if (isConnectingFrom) {

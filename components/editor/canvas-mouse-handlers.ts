@@ -311,9 +311,9 @@ export function createMouseHandlers(
         ? null
         : getAreaVertexAtPoint(x, y);
 
-    // Check if clicking inside an area - but skip if in add-node mode
+    // Check if clicking inside an area - but skip if in add-node mode or draw-area mode
     const clickedArea =
-      state.ui.tool === "add-node"
+      state.ui.tool === "add-node" || state.ui.tool === "draw-area"
         ? null
         : clickedNode || clickedVertex
         ? null
@@ -331,8 +331,10 @@ export function createMouseHandlers(
         y: y - clickedVertex.area.boundary[clickedVertex.vertexIndex].y,
       });
     } else if (clickedArea) {
-      // Handle area selection and potential dragging
-      onAreaSelect?.(clickedArea.id);
+      // Handle area selection only in select mode
+      if (state.ui.tool === "select") {
+        onAreaSelect?.(clickedArea.id);
+      }
 
       // Start area dragging if in move mode
       if (state.ui.tool === "move") {

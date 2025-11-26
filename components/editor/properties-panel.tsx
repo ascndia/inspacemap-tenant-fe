@@ -444,7 +444,14 @@ export function PropertiesPanel() {
                       <div className="flex gap-2 text-xs">
                         <button
                           className="px-2 py-1 bg-muted hover:bg-muted/80 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                          onClick={() => setFreeViewRotation(rotationValue)}
+                          onClick={() => {
+                            setFreeViewRotation(rotationValue);
+                            graphStore.setPanoramaRotation(
+                              rotationValue, // Gunakan rotationValue (node rotation) sebagai target
+                              panoramaPitch ?? 0,
+                              "panel"
+                            );
+                          }}
                           title="Set free view to node rotation"
                         >
                           Node: {rotationValue}°
@@ -467,7 +474,7 @@ export function PropertiesPanel() {
                         graphStore.setPanoramaRotation(
                           nextYaw,
                           panoramaPitch ?? 0,
-                          "panel"
+                          "properties-panel"
                         );
                       }}
                       min={0}

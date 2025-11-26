@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MediaGrid } from "@/components/media/media-grid";
 import { MediaUpload } from "@/components/media/media-upload";
@@ -47,6 +47,7 @@ export function MediaLibrary({
 }: MediaLibraryProps) {
   const [activeTab, setActiveTab] = useState("library");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("newest");
   const [selectedFilters, setSelectedFilters] = useState({
@@ -61,11 +62,20 @@ export function MediaLibrary({
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [mediaCounts, setMediaCounts] = useState({ images: 0, videos: 0 });
-  const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
-  const itemsPerPage = 20;
+  const [selectedMedia, setSelectedMedia] = useState<Set<string>>(new Set());
+  const itemsPerPage = 10;
 
   const { user, token } = useAuthStore();
   const { canAccess } = useAccessControl();
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset to first page on search
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const getDateFilter = (dateFilter: string): string => {
     const now = new Date();
@@ -101,39 +111,17 @@ export function MediaLibrary({
 
   // Load media on component mount and when page changes
   useEffect(() => {
-    console.log("MediaLibrary: Component mounted, checking auth", {
-      hasToken: !!token,
-      hasUser: !!user,
-    });
     const loadMedia = async () => {
       // Only load media if user is authenticated
       if (!token || !user) {
-        console.log("MediaLibrary: No auth, setting error");
         setLoading(false);
         setError("Please log in to view media");
         return;
       }
 
-      console.log("MediaLibrary: User authenticated, loading media");
       try {
         setLoading(true);
         setError(null);
-        console.log(
-          "MediaLibrary: Calling mediaService.getMedia() with pagination and filters",
-          {
-            page: currentPage,
-            limit: itemsPerPage,
-            mime_type:
-              selectedFilters.type !== "all"
-                ? getMimeTypeFilter(selectedFilters.type)
-                : undefined,
-            uploaded_after:
-              selectedFilters.date !== "all"
-                ? getDateFilter(selectedFilters.date)
-                : undefined,
-            search: searchQuery || undefined,
-          }
-        );
         const response = await mediaService.getMedia({
           page: currentPage,
           limit: itemsPerPage,
@@ -145,9 +133,8 @@ export function MediaLibrary({
             selectedFilters.date !== "all"
               ? getDateFilter(selectedFilters.date)
               : undefined,
-          search: searchQuery || undefined,
+          search: debouncedSearch || undefined,
         });
-        console.log("MediaLibrary: API call successful", response);
 
         if (response && response.data) {
           setMedia(response.data);
@@ -170,7 +157,6 @@ export function MediaLibrary({
           setError("Using demo data - API not available");
         }
       } catch (err: any) {
-        console.error("MediaLibrary: API call failed, using mock data:", err);
         // Fall back to mock data for development
         setMedia(mockMedia.data);
         setTotalPages(1);
@@ -182,8 +168,7 @@ export function MediaLibrary({
     };
 
     loadMedia();
-  }, [user, token, currentPage, selectedFilters, searchQuery]);
-
+  }, [user, token, currentPage, selectedFilters, debouncedSearch]);
   const handleUploadSuccess = (uploadedItems: MediaItem[]) => {
     setMedia((prev) => [...uploadedItems, ...prev]);
   };
@@ -192,38 +177,50 @@ export function MediaLibrary({
     setMedia((prev) => prev.filter((item) => item.id !== deletedMediaId));
   };
 
-  const handleFilterChange = (filterType: string, value: string | string[]) => {
-    setSelectedFilters((prev) => ({
-      ...prev,
-      [filterType]: value,
-    }));
-    setCurrentPage(1); // Reset to first page when filters change
-  };
+  const handleFilterChange = useCallback(
+    (filterType: string, value: string | string[]) => {
+      setSelectedFilters((prev) => ({
+        ...prev,
+        [filterType]: value,
+      }));
+      setCurrentPage(1); // Reset to first page when filters change
+    },
+    []
+  );
 
-  const handleMediaSelect = (mediaItem: MediaItem) => {
-    if (multiple) {
-      setSelectedMedia((prev) => {
-        const isSelected = prev.some((item) => item.id === mediaItem.id);
-        if (isSelected) {
-          return prev.filter((item) => item.id !== mediaItem.id);
-        } else {
-          return [...prev, mediaItem];
-        }
-      });
-    } else {
-      onSelect?.(mediaItem);
+  const handleMediaSelect = useCallback(
+    (mediaItem: MediaItem) => {
+      if (multiple) {
+        setSelectedMedia((prev) => {
+          const newSet = new Set(prev);
+          if (newSet.has(mediaItem.id)) {
+            newSet.delete(mediaItem.id);
+          } else {
+            newSet.add(mediaItem.id);
+          }
+          return newSet;
+        });
+      } else {
+        onSelect?.(mediaItem);
+      }
+    },
+    [multiple, onSelect]
+  );
+
+  const handleConfirmSelection = useCallback(() => {
+    if (multiple && selectedMedia.size > 0) {
+      // Convert Set to array of MediaItems
+      const selectedItems = media.filter((item) => selectedMedia.has(item.id));
+      onConfirmSelection?.(selectedItems);
     }
-  };
+  }, [multiple, selectedMedia, media, onConfirmSelection]);
 
-  const handleConfirmSelection = () => {
-    if (multiple && selectedMedia.length > 0) {
-      onConfirmSelection?.(selectedMedia);
-    }
-  };
-
-  const isMediaSelected = (mediaId: string) => {
-    return selectedMedia.some((item) => item.id === mediaId);
-  };
+  const isMediaSelected = useCallback(
+    (mediaId: string) => {
+      return selectedMedia.has(mediaId);
+    },
+    [selectedMedia]
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -242,10 +239,10 @@ export function MediaLibrary({
               )}
             </TabsList>
 
-            {mode === "select" && multiple && selectedMedia.length > 0 && (
+            {mode === "select" && multiple && selectedMedia.size > 0 && (
               <div className="text-sm text-muted-foreground">
-                {selectedMedia.length} item
-                {selectedMedia.length !== 1 ? "s" : ""} selected
+                {selectedMedia.size} item
+                {selectedMedia.size !== 1 ? "s" : ""} selected
               </div>
             )}
           </div>
@@ -296,10 +293,7 @@ export function MediaLibrary({
                 <Input
                   placeholder="Search media..."
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
-                  }}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 w-full sm:w-64"
                 />
               </div>
@@ -433,7 +427,7 @@ export function MediaLibrary({
               ) : (
                 <div>
                   <MediaGrid
-                    searchQuery={searchQuery}
+                    searchQuery={debouncedSearch}
                     filters={selectedFilters}
                     sortBy={sortBy}
                     viewMode={viewMode}
@@ -443,8 +437,7 @@ export function MediaLibrary({
                     onSelect={handleMediaSelect}
                     media={media}
                     onDeleteSuccess={handleDeleteSuccess}
-                  />
-
+                  />{" "}
                   {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between mt-6">
@@ -563,10 +556,10 @@ export function MediaLibrary({
           {multiple ? (
             <Button
               onClick={handleConfirmSelection}
-              disabled={selectedMedia.length === 0}
+              disabled={selectedMedia.size === 0}
             >
-              Select {selectedMedia.length} item
-              {selectedMedia.length !== 1 ? "s" : ""}
+              Select {selectedMedia.size} item
+              {selectedMedia.size !== 1 ? "s" : ""}
             </Button>
           ) : null}
         </DialogFooter>

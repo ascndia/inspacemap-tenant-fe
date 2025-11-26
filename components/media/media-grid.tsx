@@ -44,7 +44,7 @@ interface MediaGridProps {
   viewMode?: "grid" | "list";
   mode?: "manage" | "select";
   multiple?: boolean;
-  selectedMedia?: MediaItem[];
+  selectedMedia?: Set<string>;
   onSelect?: (media: MediaItem) => void;
   media?: MediaItem[];
   onDeleteSuccess?: (deletedMediaId: string) => void;
@@ -57,7 +57,7 @@ export function MediaGrid({
   viewMode = "grid",
   mode = "manage",
   multiple = false,
-  selectedMedia = [],
+  selectedMedia = new Set(),
   onSelect,
   media = [],
   onDeleteSuccess,
@@ -128,12 +128,10 @@ export function MediaGrid({
             filteredAndSortedMedia.map((item) => (
               <div
                 key={item.id}
-                className={`flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors ${
+                className={`flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 ${
                   mode === "select" ? "cursor-pointer" : ""
                 } ${
-                  mode === "select" &&
-                  multiple &&
-                  selectedMedia.some((selected) => selected.id === item.id)
+                  mode === "select" && multiple && selectedMedia.has(item.id)
                     ? "ring-2 ring-primary bg-primary/5"
                     : ""
                 }`}
@@ -145,9 +143,7 @@ export function MediaGrid({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Checkbox
-                      checked={selectedMedia.some(
-                        (selected) => selected.id === item.id
-                      )}
+                      checked={selectedMedia.has(item.id)}
                       onCheckedChange={(value) => {
                         onSelect?.(item);
                       }}
@@ -259,9 +255,7 @@ export function MediaGrid({
                 item={item}
                 mode={mode}
                 multiple={multiple}
-                isSelected={selectedMedia.some(
-                  (selected) => selected.id === item.id
-                )}
+                isSelected={selectedMedia.has(item.id)}
                 onSelect={onSelect}
                 onDeleteClick={handleDeleteClick}
               />
@@ -301,7 +295,7 @@ function MediaItem({
   return (
     <Dialog>
       <div
-        className={`group relative rounded-lg border bg-card overflow-hidden hover:shadow-md transition-all ${
+        className={`group relative rounded-lg border bg-card overflow-hidden ${
           mode === "select" ? "cursor-pointer" : ""
         } ${
           mode === "select" && multiple && isSelected
@@ -348,7 +342,7 @@ function MediaItem({
 
           {/* Selection overlay for single select mode */}
           {mode === "select" && !multiple && (
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center">
               <Button
                 size="sm"
                 onClick={(e) => {
@@ -364,7 +358,7 @@ function MediaItem({
 
           {/* Actions overlay for manage mode */}
           {mode === "manage" && (
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2">
               <DialogTrigger asChild>
                 <Button
                   size="sm"
@@ -377,7 +371,7 @@ function MediaItem({
             </div>
           )}
 
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

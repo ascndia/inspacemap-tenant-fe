@@ -36,10 +36,11 @@ export default function VenueGalleryPage() {
 
         if (response.success && response.data) {
           console.log("Fetched venue data:", response.data);
-          response.data.gallery.map((item: any) => {
-            item.url = replaceMinioPort(item.url);
-          });
-          response.data;
+          if (response.data.gallery) {
+            response.data.gallery.map((item: any) => {
+              item.url = replaceMinioPort(item.url);
+            });
+          }
           setVenue(response.data);
         } else {
           throw new Error(response.error || "Failed to fetch venue details");
@@ -62,9 +63,11 @@ export default function VenueGalleryPage() {
     if (id) {
       venueService.getVenueById(id).then((response) => {
         if (response.success && response.data) {
-          response.data.gallery.map((item: any) => {
-            item.url = replaceMinioPort(item.url);
-          });
+          if (response.data.gallery) {
+            response.data.gallery.map((item: any) => {
+              item.url = replaceMinioPort(item.url);
+            });
+          }
           setVenue(response.data);
         }
       });

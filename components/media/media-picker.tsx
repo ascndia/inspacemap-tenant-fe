@@ -40,17 +40,13 @@ export function MediaPicker({
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange || setInternalOpen;
 
-  const handleSelect = (media: MediaItem | MediaItem[] | null) => {
-    if (media) {
-      onSelect(media);
-      if (!multiple) {
-        setOpen(false);
-      }
-    }
+  const handleSelect = (media: MediaItem) => {
+    onSelect(media);
+    setOpen(false);
   };
 
-  const handleConfirmSelection = () => {
-    // This will be called from MediaLibrary when multiple selection is confirmed
+  const handleConfirmSelection = (selected: MediaItem[]) => {
+    onSelect(selected);
     setOpen(false);
   };
 
@@ -82,8 +78,8 @@ export function MediaPicker({
             <MediaLibrary
               mode="select"
               multiple={multiple}
-              onSelect={handleSelect}
-              onConfirmSelection={handleConfirmSelection}
+              onSelect={multiple ? undefined : handleSelect}
+              onConfirmSelection={multiple ? handleConfirmSelection : undefined}
             />
           </div>
         </div>

@@ -139,13 +139,15 @@ export function MediaGrid({
                 onClick={() => mode === "select" && onSelect?.(item)}
               >
                 {mode === "select" && multiple && (
-                  <div className="pointer-events-auto z-10">
+                  <div
+                    className="pointer-events-auto z-10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Checkbox
                       checked={selectedMedia.some(
                         (selected) => selected.id === item.id
                       )}
-                      onCheckedChange={(e) => {
-                        e.stopPropagation();
+                      onCheckedChange={(value) => {
                         onSelect?.(item);
                       }}
                       className="shrink-0"
@@ -327,11 +329,13 @@ function MediaItem({
 
           {/* Selection checkbox for multiple select mode */}
           {mode === "select" && multiple && (
-            <div className="absolute top-2 left-2 z-10 pointer-events-auto">
+            <div
+              className="absolute top-2 left-2 z-10 pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <Checkbox
                 checked={isSelected}
-                onCheckedChange={(e) => {
-                  e.stopPropagation();
+                onCheckedChange={(value) => {
                   onSelect?.(item);
                 }}
                 className="bg-background/80 backdrop-blur-sm"

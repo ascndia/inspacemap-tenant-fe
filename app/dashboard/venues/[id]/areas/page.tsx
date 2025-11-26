@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -60,6 +60,7 @@ import { DeleteAreaConfirmModal } from "@/components/revisions/delete-area-confi
 export default function VenueAreasPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const venueId = params.id as string;
   const { canAccess } = useAccessControl();
 
@@ -67,11 +68,32 @@ export default function VenueAreasPage() {
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [revisions, setRevisions] = useState<GraphRevision[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [floorFilter, setFloorFilter] = useState<string>("all");
-  const [revisionFilter, setRevisionFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState(
+    searchParams.get("search") || ""
+  );
+  const [categoryFilter, setCategoryFilter] = useState(
+    searchParams.get("category") || "all"
+  );
+  const [floorFilter, setFloorFilter] = useState(
+    searchParams.get("floor") || "all"
+  );
+  const [revisionFilter, setRevisionFilter] = useState(
+    searchParams.get("revision") || "all"
+  );
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") || "all"
+  );
+
+  // Update URL search params when filters change
+  const updateSearchParams = (key: string, value: string) => {
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+    if (value === "all" || value === "") {
+      newSearchParams.delete(key);
+    } else {
+      newSearchParams.set(key, value);
+    }
+    router.replace(`?${newSearchParams.toString()}`, { scroll: false });
+  };
 
   // Edit dialog state
   const [editingArea, setEditingArea] = useState<AreaSummary | null>(null);
@@ -122,9 +144,6 @@ export default function VenueAreasPage() {
       if (floorFilter !== "all") {
         params.floor_id = floorFilter;
       }
-      if (statusFilter !== "published") {
-        params.status = statusFilter;
-      }
       if (searchQuery) {
         params.name = searchQuery;
       }
@@ -149,9 +168,13 @@ export default function VenueAreasPage() {
     if (venueId) {
       fetchAreas();
     }
-  }, [revisionFilter, floorFilter, statusFilter, searchQuery, categoryFilter]);
+  }, [revisionFilter, floorFilter, searchQuery, categoryFilter]);
 
-  const filteredAreas = areas; // API now handles filtering
+  const filteredAreas = areas.filter((area) => {
+    if (statusFilter === "all") return true;
+    const revision = revisions.find((r) => r.id === area.revision_id);
+    return revision?.status === statusFilter;
+  });
 
   const handleEditArea = (area: AreaSummary) => {
     setEditingArea(area);
@@ -261,12 +284,21 @@ export default function VenueAreasPage() {
                 <Input
                   placeholder="Search areas..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    updateSearchParams("search", e.target.value);
+                  }}
                   className="pl-9"
                 />
               </div>
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select
+              value={categoryFilter}
+              onValueChange={(value) => {
+                setCategoryFilter(value);
+                updateSearchParams("category", value);
+              }}
+            >
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
@@ -278,7 +310,13 @@ export default function VenueAreasPage() {
                 <SelectItem value="corridor">Corridor</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                updateSearchParams("status", value);
+              }}
+            >
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -286,6 +324,26 @@ export default function VenueAreasPage() {
                 <SelectItem value="published">Published</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="all">All Status</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={revisionFilter}
+              onValueChange={(value) => {
+                setRevisionFilter(value);
+                updateSearchParams("revision", value);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Revision" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Revisions</SelectItem>
+                {revisions.map((revision) => (
+                  <SelectItem key={revision.id} value={revision.id}>
+                    {revision.note || `Revision ${revision.id.slice(-8)}`} (
+                    {revision.status})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -308,7 +366,8 @@ export default function VenueAreasPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Floor</TableHead>
-                <TableHead>Revision ID</TableHead>
+                <TableHead>Revision</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Gallery</TableHead>
                 <TableHead>Updated</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
@@ -317,13 +376,13 @@ export default function VenueAreasPage() {
             <TableBody>
               {filteredAreas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">No areas found</h3>
                     <p className="text-muted-foreground mb-4">
                       {revisionFilter !== "all" ||
                       floorFilter !== "all" ||
-                      statusFilter !== "published" ||
+                      statusFilter !== "all" ||
                       searchQuery ||
                       categoryFilter !== "all"
                         ? "Try adjusting your filters or search terms."
@@ -331,7 +390,7 @@ export default function VenueAreasPage() {
                     </p>
                     {(revisionFilter !== "all" ||
                       floorFilter !== "all" ||
-                      statusFilter !== "published" ||
+                      statusFilter !== "all" ||
                       searchQuery ||
                       categoryFilter !== "all") && (
                       <Button
@@ -341,7 +400,10 @@ export default function VenueAreasPage() {
                           setCategoryFilter("all");
                           setFloorFilter("all");
                           setRevisionFilter("all");
-                          setStatusFilter("published");
+                          setStatusFilter("all");
+                          router.replace(window.location.pathname, {
+                            scroll: false,
+                          });
                         }}
                       >
                         Clear Filters
@@ -350,64 +412,82 @@ export default function VenueAreasPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAreas.map((area) => (
-                  <TableRow
-                    key={area.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() =>
-                      router.push(
-                        `/dashboard/venues/${venueId}/areas/${area.id}`
-                      )
-                    }
-                  >
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{area.name}</div>
-                        {area.description && (
-                          <div className="text-sm text-muted-foreground truncate max-w-xs">
-                            {area.description}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getCategoryColor(area.category)}>
-                        {area.category.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{area.floor_name}</TableCell>
-                    <TableCell>{area.revision_id}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                        <span>{area.gallery_count}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(area.updated_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditArea(area)}
+                filteredAreas.map((area) => {
+                  const revision = revisions.find(
+                    (r) => r.id === area.revision_id
+                  );
+                  return (
+                    <TableRow
+                      key={area.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() =>
+                        router.push(
+                          `/dashboard/venues/${venueId}/areas/${area.id}`
+                        )
+                      }
+                    >
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{area.name}</div>
+                          {area.description && (
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              {area.description}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getCategoryColor(area.category)}>
+                          {area.category.replace("_", " ")}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{area.floor_name}</TableCell>
+                      <TableCell>
+                        {revision?.note || area.revision_id.slice(-8)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            revision?.status === "published"
+                              ? "default"
+                              : "secondary"
+                          }
                         >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeletingArea(area)}
-                          disabled={statusFilter === "published"}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {revision?.status || "unknown"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                          <span>{area.gallery_count}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(area.updated_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditArea(area)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeletingArea(area)}
+                            disabled={statusFilter === "published"}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

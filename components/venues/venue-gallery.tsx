@@ -69,7 +69,7 @@ export function VenueGallery({
 
       // Create gallery items from selected media
       const items: VenueGalleryItem[] = mediaArray.map((media, index) => ({
-        media_id: media.id,
+        media_asset_id: media.asset_id,
         url: media.url,
         thumbnail_url: media.thumbnail_url || "",
         sort_order: galleryItems.length + index,
@@ -95,10 +95,13 @@ export function VenueGallery({
     }
   };
 
-  const handleRemoveItem = async (mediaId: string) => {
+  const handleRemoveItem = async (mediaAssetId: string) => {
     try {
       setIsSubmitting(true);
-      const response = await venueService.removeGalleryItem(venueId, mediaId);
+      const response = await venueService.removeGalleryItem(
+        venueId,
+        mediaAssetId
+      );
 
       if (response.success) {
         toast.success("Image removed from gallery");
@@ -126,7 +129,7 @@ export function VenueGallery({
       setIsSubmitting(true);
       const response = await venueService.updateGalleryItem(
         venueId,
-        editingItem.media_id,
+        editingItem.media_asset_id,
         {
           caption: updatedItem.caption,
           is_featured: updatedItem.is_featured,
@@ -172,7 +175,7 @@ export function VenueGallery({
     if (!draggedItem) return;
 
     const draggedIndex = sortedItems.findIndex(
-      (item) => item.media_id === draggedItem.media_id
+      (item) => item.media_asset_id === draggedItem.media_asset_id
     );
     if (draggedIndex === -1 || draggedIndex === dropIndex) return;
 
@@ -188,7 +191,7 @@ export function VenueGallery({
     }));
 
     // Update backend
-    const mediaIds = reorderedItems.map((item) => item.media_id);
+    const mediaIds = reorderedItems.map((item) => item.media_asset_id);
     await handleReorder(mediaIds);
 
     setDraggedItem(null);
@@ -199,7 +202,7 @@ export function VenueGallery({
     try {
       setIsSubmitting(true);
       const response = await venueService.reorderGallery(venueId, {
-        media_ids: newOrder,
+        media_asset_ids: newOrder,
       });
 
       if (response.success) {
@@ -229,6 +232,8 @@ export function VenueGallery({
           onSelect={handleAddImages}
           multiple={true}
           acceptTypes={["image"]}
+          open={isMediaPickerOpen}
+          onOpenChange={setIsMediaPickerOpen}
           trigger={
             <Button disabled={isSubmitting}>
               <Maximize2 className="mr-2 h-4 w-4" />
@@ -248,7 +253,7 @@ export function VenueGallery({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {sortedItems.map((item, index) => (
             <div
-              key={`${item.media_id}-${item.sort_order || 0}-${index}`}
+              key={`${item.media_asset_id}-${item.sort_order || 0}-${index}`}
               draggable
               onDragStart={(e) => handleDragStart(e, item)}
               onDragOver={(e) => handleDragOver(e, index)}
@@ -258,7 +263,11 @@ export function VenueGallery({
                 dragOverIndex === index
                   ? "ring-2 ring-primary ring-offset-2"
                   : ""
-              } ${draggedItem?.media_id === item.media_id ? "opacity-50" : ""}`}
+              } ${
+                draggedItem?.media_asset_id === item.media_asset_id
+                  ? "opacity-50"
+                  : ""
+              }`}
             >
               <GalleryItemCard
                 item={item}
@@ -286,7 +295,7 @@ export function VenueGallery({
 interface GalleryItemCardProps {
   item: VenueGalleryItem;
   onEdit: (item: VenueGalleryItem) => void;
-  onRemove: (mediaId: string) => void;
+  onRemove: (mediaAssetId: string) => void;
   isSubmitting: boolean;
 }
 
@@ -347,7 +356,7 @@ function GalleryItemCard({
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => onRemove(item.media_id)}
+                onClick={() => onRemove(item.media_asset_id)}
                 disabled={isSubmitting}
                 className="text-destructive"
               >

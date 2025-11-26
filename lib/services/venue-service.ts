@@ -185,13 +185,13 @@ export const venueService = {
    */
   updateGalleryItem: async (
     venueId: string,
-    mediaId: string,
+    mediaAssetId: string,
     data: UpdateGalleryItemRequest
   ): Promise<GalleryResponse> => {
     try {
-      console.log("Updating gallery item:", venueId, mediaId, data);
+      console.log("Updating gallery item:", venueId, mediaAssetId, data);
       const response = await api.patch(
-        `/venues/${venueId}/gallery/${mediaId}`,
+        `/venues/${venueId}/gallery/${mediaAssetId}`,
         data
       );
       console.log("Update gallery item response:", response.data);
@@ -219,9 +219,6 @@ export const venueService = {
     }
   },
 
-  /**
-   * Reorder gallery items
-   */
   reorderGallery: async (
     venueId: string,
     data: ReorderGalleryRequest
@@ -262,12 +259,12 @@ export const venueService = {
    */
   removeGalleryItem: async (
     venueId: string,
-    mediaId: string
+    mediaAssetId: string
   ): Promise<GalleryResponse> => {
     try {
-      console.log("Removing gallery item:", venueId, mediaId);
+      console.log("Removing gallery item:", venueId, mediaAssetId);
       const response = await api.delete(
-        `/venues/${venueId}/gallery/${mediaId}`
+        `/venues/${venueId}/gallery/${mediaAssetId}`
       );
       console.log("Remove gallery item response:", response.data);
 

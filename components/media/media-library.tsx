@@ -35,8 +35,8 @@ import { useAccessControl } from "@/lib/hooks/use-access-control";
 interface MediaLibraryProps {
   mode?: "manage" | "select";
   multiple?: boolean;
-  onSelect?: (media: any) => void;
-  onConfirmSelection?: () => void;
+  onSelect?: (media: MediaItem) => void;
+  onConfirmSelection?: (selected: MediaItem[]) => void;
 }
 
 export function MediaLibrary({
@@ -217,8 +217,7 @@ export function MediaLibrary({
 
   const handleConfirmSelection = () => {
     if (multiple && selectedMedia.length > 0) {
-      onSelect?.(selectedMedia);
-      onConfirmSelection?.();
+      onConfirmSelection?.(selectedMedia);
     }
   };
 
@@ -558,7 +557,7 @@ export function MediaLibrary({
 
       {mode === "select" && (
         <DialogFooter className="border-t p-4">
-          <Button variant="outline" onClick={() => onConfirmSelection?.()}>
+          <Button variant="outline" onClick={() => {}}>
             Cancel
           </Button>
           {multiple ? (
@@ -569,9 +568,7 @@ export function MediaLibrary({
               Select {selectedMedia.length} item
               {selectedMedia.length !== 1 ? "s" : ""}
             </Button>
-          ) : (
-            <Button onClick={() => onSelect?.(null)}>Select</Button>
-          )}
+          ) : null}
         </DialogFooter>
       )}
     </div>

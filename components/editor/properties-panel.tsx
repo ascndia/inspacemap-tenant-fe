@@ -440,7 +440,9 @@ export function PropertiesPanel() {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Rotation</Label>
+                      <Label className="text-sm font-medium">
+                        Rotation (Yaw)
+                      </Label>
                       <div className="flex gap-2 text-xs">
                         <button
                           className="px-2 py-1 bg-muted hover:bg-muted/80 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"

@@ -600,3 +600,12 @@ export const setAreaStartNode = async (
   const response = await api.put(`/editor/areas/${areaId}/start-node`, data);
   return response.data;
 };
+
+// User API functions
+export const updateUser = async (
+  userId: string,
+  userData: { full_name: string; email: string; password?: string }
+): Promise<any> => {
+  const response = await api.put(`/users/${userId}`, userData);
+  return response.data;
+};

@@ -261,14 +261,9 @@ export function PropertiesPanel() {
     graphStore.setGraph(updatedGraph);
   };
 
-  const autoLayout = () => {
-    // TODO: Implement auto layout
-    console.log("Auto layout not implemented yet");
-  };
-
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 border-b">
+      <div className="py-3 px-4 border-b">
         <h3 className="font-semibold">Properties</h3>
       </div>
 
@@ -904,19 +899,6 @@ export function PropertiesPanel() {
                     </div>
                   </CardContent>
                 </Card>
-
-                <div className="space-y-2">
-                  <Button
-                    onClick={autoLayout}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    Auto Layout Graph
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Automatically arrange nodes using force-directed layout
-                  </p>
-                </div>
               </div>
             ) : (
               <div className="p-4 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
@@ -928,9 +910,6 @@ export function PropertiesPanel() {
       </Tabs>
 
       <div className="p-4 border-t bg-muted/10 space-y-2">
-        <Button onClick={autoLayout} className="w-full" variant="secondary">
-          Auto Layout
-        </Button>
         <Button
           className="w-full"
           disabled={!selectedNode && !selectedConnection && !selectedArea}

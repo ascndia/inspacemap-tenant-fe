@@ -186,9 +186,27 @@ export const useGraphStore = create<GraphStore>()(
         const { graph } = get();
         if (!graph) return;
 
+        // Prevent self-connection
+        if (fromNodeId === toNodeId) {
+          console.warn("Cannot connect node to itself");
+          return;
+        }
+
         const fromNode = graph.nodes.find((n) => n.id === fromNodeId);
         const toNode = graph.nodes.find((n) => n.id === toNodeId);
         if (!fromNode || !toNode) return;
+
+        // Check if connection already exists (bidirectional check)
+        const existingConnection = graph.connections.find(
+          (conn) =>
+            (conn.fromNodeId === fromNodeId && conn.toNodeId === toNodeId) ||
+            (conn.fromNodeId === toNodeId && conn.toNodeId === fromNodeId)
+        );
+
+        if (existingConnection) {
+          console.warn("Connection already exists between these nodes");
+          return;
+        }
 
         const distance = Math.sqrt(
           Math.pow(toNode.position.x - fromNode.position.x, 2) +

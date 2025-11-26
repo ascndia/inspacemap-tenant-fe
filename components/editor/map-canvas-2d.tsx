@@ -26,6 +26,7 @@ interface MapCanvas2DProps {
   removeNode: (nodeId: string) => void;
   onConnectionStart?: (nodeId: string) => void;
   onConnectionComplete?: (fromNodeId: string, toNodeId: string) => void;
+  onConnectionCancel?: () => void;
   onDeleteConnection?: (connectionId: string) => void;
   onAreaSelect?: (areaId: string) => void;
   onAreaVertexUpdate?: (
@@ -56,6 +57,7 @@ export function MapCanvas2D({
   removeNode,
   onConnectionStart,
   onConnectionComplete,
+  onConnectionCancel,
   onDeleteConnection,
   onAreaSelect,
   onAreaVertexUpdate,
@@ -217,6 +219,7 @@ export function MapCanvas2D({
     onZoomChange,
     onConnectionStart,
     onConnectionComplete,
+    onConnectionCancel,
     onAreaSelect,
     onAreaVertexUpdate,
     onAreaMove,

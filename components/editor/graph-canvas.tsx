@@ -312,6 +312,10 @@ export function GraphCanvas({
     [addConnection]
   );
 
+  const handleConnectionCancel = useCallback(() => {
+    graphStore.setConnectingEnd();
+  }, []);
+
   const handleDeleteConnection = useCallback((connectionId: string) => {
     // TODO: Implement deleteConnection in Zustand store
     console.log("Delete connection not yet implemented");
@@ -645,6 +649,7 @@ export function GraphCanvas({
                 removeNode={deleteNode}
                 onConnectionStart={handleConnectionStart}
                 onConnectionComplete={handleConnectionComplete}
+                onConnectionCancel={handleConnectionCancel}
                 onDeleteConnection={handleDeleteConnection}
                 pathPreview={pathPreview}
                 onAreaSelect={handleAreaSelect}

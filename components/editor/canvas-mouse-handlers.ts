@@ -39,6 +39,7 @@ export interface MouseHandlerParams {
   onZoomChange: (zoom: number) => void;
   onConnectionStart?: (nodeId: string) => void;
   onConnectionComplete?: (fromNodeId: string, toNodeId: string) => void;
+  onConnectionCancel?: () => void;
   onAreaSelect?: (areaId: string) => void;
   onAreaVertexUpdate?: (
     areaId: string,
@@ -110,6 +111,7 @@ export function createMouseHandlers(
     onZoomChange,
     onConnectionStart,
     onConnectionComplete,
+    onConnectionCancel,
     onAreaSelect,
     onAreaVertexUpdate,
     onAreaMove,
@@ -206,6 +208,12 @@ export function createMouseHandlers(
     // Handle right-click context menu
     if (event.button === 2) {
       event.preventDefault();
+
+      // If in connect mode, right-click exits connect mode
+      if (state.ui.tool === "connect" && state.ui.isConnecting) {
+        onConnectionCancel?.();
+        return;
+      }
 
       // If drawing area and have enough vertices, finish drawing on right-click
       if (state.ui.tool === "draw-area" && drawingAreaVertices.length >= 3) {

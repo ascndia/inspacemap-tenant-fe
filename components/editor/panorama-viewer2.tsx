@@ -3,6 +3,8 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import View360, { EquirectProjection, EVENTS } from "@egjs/view360";
 import { useGraphStore } from "@/stores/graph-store";
+import { PanoramaHotspots } from "./panorama-hotspots";
+import "@egjs/view360/css/view360.min.css";
 
 const normalizeYaw = (yaw: number) => ((yaw % 360) + 360) % 360;
 const clampPitch = (pitch: number) => Math.max(-90, Math.min(90, pitch));
@@ -103,21 +105,10 @@ export default function PanoramaViewer({
       const dz = neighborNode.position.z - currentNode.position.z;
       const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-      // Gunakan yaw kamera langsung jika tersedia, jika tidak gunakan initial
-      const currentYaw = viewerInstance
-        ? viewerInstance.camera.yaw
-        : initialYaw;
-      const headingRad = (currentYaw * Math.PI) / 180;
-
-      const nx = dx / distance;
-      const ny = dy / distance;
-      const nz = dz / distance;
-      const rx = nx * Math.cos(headingRad) - ny * Math.sin(headingRad);
-      const ry = nx * Math.sin(headingRad) + ny * Math.cos(headingRad);
-      const rz = nz;
-
-      const yaw = (Math.atan2(ry, rx) * 180) / Math.PI;
-      const pitch = -(Math.asin(Math.max(-1, Math.min(1, rz))) * 180) / Math.PI;
+      // Calculate yaw/pitch without depending on current camera position
+      const yaw = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const pitch =
+        -(Math.asin(Math.max(-1, Math.min(1, dz / distance))) * 180) / Math.PI;
 
       calculated.push({
         nodeId: neighborId,
@@ -128,7 +119,7 @@ export default function PanoramaViewer({
       });
     }
     return calculated;
-  }, [selectedNode, graph, viewerInstance, initialYaw]);
+  }, [selectedNode, graph]);
 
   useEffect(() => {
     setHotspots(calculateHotspots() as HotspotData[]);
@@ -146,6 +137,7 @@ export default function PanoramaViewer({
         src: selectedNode.panorama_url,
       }),
       wheelScrollable: false,
+      zoom: false,
       // Nonaktifkan autoplay/autoInit untuk memiliki kontrol lebih jika diperlukan
     });
 
@@ -266,31 +258,11 @@ export default function PanoramaViewer({
             className="view360-canvas"
             style={{ width: "100%", height: "100%" }}
           />
-
-          <div className="view360-hotspots">
-            {hotspots.map((hs) => (
-              <div
-                key={hs.nodeId}
-                className="view360-hotspot cursor-pointer flex flex-col items-center justify-center"
-                data-yaw={hs.yaw}
-                data-pitch={hs.pitch}
-                onClick={() => onNavigateToNode(hs.nodeId)}
-                style={{
-                  transform: "translate(-50%, -50%)",
-                  position: "absolute",
-                }}
-              >
-                <div className="w-10 h-10 rounded-full bg-blue-500/80 border-2 border-white shadow-md flex items-center justify-center text-white font-bold text-xs hover:bg-blue-600 transition-colors">
-                  {hs.distance < 50 && (
-                    <span className="absolute -top-5 text-lg font-bold">↑</span>
-                  )}
-                  <span className="text-[8px] mt-1 truncate max-w-[50px]">
-                    {hs.node.name || hs.nodeId.slice(0, 4)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <PanoramaHotspots
+            hotspots={hotspots}
+            viewerInstance={viewerInstance}
+            onNavigateToNode={onNavigateToNode}
+          />
         </div>
       </div>
       {!selectedNode && (

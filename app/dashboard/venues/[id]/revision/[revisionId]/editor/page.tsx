@@ -424,7 +424,7 @@ export default function RevisionEditorPage({
             <div className="flex items-center gap-2">
               {revision?.floors && revision.floors.length > 0 ? (
                 <Select value={floorId} onValueChange={setFloorId}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Select floor" />
                   </SelectTrigger>
                   <SelectContent>

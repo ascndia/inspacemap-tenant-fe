@@ -27,11 +27,15 @@ import { Button } from "@/components/ui/button";
 interface GraphCanvasProps {
   showPropertiesPanel: boolean;
   onShowPropertiesPanelChange: (show: boolean) => void;
+  showAreaPanel: boolean;
+  onShowAreaPanelChange: (show: boolean) => void;
   pathPreview: string[] | null;
 }
 export function GraphCanvas({
   showPropertiesPanel,
   onShowPropertiesPanelChange,
+  showAreaPanel,
+  onShowAreaPanelChange,
   pathPreview,
 }: GraphCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -626,6 +630,8 @@ export function GraphCanvas({
               onToggleGrid={handleToggleGrid}
               onShowPropertiesPanelChange={onShowPropertiesPanelChange}
               showPropertiesPanel={showPropertiesPanel}
+              onShowAreaPanelChange={onShowAreaPanelChange}
+              showAreaPanel={showAreaPanel}
             />
 
             {/* Canvas */}

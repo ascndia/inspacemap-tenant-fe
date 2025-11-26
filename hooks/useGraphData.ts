@@ -387,36 +387,46 @@ export function useUpdateFloorplan() {
   });
 }
 
-// Auto-save Hook
-export function useAutoSave(
-  venueId: string,
-  revisionId: string,
-  floorId: string
-) {
-  const graph = useGraphStore((state) => state.graph);
-  const queryClient = useQueryClient();
+// Load All Areas for Revision Hook
+export function useAllAreas(venueId: string, revisionId: string) {
+  const query = useQuery({
+    queryKey: [...graphKeys.revision(venueId, revisionId), "all-areas"],
+    queryFn: async (): Promise<Area[]> => {
+      const response = await GraphRevisionService.getGraphData(revisionId);
+      const allAreas: Area[] = [];
 
-  const { mutate: saveGraph } = useMutation({
-    mutationFn: async (graphData: GraphData) => {
-      const graphService = new GraphService(venueId, revisionId, floorId);
-      await graphService.saveGraph(graphData);
+      response.floors?.forEach((floor: any) => {
+        floor.areas?.forEach((area: any) => {
+          allAreas.push({
+            id: area.id,
+            floorId: floor.id,
+            name: area.name,
+            description: area.description,
+            category: area.category,
+            latitude: area.latitude,
+            longitude: area.longitude,
+            boundary: area.boundary,
+            start_node_id: area.start_node_id,
+            cover_image_id: area.cover_image_url,
+            gallery: area.gallery?.map((item: any) => ({
+              media_asset_id: item.media_id,
+              sort_order: item.sort_order,
+              caption: item.caption,
+              is_visible: true,
+            })),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        });
+      });
+
+      return allAreas;
     },
-    onSuccess: () => {
-      // Update last synced timestamp
-      useGraphStore.setState({ lastSynced: new Date() });
-    },
+    enabled: !!(venueId && revisionId),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Auto-save effect
-  React.useEffect(() => {
-    if (!graph || !venueId || !revisionId || !floorId) return;
-
-    const timeout = setTimeout(() => {
-      saveGraph(graph);
-    }, 5000); // Auto-save after 5 seconds of inactivity
-
-    return () => clearTimeout(timeout);
-  }, [graph, venueId, revisionId, floorId, saveGraph]);
+  return query;
 }
 
 // Create Area Mutation

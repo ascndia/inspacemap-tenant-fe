@@ -35,6 +35,8 @@ interface CanvasToolbarProps {
   onToggleGrid?: () => void;
   onShowPropertiesPanelChange?: (show: boolean) => void;
   showPropertiesPanel: boolean;
+  onShowAreaPanelChange?: (show: boolean) => void;
+  showAreaPanel: boolean;
 }
 
 export function CanvasToolbar({
@@ -53,6 +55,8 @@ export function CanvasToolbar({
   onToggleGrid,
   onShowPropertiesPanelChange,
   showPropertiesPanel,
+  onShowAreaPanelChange,
+  showAreaPanel,
 }: CanvasToolbarProps) {
   const { showPanoramaViewer, graph } = useGraphStore();
   return (
@@ -158,6 +162,14 @@ export function CanvasToolbar({
         ) : (
           <Eye className="h-4 w-4" />
         )}
+      </Button>
+      <Button
+        variant={showAreaPanel ? "default" : "ghost"}
+        size="sm"
+        onClick={() => onShowAreaPanelChange?.(!showAreaPanel)}
+        title="Toggle Area Panel"
+      >
+        <Square className="h-4 w-4" />
       </Button>
       <Button
         variant={showPropertiesPanel ? "default" : "ghost"}

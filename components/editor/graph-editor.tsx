@@ -4,6 +4,7 @@ import { useState } from "react";
 import { GraphProvider } from "@/providers/GraphProvider";
 import { GraphCanvas } from "./graph-canvas";
 import { PropertiesPanel } from "./properties-panel";
+import { AreaPanel } from "./area-panel";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -15,6 +16,7 @@ import { useGraphStore } from "@/stores/graph-store";
 function GraphEditorContent() {
   const graphStore = useGraphStore();
   const [showPropertiesPanel, setShowPropertiesPanel] = useState(true);
+  const [showAreaPanel, setShowAreaPanel] = useState(false);
   const [pathPreview, setPathPreview] = useState<string[] | null>(null);
   const [pathStartNode, setPathStartNode] = useState<string | null>(null);
 
@@ -25,24 +27,35 @@ function GraphEditorContent() {
         <ResizablePanelGroup direction="horizontal">
           {/* Canvas Panel */}
           <ResizablePanel
-            defaultSize={showPropertiesPanel ? 75 : 100}
+            defaultSize={showPropertiesPanel || showAreaPanel ? 60 : 100}
             minSize={50}
           >
-            <div className="h-full relative">
-              <GraphCanvas
-                showPropertiesPanel={showPropertiesPanel}
-                onShowPropertiesPanelChange={setShowPropertiesPanel}
-                pathPreview={pathPreview}
-              />
-            </div>
+            <GraphCanvas
+              showPropertiesPanel={showPropertiesPanel}
+              onShowPropertiesPanelChange={setShowPropertiesPanel}
+              showAreaPanel={showAreaPanel}
+              onShowAreaPanelChange={setShowAreaPanel}
+              pathPreview={pathPreview}
+            />
           </ResizablePanel>
+
+          {showAreaPanel && (
+            <>
+              <ResizableHandle withHandle />
+
+              {/* Area Panel */}
+              <ResizablePanel defaultSize={20} minSize={15}>
+                <AreaPanel />
+              </ResizablePanel>
+            </>
+          )}
 
           {showPropertiesPanel && (
             <>
               <ResizableHandle withHandle />
 
               {/* Properties Panel */}
-              <ResizablePanel defaultSize={25} minSize={20}>
+              <ResizablePanel defaultSize={20} minSize={15}>
                 <PropertiesPanel />
               </ResizablePanel>
             </>

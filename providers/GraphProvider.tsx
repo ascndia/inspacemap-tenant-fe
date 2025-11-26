@@ -88,6 +88,15 @@ export function GraphProvider({
   );
 }
 
+// Hook to use graph context
+export function useGraphContext() {
+  const context = React.useContext(GraphContext);
+  if (!context) {
+    throw new Error("useGraphContext must be used within a GraphProvider");
+  }
+  return context;
+}
+
 // Hook to use graph operations with React Query integration
 export function useGraph() {
   const store = useGraphStore();

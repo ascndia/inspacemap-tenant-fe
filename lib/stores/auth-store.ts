@@ -44,21 +44,15 @@ function extractUserInfo(token: string, apiUser?: any): User {
       permissions: jwtPayload.perms || jwtPayload.permissions || [],
     };
   } else if (apiUser) {
-    // Fallback to API response user data
+    // Fallback to API response user data - now with single organization
     console.log("📋 Using user data from API response:", apiUser);
-
-    // Handle organizations array from API response
-    const primaryOrg = apiUser.organizations?.[0];
-    const role = primaryOrg?.role_name || apiUser.role || "user";
-    const organization_id =
-      primaryOrg?.organization_id || apiUser.organization_id;
 
     return {
       id: apiUser.id,
       email: apiUser.email,
       full_name: apiUser.full_name || apiUser.name,
-      organization_id: organization_id,
-      role: role,
+      organization_id: apiUser.organization?.organization_id,
+      role: apiUser.organization?.role_name || apiUser.role || "user",
       permissions: apiUser.permissions || [],
     };
   }
@@ -81,6 +75,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (typeof window !== "undefined") {
         localStorage.setItem("access_token", token);
         localStorage.setItem("user", JSON.stringify(userInfo));
+
+        // Store current organization info if available
+        if (user?.organization) {
+          localStorage.setItem(
+            "current_org",
+            JSON.stringify(user.organization)
+          );
+        }
       }
 
       set({ token, user: userInfo, hydrated: true });
@@ -100,6 +102,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (typeof window !== "undefined") {
       localStorage.removeItem("access_token");
       localStorage.removeItem("user");
+      localStorage.removeItem("current_org");
     }
     set({ token: null, user: null, hydrated: true });
   },
@@ -213,5 +216,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const payload = decodeJWT(token);
 
     return payload;
+  },
+  // Get current organization info
+  getCurrentOrg: () => {
+    if (typeof window === "undefined") return null;
+
+    const currentOrgStr = localStorage.getItem("current_org");
+    if (currentOrgStr) {
+      try {
+        return JSON.parse(currentOrgStr);
+      } catch (error) {
+        console.error("❌ Failed to parse current_org:", error);
+        return null;
+      }
+    }
+    return null;
   },
 }));

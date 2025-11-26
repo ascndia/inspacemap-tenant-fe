@@ -20,6 +20,12 @@ export interface AuthState {
   isTokenExpired: () => boolean;
   getTokenExpiry: () => Date | null;
   inspectJWT: () => any;
+  getCurrentOrg: () => {
+    organization_id: string;
+    name: string;
+    slug: string;
+    role_name: string;
+  } | null;
 }
 
 export interface LoginRequest {
@@ -34,14 +40,19 @@ export interface RegisterRequest {
   organization_name: string;
 }
 
-export interface AcceptInviteRequest {
-  token: string;
-  password: string;
-  full_name: string;
-}
-
 export interface AuthResponse {
   access_token: string;
   refresh_token?: string;
-  user: User;
+  expires_in: number;
+  user: {
+    id: string;
+    email: string;
+    full_name: string;
+    organization: {
+      organization_id: string;
+      name: string;
+      slug: string;
+      role_name: string;
+    };
+  };
 }

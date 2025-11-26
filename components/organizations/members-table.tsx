@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { mockMembers } from "@/lib/api";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -36,7 +35,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import InviteMemberDialog from "./invite-members-dialog";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { getOrganizationMembers, removeOrganizationMember } from "@/lib/api";
+import { toast } from "sonner";
+import CreateMemberDialog from "./create-member-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,41 +51,81 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export function MembersTable() {
+  const { getCurrentOrg } = useAuthStore();
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<
-    (typeof mockMembers)[0] | null
-  >(null);
+  const [memberToRemove, setMemberToRemove] = useState<any | null>(null);
+
+  const currentOrg = getCurrentOrg();
+
+  useEffect(() => {
+    if (currentOrg) {
+      loadMembers();
+    }
+  }, [currentOrg]);
+
+  const loadMembers = async () => {
+    if (!currentOrg) return;
+
+    try {
+      setLoading(true);
+      const membersData = await getOrganizationMembers(
+        currentOrg.organization_id
+      );
+      // Handle both array and object responses
+      const membersArray = Array.isArray(membersData)
+        ? membersData
+        : membersData?.data || [];
+      setMembers(membersArray);
+    } catch (error) {
+      console.error("Failed to load members:", error);
+      toast.error("Failed to load organization members");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter members based on search and filters
-  const filteredMembers = mockMembers.filter((member) => {
+  const filteredMembers = members.filter((member) => {
+    const memberName = member.full_name || member.name || "";
+    const memberEmail = member.email || "";
+    const memberRole = member.role_name || member.role || "";
+
     const matchesSearch =
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchQuery.toLowerCase());
+      memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      memberEmail.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole =
       roleFilter === "all" ||
-      member.role.toLowerCase() === roleFilter.toLowerCase();
-    const matchesStatus =
-      statusFilter === "all" ||
-      member.status.toLowerCase() === statusFilter.toLowerCase();
+      memberRole.toLowerCase() === roleFilter.toLowerCase();
+    const matchesStatus = statusFilter === "all"; // For now, assume all are active
 
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const handleRemoveMember = (member: (typeof mockMembers)[0]) => {
+  const handleRemoveMember = (member: any) => {
     setMemberToRemove(member);
     setRemoveDialogOpen(true);
   };
 
-  const confirmRemoveMember = () => {
-    if (memberToRemove) {
-      // In a real app, make API call to remove member
-      console.log("Removing member:", memberToRemove.id);
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove || !currentOrg) return;
+
+    const memberId = memberToRemove.user_id || memberToRemove.id;
+
+    try {
+      await removeOrganizationMember(currentOrg.organization_id, memberId);
+      toast.success("Member removed successfully");
       setRemoveDialogOpen(false);
       setMemberToRemove(null);
+      loadMembers(); // Refresh the list
+    } catch (error) {
+      console.error("Failed to remove member:", error);
+      toast.error("Failed to remove member");
     }
   };
 
@@ -126,11 +168,11 @@ export function MembersTable() {
       {/* Results Summary */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          Showing {filteredMembers.length} of {mockMembers.length} members
+          Showing {filteredMembers.length} of {members.length} members
         </span>
-        <Button onClick={() => setInviteDialogOpen(true)} size="sm">
+        <Button onClick={() => setCreateDialogOpen(true)} size="sm">
           <UserPlus className="mr-2 h-4 w-4" />
-          Invite Member
+          Add Member
         </Button>
       </div>
 
@@ -153,82 +195,88 @@ export function MembersTable() {
                   colSpan={5}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  No members found matching your criteria.
+                  {loading
+                    ? "Loading members..."
+                    : "No members found matching your criteria."}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredMembers.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage
-                          src={`/placeholder-user-${member.id}.jpg`}
-                        />
-                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{member.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {member.email}
-                        </span>
+              filteredMembers.map((member) => {
+                const memberId = member.user_id || member.id;
+                const memberName = member.full_name || member.name || "";
+                const memberEmail = member.email || "";
+                const memberRole = member.role_name || member.role || "";
+                const joinedAt = member.joined_at || member.created_at;
+
+                return (
+                  <TableRow key={memberId}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={`/placeholder-user-${memberId}.jpg`}
+                          />
+                          <AvatarFallback>
+                            {memberName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{memberName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {memberEmail}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-3 w-3 text-muted-foreground" />
-                      <span>{member.role}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        member.status === "Active" ? "default" : "secondary"
-                      }
-                    >
-                      {member.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {member.lastActive}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit Role</DropdownMenuItem>
-                        {member.status === "Invited" && (
-                          <DropdownMenuItem>Resend Invite</DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => handleRemoveMember(member)}
-                        >
-                          <UserMinus className="mr-2 h-4 w-4" />
-                          Remove Member
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-3 w-3 text-muted-foreground" />
+                        <span>{memberRole}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="default">Active</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {joinedAt
+                        ? new Date(joinedAt).toLocaleDateString()
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem>Edit Role</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => handleRemoveMember(member)}
+                          >
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            Remove Member
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Invite Member Dialog */}
-      <InviteMemberDialog
-        open={inviteDialogOpen}
-        onOpenChange={setInviteDialogOpen}
+      {/* Create Member Dialog */}
+      <CreateMemberDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onMemberCreated={loadMembers}
       />
 
       {/* Remove Member Confirmation Dialog */}
@@ -238,9 +286,11 @@ export function MembersTable() {
             <AlertDialogTitle>Remove Member</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to remove{" "}
-              <strong>{memberToRemove?.name}</strong> from the organization?
-              This action cannot be undone and they will lose access to all
-              organization resources.
+              <strong>
+                {memberToRemove?.full_name || memberToRemove?.name}
+              </strong>{" "}
+              from the organization? This action cannot be undone and they will
+              lose access to all organization resources.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

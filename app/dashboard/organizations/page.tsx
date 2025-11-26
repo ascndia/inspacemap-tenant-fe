@@ -1,6 +1,6 @@
 "use client";
 
-import { mockOrganizations } from "@/lib/api";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +18,35 @@ import { RoleGuard } from "@/components/auth/role-guard";
 import { InsufficientAuthority } from "@/components/auth/insufficient-authority";
 
 export default function OrganizationPage() {
-  // In a real app, we'd fetch the current user's organization
-  const org = mockOrganizations[0];
+  const { getCurrentOrg } = useAuthStore();
+  const currentOrg = getCurrentOrg();
+
+  // Convert current org to the format expected by GeneralSettings
+  const org = currentOrg
+    ? {
+        id: currentOrg.organization_id,
+        name: currentOrg.name,
+        slug: currentOrg.slug,
+        type: "organization", // Default type
+        members: [], // We'll get this from the members table
+        status: "active",
+        description: "",
+        email: "",
+        phone: "",
+        address: "",
+        logoURL: "",
+        website: "",
+        isActive: true,
+      }
+    : null;
+
+  if (!org) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Loading organization...</p>
+      </div>
+    );
+  }
 
   return (
     <RoleGuard

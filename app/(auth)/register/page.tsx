@@ -71,7 +71,7 @@ export default function RegisterPage() {
             </div>
             <h1 className="text-3xl font-bold">Create an account</h1>
             <p className="text-balance text-muted-foreground">
-              Enter your information to get started
+              Enter your information to create your account and organization
             </p>
           </div>
 
@@ -176,8 +176,8 @@ export default function RegisterPage() {
               Focus on your space, not setup
             </h2>
             <p className="text-lg text-muted-foreground">
-              Start mapping your venues today. After sign up you'll be guided to
-              create or join an organization.
+              Create your account and organization in one step. Start managing
+              your indoor spaces today.
             </p>
           </div>
         </div>

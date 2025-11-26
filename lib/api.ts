@@ -269,17 +269,22 @@ const api = axios.create({
 
 // Interceptor untuk menyisipkan Token & Tenant ID otomatis
 api.interceptors.request.use((config) => {
-  // Ambil dari LocalStorage atau NextAuth Session
+  // Ambil dari LocalStorage
   const token = localStorage.getItem("access_token");
-  const activeOrgID = localStorage.getItem("active_org_id");
+  const currentOrgStr = localStorage.getItem("current_org");
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // Header wajib untuk Multi-tenant backend kita
-  if (activeOrgID) {
-    config.headers["X-Tenant-ID"] = activeOrgID;
+  // Header wajib untuk Multi-tenant backend - use organization_id from current org
+  if (currentOrgStr) {
+    try {
+      const currentOrg = JSON.parse(currentOrgStr);
+      config.headers["X-Tenant-ID"] = currentOrg.organization_id;
+    } catch (error) {
+      console.error("Failed to parse current_org for tenant ID:", error);
+    }
   }
 
   return config;
@@ -607,5 +612,46 @@ export const updateUser = async (
   userData: { full_name: string; email: string; password?: string }
 ): Promise<any> => {
   const response = await api.put(`/users/${userId}`, userData);
+  return response.data;
+};
+
+// Organization User Management API functions
+export const createOrganizationUser = async (
+  orgId: string,
+  userData: {
+    full_name: string;
+    email: string;
+    password: string;
+    role_id: string;
+  }
+): Promise<any> => {
+  const response = await api.post(`/orgs/${orgId}/users`, userData);
+  return response.data;
+};
+
+export const getOrganizationMembers = async (orgId: string): Promise<any[]> => {
+  const response = await api.get(`/orgs/${orgId}/members`);
+  return response.data;
+};
+
+export const updateOrganizationMemberRole = async (
+  orgId: string,
+  userData: { target_user_id: string; new_role_id: string }
+): Promise<any> => {
+  const response = await api.patch(`/orgs/${orgId}/members`, userData);
+  return response.data;
+};
+
+export const removeOrganizationMember = async (
+  orgId: string,
+  userId: string
+): Promise<any> => {
+  const response = await api.delete(`/orgs/${orgId}/members/${userId}`);
+  return response.data;
+};
+
+// Roles API functions
+export const getRoles = async (): Promise<any[]> => {
+  const response = await api.get("/roles");
   return response.data;
 };

@@ -22,38 +22,40 @@ export function PanoramaHotspots({
   viewerInstance,
   onNavigateToNode,
 }: PanoramaHotspotsProps) {
-  // OFFICIAL DOCS: Call refresh() whenever hotspot elements are added/removed
   useEffect(() => {
     if (viewerInstance) {
-      // This tells View360 to re-scan the DOM for .view360-hotspot elements
-      // and attach its internal 3D projection logic to them.
       viewerInstance.hotspot.refresh();
     }
   }, [viewerInstance, hotspots]);
 
-  // OFFICIAL DOCS STRUCTURE:
-  // 1. Container must have class "view360-hotspots"
-  // 2. Items must have class "view360-hotspot"
-  // 3. Items must have data-yaw and data-pitch attributes
   return (
     <div className="view360-hotspots">
       {hotspots.map((hotspot) => (
         <div
           key={hotspot.nodeId}
           className="view360-hotspot"
-          // The Viewer reads these attributes automatically to position the element
           data-yaw={hotspot.yaw}
           data-pitch={hotspot.pitch}
           onClick={(e) => {
-            // Stop propagation so the viewer doesn't register a background click
             e.stopPropagation();
             onNavigateToNode(hotspot.nodeId);
           }}
-          // Style your hotspot here (Tailwind works perfectly)
-          style={{ cursor: "pointer" }}
+          // [KUNCI PERBAIKAN 1]: Gunakan z-index tinggi agar clickable
+          style={{ position: "absolute", zIndex: 1000 }}
         >
-          <div className="flex flex-col items-center justify-center">
-            <div className="w-10 h-10 rounded-full bg-blue-500/80 border-2 border-white shadow-md flex items-center justify-center text-white font-bold text-xs hover:bg-blue-600 transition-colors transform hover:scale-110 duration-200">
+          {/* [KUNCI PERBAIKAN 2]: RE-CENTERING
+            Elemen ikon utama adalah w-10 h-10 (40px x 40px).
+            Agar "titik tengah" ikon berada tepat di koordinat hotspot,
+            kita harus menggeser elemen ke kiri 20px dan ke atas 20px.
+            
+            Tailwind: 
+            w-10 (2.5rem/40px)
+            h-10 (2.5rem/40px)
+            -ml-5 (margin-left: -1.25rem/-20px) -> Geser kiri setengah lebar
+            -mt-5 (margin-top: -1.25rem/-20px)  -> Geser atas setengah tinggi
+          */}
+          <div className="flex flex-col items-center justify-center w-10 h-10 -ml-5 -mt-5">
+            <div className="w-10 h-10 rounded-full bg-blue-500/80 border-2 border-white shadow-md flex items-center justify-center text-white font-bold text-xs hover:bg-blue-600 transition-colors transform hover:scale-110 duration-200 cursor-pointer">
               {hotspot.distance < 50 && (
                 <span className="absolute -top-5 text-lg font-bold text-white drop-shadow-lg">
                   ↑

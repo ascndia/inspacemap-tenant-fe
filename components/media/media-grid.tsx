@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import { mediaService } from "@/lib/services/media-service";
 import type { MediaItem } from "@/types/media";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DeleteMediaDialog } from "./delete-media-dialog";
 import { useAccessControl } from "@/lib/hooks/use-access-control";
+import Image from "next/image";
 
 interface MediaGridProps {
   searchQuery?: string;
@@ -253,7 +254,7 @@ export function MediaGrid({
             </div>
           ) : (
             filteredAndSortedMedia.map((item) => (
-              <MediaItem
+              <MemoizedMediaItem
                 key={item.id}
                 item={item}
                 mode={mode}
@@ -311,11 +312,13 @@ function MediaItem({
       >
         <div className="aspect-square bg-muted relative">
           {item.thumbnail_url || item.url ? (
-            <img
+            <Image
               src={item.thumbnail_url || item.url}
               alt={item.file_name}
+              width={200}
+              height={200}
               className="w-full h-full object-cover"
-              loading="lazy"
+              unoptimized
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground bg-muted">
@@ -443,12 +446,16 @@ function MediaItem({
                   src={item.url}
                   controls
                   className="w-full h-full object-cover"
+                  preload="metadata"
                 />
               ) : (
-                <img
+                <Image
                   src={item.url}
                   alt={item.file_name}
+                  width={item.width || 400}
+                  height={item.height || 225}
                   className="w-full h-full object-cover"
+                  unoptimized
                 />
               )
             ) : (
@@ -500,3 +507,5 @@ function MediaItem({
     </Dialog>
   );
 }
+
+const MemoizedMediaItem = memo(MediaItem);

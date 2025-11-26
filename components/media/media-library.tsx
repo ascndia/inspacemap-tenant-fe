@@ -62,7 +62,7 @@ export function MediaLibrary({
   const [totalItems, setTotalItems] = useState(0);
   const [mediaCounts, setMediaCounts] = useState({ images: 0, videos: 0 });
   const [selectedMedia, setSelectedMedia] = useState<MediaItem[]>([]);
-  const itemsPerPage = 50;
+  const itemsPerPage = 20;
 
   const { user, token } = useAuthStore();
   const { canAccess } = useAccessControl();

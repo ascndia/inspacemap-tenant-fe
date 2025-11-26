@@ -204,7 +204,7 @@ export function AreaPanel() {
                 }`}
                 onClick={() => handleSelectArea(area)}
               >
-                <CardContent className="p-3">
+                <CardContent>
                   {editingArea === area.id ? (
                     <div className="space-y-2">
                       <Input

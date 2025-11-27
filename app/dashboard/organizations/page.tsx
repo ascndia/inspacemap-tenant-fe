@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,12 @@ import { InsufficientAuthority } from "@/components/auth/insufficient-authority"
 
 export default function OrganizationPage() {
   const { getCurrentOrg } = useAuthStore();
+  const [refreshKey, setRefreshKey] = useState(0);
   const currentOrg = getCurrentOrg();
+
+  const handleOrganizationUpdated = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
 
   // Convert current org to the format expected by GeneralSettings
   const org = currentOrg
@@ -74,7 +80,11 @@ export default function OrganizationPage() {
           </TabsList>
 
           <TabsContent value="general">
-            <GeneralSettings organization={org} />
+            <GeneralSettings
+              organization={org}
+              onOrganizationUpdated={handleOrganizationUpdated}
+              key={refreshKey}
+            />
           </TabsContent>
 
           <TabsContent value="members">

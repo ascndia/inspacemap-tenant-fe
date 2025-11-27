@@ -655,3 +655,22 @@ export const getRoles = async (): Promise<any[]> => {
   const response = await api.get("/roles");
   return response.data;
 };
+
+// Organization API functions
+export const updateOrganization = async (
+  orgId: string,
+  orgData: {
+    name?: string;
+    slug?: string;
+    description?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    logo_url?: string;
+    website?: string;
+    is_active?: boolean;
+  }
+): Promise<any> => {
+  const response = await api.put(`/orgs/${orgId}`, orgData);
+  return response.data;
+};

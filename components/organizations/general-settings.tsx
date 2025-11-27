@@ -18,6 +18,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Edit, Save, X, Upload, Globe, Mail, Phone } from "lucide-react";
 import { MediaPicker } from "@/components/media/media-picker";
+import { updateOrganization } from "@/lib/api";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { toast } from "sonner";
 
 interface Organization {
   id: string;
@@ -39,10 +42,16 @@ interface Organization {
 
 interface GeneralSettingsProps {
   organization: Organization;
+  onOrganizationUpdated?: () => void;
 }
 
-export function GeneralSettings({ organization }: GeneralSettingsProps) {
+export function GeneralSettings({
+  organization,
+  onOrganizationUpdated,
+}: GeneralSettingsProps) {
+  const { getCurrentOrg } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: organization.name,
     slug: organization.slug || "",
@@ -55,10 +64,43 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
     description: organization.description || "",
   });
 
-  const handleSave = () => {
-    // In a real app, make API call to update organization
-    console.log("Saving organization:", formData);
-    setIsEditing(false);
+  const handleSave = async () => {
+    const currentOrg = getCurrentOrg();
+    if (!currentOrg) return;
+
+    setIsSaving(true);
+    try {
+      await updateOrganization(currentOrg.organization_id, {
+        name: formData.name,
+        slug: formData.slug,
+        description: formData.description,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        logo_url: formData.logoURL,
+        website: formData.website,
+        is_active: formData.isActive,
+      });
+
+      // Update local storage with new organization data
+      const updatedOrg = {
+        ...currentOrg,
+        name: formData.name,
+        slug: formData.slug,
+      };
+      localStorage.setItem("current_org", JSON.stringify(updatedOrg));
+
+      toast.success("Organization details updated successfully");
+      setIsEditing(false);
+      onOrganizationUpdated?.();
+    } catch (error: any) {
+      console.error("Failed to update organization:", error);
+      const message =
+        error.response?.data?.message || "Failed to update organization";
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -92,13 +134,17 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleCancel}>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSaving}
+              >
                 <X className="mr-2 h-4 w-4" />
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
+              <Button onClick={handleSave} disabled={isSaving}>
                 <Save className="mr-2 h-4 w-4" />
-                Save Changes
+                {isSaving ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </div>
@@ -118,7 +164,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                 <MediaPicker
                   onSelect={handleLogoSelect}
                   trigger={
-                    <Button variant="outline">
+                    <Button variant="outline" disabled={isSaving}>
                       <Upload className="mr-2 h-4 w-4" />
                       Change Logo
                     </Button>
@@ -144,6 +190,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                   setFormData((prev) => ({ ...prev, name: e.target.value }))
                 }
                 required
+                disabled={isSaving}
               />
             </div>
             <div className="space-y-2">
@@ -156,6 +203,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                 }
                 placeholder="organization-slug"
                 required
+                disabled={isSaving}
               />
               <p className="text-xs text-muted-foreground">
                 Used in URLs and must be unique
@@ -176,6 +224,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
               }
               placeholder="Brief description of your organization..."
               rows={3}
+              disabled={isSaving}
             />
           </div>
 
@@ -189,6 +238,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                 setFormData((prev) => ({ ...prev, website: e.target.value }))
               }
               placeholder="https://yourwebsite.com"
+              disabled={isSaving}
             />
           </div>
 
@@ -207,6 +257,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, email: e.target.value }))
                   }
+                  disabled={isSaving}
                 />
               </div>
               <div className="space-y-2">
@@ -217,6 +268,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, phone: e.target.value }))
                   }
+                  disabled={isSaving}
                 />
               </div>
             </div>
@@ -229,6 +281,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                   setFormData((prev) => ({ ...prev, address: e.target.value }))
                 }
                 rows={2}
+                disabled={isSaving}
               />
             </div>
           </div>
@@ -250,6 +303,7 @@ export function GeneralSettings({ organization }: GeneralSettingsProps) {
                 onCheckedChange={(checked) =>
                   setFormData((prev) => ({ ...prev, isActive: checked }))
                 }
+                disabled={isSaving}
               />
             </div>
           </div>

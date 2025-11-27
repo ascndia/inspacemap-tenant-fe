@@ -30,8 +30,6 @@ export function PropertiesPanel() {
   const selectedConnectionId = graphStore.selectedConnectionId;
   const selectedAreaId = graphStore.selectedAreaId;
   const graph = graphStore.graph;
-  const panoramaYaw = graphStore.panoramaYaw;
-  const panoramaPitch = graphStore.panoramaPitch;
 
   // Get selected node using selector
   const selectedNode = useMemo(() => {
@@ -54,7 +52,7 @@ export function PropertiesPanel() {
   const [rotationValue, setRotationValue] = useState(0);
   const [headingValue, setHeadingValue] = useState(0);
   const [fovValue, setFovValue] = useState(60);
-  const [freeViewRotation, setFreeViewRotation] = useState(0);
+  const [backgroundOffsetValue, setBackgroundOffsetValue] = useState(0);
 
   const [panoramaMedia, setPanoramaMedia] = useState<MediaItem[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -70,17 +68,20 @@ export function PropertiesPanel() {
   }>({});
   const [hasAreaChanges, setHasAreaChanges] = useState(false);
 
-  // Sync local state with selected node and panorama rotation
+  // Sync local state with selected node when selection changes
+  const setPanoramaBackgroundOffset = graphStore.setPanoramaBackgroundOffset;
+
   useEffect(() => {
     if (selectedNode) {
+      const nodeRotation = selectedNode.rotation ?? 0;
       setRotationValue(selectedNode.rotation);
       setHeadingValue(selectedNode.heading);
       setFovValue(selectedNode.fov);
-      // Initialize free view rotation with panorama yaw if available, otherwise node rotation
-      const newFreeViewRotation = panoramaYaw ?? selectedNode.rotation ?? 0;
-      setFreeViewRotation(Math.round(newFreeViewRotation));
+      const normalizedOffset = Math.round(nodeRotation);
+      setBackgroundOffsetValue(normalizedOffset);
+      setPanoramaBackgroundOffset(nodeRotation);
     }
-  }, [selectedNode, panoramaYaw]);
+  }, [selectedNode, setPanoramaBackgroundOffset]);
 
   // Cleanup debounce timeout on unmount or node change
   useEffect(() => {
@@ -224,8 +225,8 @@ export function PropertiesPanel() {
   // Update node rotation with current free view rotation
   const handleUpdateNodeRotation = () => {
     if (!selectedNode) return;
-    setRotationValue(freeViewRotation);
-    handleNodeUpdate("rotation", freeViewRotation);
+    setRotationValue(backgroundOffsetValue);
+    handleNodeUpdate("rotation", backgroundOffsetValue);
   };
 
   const handleAreaChange = (field: string, value: string) => {
@@ -436,43 +437,39 @@ export function PropertiesPanel() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">
-                        Rotation (Yaw)
+                        Panorama Rotation Offset
                       </Label>
                       <div className="flex gap-2 text-xs">
-                        <button
-                          className="px-2 py-1 bg-muted hover:bg-muted/80 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        <span
                           onClick={() => {
-                            setFreeViewRotation(rotationValue);
-                            graphStore.setPanoramaRotation(
-                              rotationValue, // Gunakan rotationValue (node rotation) sebagai target
-                              panoramaPitch ?? 0,
-                              "panel"
+                            setBackgroundOffsetValue(rotationValue);
+                            graphStore.setPanoramaBackgroundOffset(
+                              rotationValue
                             );
                           }}
-                          title="Set free view to node rotation"
+                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded cursor-pointer"
                         >
-                          Node: {rotationValue}°
-                        </button>
-                        <button
-                          className="px-2 py-1 bg-muted hover:bg-muted/80 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                          onClick={() => setFreeViewRotation(freeViewRotation)}
-                          title="Current free view rotation"
+                          Original: {rotationValue}°
+                        </span>
+                        <span
+                          onClick={() => {
+                            setBackgroundOffsetValue(rotationValue);
+                            graphStore.setPanoramaBackgroundOffset(
+                              rotationValue
+                            );
+                          }}
+                          className="px-2 py-1 bg-green-100 text-green-800 rounded cursor-pointer"
                         >
-                          View: {freeViewRotation}°
-                        </button>
+                          Local: {backgroundOffsetValue}°
+                        </span>
                       </div>
                     </div>
                     <Slider
-                      value={[freeViewRotation]}
+                      value={[backgroundOffsetValue]}
                       onValueChange={([value]) => {
                         const nextYaw = Math.round(value);
-                        setFreeViewRotation(nextYaw);
-                        // Only update panorama rotation, not node heading (free view is separate from node rotation)
-                        graphStore.setPanoramaRotation(
-                          nextYaw,
-                          panoramaPitch ?? 0,
-                          "properties-panel"
-                        );
+                        setBackgroundOffsetValue(nextYaw);
+                        graphStore.setPanoramaBackgroundOffset(nextYaw);
                       }}
                       min={0}
                       max={360}
@@ -481,15 +478,15 @@ export function PropertiesPanel() {
                     />
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">
-                        Free View Rotation: {Math.round(freeViewRotation)}°
+                        Adjust background offset to align the panorama image
                       </span>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={handleUpdateNodeRotation}
-                        disabled={freeViewRotation === rotationValue}
+                        disabled={backgroundOffsetValue === rotationValue}
                       >
-                        Update Node
+                        Save to Node
                       </Button>
                     </div>
                   </div>

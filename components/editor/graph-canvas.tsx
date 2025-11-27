@@ -295,15 +295,6 @@ export function GraphCanvas({
     [panoramaNodeId, updateNode]
   );
 
-  const handleRotationChange = useCallback(
-    (rotation: number) => {
-      if (panoramaNodeId) {
-        updateNode(panoramaNodeId, { rotation });
-      }
-    },
-    [panoramaNodeId, updateNode]
-  );
-
   const handleConnectionStart = useCallback((nodeId: string) => {
     graphStore.setConnectingStart(nodeId);
   }, []);
@@ -460,7 +451,8 @@ export function GraphCanvas({
       // Initialize panorama rotation with node's current heading
       const node = graph?.nodes.find((n) => n.id === nodeId);
       if (node) {
-        graphStore.setPanoramaRotation(node.heading || 0, 0, "nav");
+        graphStore.setPanoramaBackgroundOffset(node.rotation || 0);
+        graphStore.setPanoramaRotation(0, node.pitch || 0, "nav");
       }
     },
     [setSelectedNode, setPanoramaNode, graph?.nodes, graphStore]
@@ -719,8 +711,6 @@ export function GraphCanvas({
                 <PanoramaViewer
                   selectedNode={panoramaNode}
                   graph={graph}
-                  initialYaw={panoramaYaw}
-                  initialPitch={panoramaPitch}
                   onNavigateToNode={handleNavigateToNode}
                 />
               </div>

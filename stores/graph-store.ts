@@ -35,6 +35,7 @@ interface GraphStore {
   panoramaNodeId: string | null;
   panoramaYaw: number;
   panoramaPitch: number;
+  panoramaBackgroundOffset: number;
   panoramaLastUpdateSource: string | null;
   panoramaLastUpdatedAt: number | null;
   isConnecting: boolean;
@@ -71,6 +72,7 @@ interface GraphStore {
   togglePanoramaViewer: () => void;
   setPanoramaNode: (nodeId: string | null) => void;
   setPanoramaRotation: (yaw: number, pitch: number, source?: string) => void;
+  setPanoramaBackgroundOffset: (offset: number) => void;
   setConnectingStart: (nodeId: string) => void;
   setConnectingEnd: () => void;
   setDrawingAreaStart: () => void;
@@ -104,6 +106,7 @@ export const useGraphStore = create<GraphStore>()(
       panoramaNodeId: null,
       panoramaYaw: 0,
       panoramaPitch: 0,
+      panoramaBackgroundOffset: 0,
       panoramaLastUpdateSource: null,
       panoramaLastUpdatedAt: null,
       isConnecting: false,
@@ -399,6 +402,8 @@ export const useGraphStore = create<GraphStore>()(
           panoramaLastUpdateSource: source || null,
           panoramaLastUpdatedAt: Date.now(),
         }),
+      setPanoramaBackgroundOffset: (offset) =>
+        set({ panoramaBackgroundOffset: offset }),
       setConnectingStart: (nodeId) =>
         set({
           isConnecting: true,

@@ -1,6 +1,13 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  useMemo,
+  useLayoutEffect,
+} from "react";
 import View360, { EquirectProjection, EVENTS } from "@egjs/view360";
 import { useGraphStore } from "@/stores/graph-store";
 import { PanoramaHotspots } from "./panorama-hotspots";
@@ -44,16 +51,12 @@ export default function PanoramaViewer({
   onNavigateToNode,
   onRotationChange,
   onPitchChange,
-  initialYaw = 0,
-  initialPitch = 0,
 }: {
   selectedNode: any;
   graph?: any;
   onNavigateToNode: (nodeId: string) => void;
   onRotationChange?: (yaw: number) => void;
   onPitchChange?: (pitch: number) => void;
-  initialYaw?: number;
-  initialPitch?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +80,7 @@ export default function PanoramaViewer({
   const panoramaSource = useGraphStore((s) => s.panoramaLastUpdateSource);
   const panoramaYaw = useGraphStore((s) => s.panoramaYaw);
   const panoramaPitch = useGraphStore((s) => s.panoramaPitch);
+  const backgroundOffset = useGraphStore((s) => s.panoramaBackgroundOffset);
   const setPanoramaRotation = useGraphStore((s) => s.setPanoramaRotation);
   const panoramaDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -151,12 +155,13 @@ export default function PanoramaViewer({
       console.log(`[Viewer ${instanceId}] SIAP. Menerapkan rotasi awal/store.`);
       setIsViewerReady(true);
 
-      // Prioritas: Nilai Global Store jika ada (sync), jika tidak Props Awal
-      const storeState = useGraphStore.getState();
-      const startYaw = storeState.panoramaYaw ?? initialYaw;
-      const startPitch = storeState.panoramaPitch ?? initialPitch;
+      const baseYaw = Number.isFinite(panoramaYaw) ? panoramaYaw : 0;
+      const yawTarget = normalizeYaw(baseYaw);
+      const pitchTarget = clampPitch(
+        Number.isFinite(panoramaPitch) ? panoramaPitch : 0
+      );
 
-      viewer.camera.lookAt({ yaw: startYaw, pitch: startPitch });
+      viewer.camera.lookAt({ yaw: yawTarget, pitch: pitchTarget });
     });
 
     // [Implementasi PERBAIKAN 4] Handler Perubahan Tampilan (Interaksi Pengguna)
@@ -211,7 +216,8 @@ export default function PanoramaViewer({
     if (!viewerInstance || !isViewerReady || panoramaSource === "viewer")
       return;
 
-    const yaw = Number.isFinite(panoramaYaw) ? normalizeYaw(panoramaYaw) : 0;
+    const baseYaw = Number.isFinite(panoramaYaw) ? panoramaYaw : 0;
+    const yaw = normalizeYaw(baseYaw);
     const pitch = clampPitch(
       Number.isFinite(panoramaPitch) ? panoramaPitch : 0
     );
@@ -247,6 +253,18 @@ export default function PanoramaViewer({
     isViewerReady, // Dependensi memastikan ini berjalan ketika gambar dimuat
   ]);
 
+  useLayoutEffect(() => {
+    if (!viewerInstance) return;
+    // Ensure refresh runs after DOM sync to capture new data-yaw attributes
+    console.debug("PanoramaViewer: backgroundOffset changed", {
+      backgroundOffset,
+    });
+    viewerInstance.hotspot?.refresh();
+    // Re-run on next frame and slightly later to circumvent internal timing in view360
+    requestAnimationFrame(() => viewerInstance.hotspot?.refresh());
+    setTimeout(() => viewerInstance.hotspot?.refresh(), 50);
+  }, [viewerInstance, backgroundOffset, hotspots]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 bg-black rounded-lg overflow-hidden mb-4 relative">
@@ -260,6 +278,7 @@ export default function PanoramaViewer({
           />
           <PanoramaHotspots
             hotspots={hotspots}
+            backgroundOffset={backgroundOffset}
             viewerInstance={viewerInstance}
             onNavigateToNode={onNavigateToNode}
           />

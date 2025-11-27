@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import View360 from "@egjs/view360";
 
 interface HotspotData {
@@ -15,18 +15,44 @@ interface PanoramaHotspotsProps {
   hotspots: HotspotData[];
   viewerInstance: View360 | null;
   onNavigateToNode: (nodeId: string) => void;
+  backgroundOffset?: number;
 }
 
 export function PanoramaHotspots({
   hotspots,
   viewerInstance,
   onNavigateToNode,
+  backgroundOffset = 0,
 }: PanoramaHotspotsProps) {
-  useEffect(() => {
-    if (viewerInstance) {
+  // Use a layout effect to ensure the DOM is updated before View360 rescans hotspots
+  useLayoutEffect(() => {
+    // Debug log to trace when hotspot refresh is invoked
+    // This helps confirm the sequence and payload when slider updates occur
+    console.debug("PanoramaHotspots: refresh", {
+      backgroundOffset,
+      count: hotspots.length,
+      viewerReady: !!viewerInstance,
+    });
+
+    if (viewerInstance?.hotspot?.refresh) {
+      // Run immediate refresh
       viewerInstance.hotspot.refresh();
+
+      // Also schedule refresh in next frame and after small delay to handle internal timing
+      requestAnimationFrame(() => viewerInstance.hotspot.refresh());
+      setTimeout(() => viewerInstance.hotspot.refresh(), 50);
+      // Log the first hotspot DOM attribute to confirm it updated
+      setTimeout(() => {
+        const first = document.querySelector(`.view360-hotspot[data-yaw]`);
+        console.debug(
+          "DOM first hotspot data-yaw:",
+          first?.getAttribute("data-yaw")
+        );
+      }, 60);
     }
-  }, [viewerInstance, hotspots]);
+  }, [viewerInstance, hotspots, backgroundOffset]);
+
+  const offset = Number.isFinite(backgroundOffset) ? backgroundOffset : 0;
 
   return (
     <div className="view360-hotspots">
@@ -34,7 +60,7 @@ export function PanoramaHotspots({
         <div
           key={hotspot.nodeId}
           className="view360-hotspot"
-          data-yaw={hotspot.yaw}
+          data-yaw={(((hotspot.yaw + offset) % 360) + 360) % 360}
           data-pitch={hotspot.pitch}
           onClick={(e) => {
             e.stopPropagation();

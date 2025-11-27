@@ -46,7 +46,9 @@ export function PanoramaHotspots({
         const first = document.querySelector(`.view360-hotspot[data-yaw]`);
         console.debug(
           "DOM first hotspot data-yaw:",
-          first?.getAttribute("data-yaw")
+          first?.getAttribute("data-yaw"),
+          "first original yaw:",
+          hotspots[0]?.yaw
         );
       }, 60);
     }
@@ -60,7 +62,10 @@ export function PanoramaHotspots({
         <div
           key={hotspot.nodeId}
           className="view360-hotspot"
-          data-yaw={(((hotspot.yaw + offset) % 360) + 360) % 360}
+          // Mirror the yaw across the vertical axis to match View360 coordinate system
+          // Some panorama viewers use the opposite sign for yaw, causing left-right mirroring.
+          // We invert the yaw here so a hotspot that is to the right (+x) remains on the right in the viewer.
+          data-yaw={(((-hotspot.yaw + offset) % 360) + 360) % 360}
           data-pitch={hotspot.pitch}
           onClick={(e) => {
             e.stopPropagation();

@@ -77,7 +77,7 @@ export function PropertiesPanel() {
   // Initialize backgroundOffset when selected node changes
   useEffect(() => {
     if (selectedNode) {
-      const nodeRotation = selectedNode.rotation ?? 0;
+      const nodeRotation = isNaN(selectedNode.rotation) ? 0 : (selectedNode.rotation ?? 0);
       console.log(
         "PropertiesPanel: Initializing backgroundOffset from selected node",
         {
@@ -97,10 +97,12 @@ export function PropertiesPanel() {
 
   useEffect(() => {
     if (selectedNode) {
-      const nodeRotation = selectedNode.rotation ?? 0;
-      setRotationValue(selectedNode.rotation);
-      setHeadingValue(selectedNode.heading);
-      setFovValue(selectedNode.fov);
+      const nodeRotation = isNaN(selectedNode.rotation) ? 0 : (selectedNode.rotation ?? 0);
+      const nodeHeading = isNaN(selectedNode.heading) ? 0 : (selectedNode.heading ?? 0);
+      const nodeFov = isNaN(selectedNode.fov) ? 60 : (selectedNode.fov ?? 60);
+      setRotationValue(nodeRotation);
+      setHeadingValue(nodeHeading);
+      setFovValue(nodeFov);
       // Don't automatically set backgroundOffsetValue from selectedNode
       // Keep current backgroundOffsetValue unless it's the first time
       if (backgroundOffsetValue === 0 && storeBackgroundOffset === 0) {

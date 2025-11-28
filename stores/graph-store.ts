@@ -393,14 +393,14 @@ export const useGraphStore = create<GraphStore>()(
         })),
       setPanoramaRotation: (yaw, pitch, source) =>
         set({
-          panoramaYaw: yaw,
-          panoramaPitch: pitch,
+          panoramaYaw: isNaN(yaw) ? 0 : yaw,
+          panoramaPitch: isNaN(pitch) ? 0 : pitch,
           panoramaLastUpdateSource: source || null,
           panoramaLastUpdatedAt: Date.now(),
         }),
       setPanoramaBackgroundOffset: (offset) => {
         console.log("graph-store: setPanoramaBackgroundOffset", offset);
-        set({ panoramaBackgroundOffset: offset });
+        set({ panoramaBackgroundOffset: isNaN(offset) ? 0 : offset });
       },
       setConnectingStart: (nodeId) =>
         set({

@@ -78,6 +78,7 @@ export function GraphCanvas({
   const [canvasPanOffset, setCanvasPanOffset] = useState({ x: 0, y: 0 });
   const [isDraggingNode, setIsDraggingNode] = useState(false);
   const [showUnsavedAreaDialog, setShowUnsavedAreaDialog] = useState(false);
+  const [showCancelDrawingDialog, setShowCancelDrawingDialog] = useState(false);
   const [pendingToolChange, setPendingToolChange] = useState<string | null>(
     null
   );
@@ -535,7 +536,8 @@ export function GraphCanvas({
         });
 
         // Clear drawing state
-        graphStore.setDrawingAreaEnd();
+        // Keep drawing mode active, just clear vertices
+        // graphStore.setDrawingAreaEnd();
         graphStore.clearDrawingVertices();
       } catch (error) {
         console.error("Failed to create area:", error);
@@ -570,6 +572,28 @@ export function GraphCanvas({
   const handleCancelToolChange = useCallback(() => {
     setShowUnsavedAreaDialog(false);
     setPendingToolChange(null);
+  }, []);
+
+  const handleDrawingCancel = useCallback(() => {
+    if (drawingAreaVertices.length > 0) {
+      setShowCancelDrawingDialog(true);
+    } else {
+      // If no vertices, just exit drawing mode or do nothing?
+      // User asked to "cancel drawing/reset from 0"
+      // If no vertices, maybe just exit drawing mode?
+      // Or maybe just do nothing as there is nothing to reset.
+      // Let's assume if no vertices, we exit drawing mode.
+      graphStore.setDrawingAreaEnd();
+    }
+  }, [drawingAreaVertices.length, graphStore]);
+
+  const handleConfirmCancelDrawing = useCallback(() => {
+    graphStore.clearDrawingVertices();
+    setShowCancelDrawingDialog(false);
+  }, [graphStore]);
+
+  const handleKeepDrawing = useCallback(() => {
+    setShowCancelDrawingDialog(false);
   }, []);
 
   const panoramaNode = useMemo(() => {
@@ -613,6 +637,7 @@ export function GraphCanvas({
                 touchAction: "none", // Prevent touch zoom on mobile
                 userSelect: "none", // Prevent text selection
               }}
+              onContextMenu={(e) => e.preventDefault()}
             >
               <MapCanvas2D
                 onNodeSelect={handleNodeSelect}
@@ -634,6 +659,7 @@ export function GraphCanvas({
                 onAreaVertexUpdate={handleAreaVertexUpdate}
                 onAreaMove={handleAreaMove}
                 onDrawingVertexAdd={handleDrawingVertexAdd}
+                onDrawingCancel={handleDrawingCancel}
               />
             </div>
 
@@ -714,6 +740,30 @@ export function GraphCanvas({
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmToolChange}>
               Discard & Switch Tool
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Drawing Confirmation Dialog */}
+      <AlertDialog
+        open={showCancelDrawingDialog}
+        onOpenChange={setShowCancelDrawingDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Area Drawing?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to reset the current area drawing? This will
+              remove all {drawingAreaVertices.length} vertices.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleKeepDrawing}>
+              Keep Drawing
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCancelDrawing}>
+              Reset Drawing
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

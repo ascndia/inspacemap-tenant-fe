@@ -41,6 +41,7 @@ interface MapCanvas2DProps {
     isDragging?: boolean
   ) => void;
   onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
+  onDrawingCancel?: () => void;
 }
 
 export function MapCanvas2D({
@@ -63,6 +64,7 @@ export function MapCanvas2D({
   onAreaVertexUpdate,
   onAreaMove,
   onDrawingVertexAdd,
+  onDrawingCancel,
 }: MapCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const graphStore = useGraphStore();
@@ -222,6 +224,7 @@ export function MapCanvas2D({
     onAreaVertexUpdate,
     onAreaMove,
     onDrawingVertexAdd,
+    onDrawingCancel,
     contextMenu,
     setContextMenu,
     isDragging,

@@ -53,6 +53,7 @@ export interface MouseHandlerParams {
     isDragging?: boolean
   ) => void;
   onDrawingVertexAdd?: (position: { x: number; y: number }) => void;
+  onDrawingCancel?: () => void;
   contextMenu: {
     x: number;
     y: number;
@@ -116,6 +117,7 @@ export function createMouseHandlers(
     onAreaVertexUpdate,
     onAreaMove,
     onDrawingVertexAdd,
+    onDrawingCancel,
     contextMenu,
     setContextMenu,
     isDragging,
@@ -208,6 +210,7 @@ export function createMouseHandlers(
     // Handle right-click context menu
     if (event.button === 2) {
       event.preventDefault();
+      event.stopPropagation();
 
       // If in connect mode, right-click exits connect mode
       if (state.ui.tool === "connect" && state.ui.isConnecting) {
@@ -215,9 +218,9 @@ export function createMouseHandlers(
         return;
       }
 
-      // If drawing area and have enough vertices, finish drawing on right-click
-      if (state.ui.tool === "draw-area" && drawingAreaVertices.length >= 3) {
-        // Don't show context menu, just finish drawing
+      // If drawing area, right-click cancels drawing (shows confirmation dialog)
+      if (state.ui.tool === "draw-area") {
+        onDrawingCancel?.();
         return;
       }
 

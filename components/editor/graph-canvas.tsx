@@ -92,7 +92,10 @@ export function GraphCanvas({
   }, [panoramaNodeId, showPanoramaViewer, togglePanoramaViewer]);
 
   useEffect(() => {
-    console.log("GraphCanvas: showPanoramaViewer changed", { showPanoramaViewer, panoramaNodeId });
+    console.log("GraphCanvas: showPanoramaViewer changed", {
+      showPanoramaViewer,
+      panoramaNodeId,
+    });
   }, [showPanoramaViewer, panoramaNodeId]);
 
   // Prevent browser zoom gestures and shortcuts

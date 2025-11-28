@@ -472,7 +472,9 @@ export function PropertiesPanel() {
                         >
                           Local: {backgroundOffsetValue}°
                         </span>
-                        <span className="text-xs ml-2 text-muted-foreground">Store: {storeBackgroundOffset}°</span>
+                        <span className="text-xs ml-2 text-muted-foreground">
+                          Store: {storeBackgroundOffset}°
+                        </span>
                       </div>
                     </div>
                     <Slider

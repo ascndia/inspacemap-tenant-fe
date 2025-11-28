@@ -92,7 +92,9 @@ export default function PanoramaViewer({
     if (!containerRef.current || !selectedNode?.panorama_url) return;
 
     const instanceId = Math.random().toString(36).substring(7);
-    console.log(`[Viewer ${instanceId}] Menginisialisasi...`, { selectedNodeId: selectedNode?.id });
+    console.log(`[Viewer ${instanceId}] Menginisialisasi...`, {
+      selectedNodeId: selectedNode?.id,
+    });
 
     const viewer = new View360(containerRef.current, {
       projection: new EquirectProjection({
@@ -234,7 +236,11 @@ export default function PanoramaViewer({
     try {
       if (viewerInstance?.camera?.animateTo) {
         isProgrammaticRotate.current = true;
-        viewerInstance.camera.animateTo({ yaw: panoramaYaw, pitch: panoramaPitch, duration: 0 });
+        viewerInstance.camera.animateTo({
+          yaw: panoramaYaw,
+          pitch: panoramaPitch,
+          duration: 0,
+        });
         setTimeout(() => (isProgrammaticRotate.current = false), 80);
       }
     } catch (err) {
@@ -257,10 +263,29 @@ export default function PanoramaViewer({
             viewerInstance={viewerInstance}
             onNavigateToNode={onNavigateToNode}
           />
-          <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 9999, padding: '6px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12 }}>
-            <div>node: <strong>{selectedNodeId ?? 'none'}</strong></div>
-            <div>offset: <strong>{backgroundOffset}</strong>°</div>
-            <div>yaw: <strong>{Math.round(panoramaYaw)}</strong>° pitch: <strong>{Math.round(panoramaPitch)}</strong>°</div>
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              zIndex: 9999,
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: "rgba(0,0,0,0.6)",
+              color: "#fff",
+              fontSize: 12,
+            }}
+          >
+            <div>
+              node: <strong>{selectedNodeId ?? "none"}</strong>
+            </div>
+            <div>
+              offset: <strong>{backgroundOffset}</strong>°
+            </div>
+            <div>
+              yaw: <strong>{Math.round(panoramaYaw)}</strong>° pitch:{" "}
+              <strong>{Math.round(panoramaPitch)}</strong>°
+            </div>
           </div>
         </div>
       </div>

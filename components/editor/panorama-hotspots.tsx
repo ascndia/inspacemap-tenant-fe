@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react"; // Gunakan useLayoutEffect
 import View360 from "@egjs/view360";
 import { useGraphStore } from "@/stores/graph-store";
 
@@ -25,6 +25,7 @@ export function PanoramaHotspots({
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const backgroundOffset = useGraphStore((s) => s.panoramaBackgroundOffset);
 
+  // 1. Kalkulasi Hotspot
   const hotspots = useMemo(() => {
     if (!graph || !selectedNodeId) return [] as HotspotData[];
     const currentNode = graph.nodes.find((n) => n.id === selectedNodeId);
@@ -48,6 +49,8 @@ export function PanoramaHotspots({
       const dy = neighborNode.position.y - currentNode.position.y;
       const dz = neighborNode.position.z - currentNode.position.z;
       const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+      // Asumsi koordinat standar
       const yaw = (Math.atan2(dy, dx) * 180) / Math.PI;
       const pitch =
         -(Math.asin(Math.max(-1, Math.min(1, dz / distance))) * 180) / Math.PI;
@@ -61,59 +64,32 @@ export function PanoramaHotspots({
       });
     }
 
-    if (calculated.length > 0) {
-      console.log(
-        "PanoramaHotspots: computed first hotspot yaw:",
-        calculated[0].yaw
-      );
-    }
-
     return calculated;
   }, [graph, selectedNodeId]);
 
-  useLayoutEffect(() => {
-    console.log("PanoramaHotspots: refresh", {
-      backgroundOffset,
-      count: hotspots.length,
-      viewerReady: !!viewerInstance,
-    });
-    console.log("PanoramaHotspots: store snapshot", {
-      graphCount: graph?.nodes?.length ?? 0,
-      selectedNodeId,
-      backgroundOffset,
-    });
-
-    if (viewerInstance?.hotspot?.refresh) {
-      try {
-        viewerInstance.hotspot.refresh();
-        requestAnimationFrame(() => viewerInstance.hotspot.refresh());
-        setTimeout(() => viewerInstance.hotspot.refresh(), 50);
-      } catch (err) {
-        console.error("PanoramaHotspots: hotspot.refresh() error", err);
-      }
-
-      setTimeout(() => {
-        const first = document.querySelector(`.view360-hotspot[data-yaw]`);
-        console.log(
-          "DOM first hotspot data-yaw:",
-          first?.getAttribute("data-yaw"),
-          "first original yaw:",
-          hotspots[0]?.yaw
-        );
-      }, 60);
-    }
-  }, [viewerInstance, hotspots, backgroundOffset, graph, selectedNodeId]);
-
   const offset = Number.isFinite(backgroundOffset) ? backgroundOffset : 0;
+
+  // 2. [FIX UTAMA] Trigger Refresh saat Data/DOM Berubah
+  // Kita gunakan useLayoutEffect agar refresh terjadi SETELAH React update DOM,
+  // tapi SEBELUM browser paint frame berikutnya (mencegah flicker).
+  useLayoutEffect(() => {
+    if (viewerInstance) {
+      // console.log("Hotspots updated, refreshing viewer...");
+      viewerInstance.hotspot.refresh();
+    }
+  }, [viewerInstance, hotspots, offset]); // Dependency: Jalankan ulang jika instance, list hotspot, atau offset berubah
 
   return (
     <div className="view360-hotspots">
       {hotspots.map((hotspot) => {
+        // Logika yaw + offset
         const mirroredYaw = (((-hotspot.yaw + offset) % 360) + 360) % 360;
+
         return (
           <div
             key={hotspot.nodeId}
             className="view360-hotspot"
+            // Atribut ini dibaca oleh .refresh()
             data-yaw={mirroredYaw}
             data-pitch={hotspot.pitch}
             onClick={(e) => {
@@ -122,6 +98,7 @@ export function PanoramaHotspots({
             }}
             style={{ position: "absolute", zIndex: 1000 }}
           >
+            {/* Centering Fix (-ml-5 -mt-5) */}
             <div className="flex flex-col items-center justify-center w-10 h-10 -ml-5 -mt-5">
               <div className="w-10 h-10 rounded-full bg-blue-500/80 border-2 border-white shadow-md flex items-center justify-center text-white font-bold text-xs hover:bg-blue-600 transition-colors transform hover:scale-110 duration-200 cursor-pointer">
                 {hotspot.distance < 50 && (

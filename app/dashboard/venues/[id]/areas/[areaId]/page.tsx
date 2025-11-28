@@ -41,6 +41,7 @@ import Image from "next/image";
 import { mediaService } from "@/lib/services/media-service";
 import { areaService } from "@/lib/services/area-service";
 import { venueService } from "@/lib/services/venue-service";
+import { GraphRevisionService } from "@/lib/services/graph-revision-service";
 import { MediaPicker } from "@/components/media/media-picker";
 import type { MediaItem } from "@/types/media";
 import type { VenueDetail } from "@/types/venue";
@@ -73,6 +74,7 @@ export default function AreaDetailPage() {
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [editingArea, setEditingArea] = useState(false);
   const [deletingArea, setDeletingArea] = useState(false);
+  const [isEditable, setIsEditable] = useState(false);
 
   // Form state for area editing
   const [areaForm, setAreaForm] = useState({
@@ -116,6 +118,25 @@ export default function AreaDetailPage() {
             })
           );
           setGallery(transformedGallery);
+
+          // Check revision status to determine if area is editable
+          if (areaData.revision_id) {
+            try {
+              const revisionResponse =
+                await GraphRevisionService.getRevisionDetail(
+                  areaData.revision_id
+                );
+              // Only draft revisions are editable
+              setIsEditable(revisionResponse.status === "draft");
+            } catch (error) {
+              console.error("Failed to fetch revision details:", error);
+              // Default to false if we can't verify status
+              setIsEditable(false);
+            }
+          } else {
+            // No revision ID implies it might be a legacy or detached area, default to not editable or handle as needed
+            setIsEditable(false);
+          }
         } else {
           console.error("Failed to fetch area:", areaResponse.error);
         }
@@ -343,7 +364,7 @@ export default function AreaDetailPage() {
           <Button
             variant="outline"
             onClick={() => setEditingArea(true)}
-            disabled={saving}
+            disabled={saving || !isEditable}
           >
             <Edit className="mr-2 h-4 w-4" />
             Edit Details
@@ -352,6 +373,7 @@ export default function AreaDetailPage() {
             variant="outline"
             onClick={() => setDeletingArea(true)}
             className="text-destructive hover:text-destructive"
+            disabled={!isEditable}
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Delete Area
@@ -414,17 +436,19 @@ export default function AreaDetailPage() {
                 Images and media associated with this area
               </CardDescription>
             </div>
-            <MediaPicker
-              onSelect={handleAddGalleryItem}
-              acceptTypes={["image"]}
-              multiple={true}
-              trigger={
-                <Button>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Add Images
-                </Button>
-              }
-            />
+            {isEditable && (
+              <MediaPicker
+                onSelect={handleAddGalleryItem}
+                acceptTypes={["image"]}
+                multiple={true}
+                trigger={
+                  <Button>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Add Images
+                  </Button>
+                }
+              />
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -445,22 +469,24 @@ export default function AreaDetailPage() {
                       />
 
                       {/* Overlay with actions */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setEditingItem(item)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteItem(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {isEditable && (
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setEditingItem(item)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteItem(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
 
                       {/* Sort order indicator */}
                       <div className="absolute top-2 left-2">
@@ -489,17 +515,19 @@ export default function AreaDetailPage() {
               <p className="text-muted-foreground mb-4">
                 Add images to showcase this area
               </p>
-              <MediaPicker
-                onSelect={handleAddGalleryItem}
-                acceptTypes={["image"]}
-                multiple={true}
-                trigger={
-                  <Button>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Add First Image
-                  </Button>
-                }
-              />
+              {isEditable && (
+                <MediaPicker
+                  onSelect={handleAddGalleryItem}
+                  acceptTypes={["image"]}
+                  multiple={true}
+                  trigger={
+                    <Button>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Add First Image
+                    </Button>
+                  }
+                />
+              )}
             </div>
           )}
         </CardContent>

@@ -56,6 +56,18 @@ export function PropertiesPanel() {
 
   const [panoramaMedia, setPanoramaMedia] = useState<MediaItem[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const [activeTab, setActiveTab] = useState("node");
+
+  // Update active tab when selection changes
+  useEffect(() => {
+    if (selectedNodeId) {
+      setActiveTab("node");
+    } else if (selectedAreaId) {
+      setActiveTab("area");
+    } else if (selectedConnectionId) {
+      setActiveTab("connection");
+    }
+  }, [selectedNodeId, selectedAreaId, selectedConnectionId]);
 
   // Debounce ref for label updates
   const labelDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -309,18 +321,28 @@ export function PropertiesPanel() {
         <h3 className="font-semibold">Properties</h3>
       </div>
 
-      <Tabs defaultValue="node" className="flex-1 flex flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex-1 flex flex-col"
+      >
         <div className="px-4 pt-4">
           <TabsList className="w-full">
-            <TabsTrigger value="node" className="flex-1">
-              Node
-            </TabsTrigger>
-            <TabsTrigger value="area" className="flex-1">
-              Area
-            </TabsTrigger>
-            <TabsTrigger value="connection" className="flex-1">
-              Connection
-            </TabsTrigger>
+            {(selectedNodeId || (!selectedAreaId && !selectedConnectionId)) && (
+              <TabsTrigger value="node" className="flex-1">
+                Node
+              </TabsTrigger>
+            )}
+            {(selectedAreaId || (!selectedNodeId && !selectedConnectionId)) && (
+              <TabsTrigger value="area" className="flex-1">
+                Area
+              </TabsTrigger>
+            )}
+            {(selectedConnectionId || (!selectedNodeId && !selectedAreaId)) && (
+              <TabsTrigger value="connection" className="flex-1">
+                Connection
+              </TabsTrigger>
+            )}
             <TabsTrigger value="settings" className="flex-1">
               Settings
             </TabsTrigger>

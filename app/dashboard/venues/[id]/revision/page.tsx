@@ -32,6 +32,7 @@ import {
   MoreHorizontal,
   Upload,
   Copy,
+  Map,
 } from "lucide-react";
 import Link from "next/link";
 import { GraphRevision } from "@/types/graph";
@@ -448,6 +449,14 @@ export default function VenueRevisionsPage({
 
                         <TableCell className="text-right">
                           <div className="flex items-center gap-2 justify-end">
+                            <Link
+                              href={`/dashboard/venues/${venueId}/areas?revision=${revision.id}`}
+                            >
+                              <Button variant="outline" size="sm">
+                                <Map className="mr-1 h-3 w-3" />
+                                View Areas
+                              </Button>
+                            </Link>
                             {revision.isDraft && (
                               <Link
                                 href={`/dashboard/venues/${venueId}/revision/${revision.id}/editor`}

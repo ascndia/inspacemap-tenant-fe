@@ -69,7 +69,7 @@ export default function PanoramaViewer({
   // View360 sering mengabaikan perintah rotasi yang dikirim sebelum gambar dimuat.
   const [isViewerReady, setIsViewerReady] = useState(false); // [BARU] Lacak kesiapan
 
-  const [hotspots, setHotspots] = useState<HotspotData[]>([]);
+  // Hotspots are now computed inside PanoramaHotspots (subscribe to store)
 
   // [PERBAIKAN 4] Ref Pencegahan Loop
   // Digunakan untuk membedakan antara "Pengguna Menyeret" vs "Kode Memperbarui"
@@ -81,60 +81,18 @@ export default function PanoramaViewer({
   const panoramaYaw = useGraphStore((s) => s.panoramaYaw);
   const panoramaPitch = useGraphStore((s) => s.panoramaPitch);
   const backgroundOffset = useGraphStore((s) => s.panoramaBackgroundOffset);
+  const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const setPanoramaRotation = useGraphStore((s) => s.setPanoramaRotation);
   const panoramaDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Hitung Hotspot (Sama seperti sebelumnya)
-  const calculateHotspots = useCallback(() => {
-    if (!selectedNode || !graph?.nodes || !graph?.connections) return [];
-    const calculated: HotspotData[] = [];
-    const currentNode = selectedNode;
-    const neighborConnections = graph.connections.filter(
-      (conn: any) =>
-        conn.fromNodeId === currentNode.id || conn.toNodeId === currentNode.id
-    );
-
-    for (const connection of neighborConnections) {
-      const neighborId =
-        connection.fromNodeId === currentNode.id
-          ? connection.toNodeId
-          : connection.fromNodeId;
-      const neighborNode = graph.nodes.find(
-        (node: any) => node.id === neighborId
-      );
-      if (!neighborNode) continue;
-
-      const dx = neighborNode.position.x - currentNode.position.x;
-      const dy = neighborNode.position.y - currentNode.position.y;
-      const dz = neighborNode.position.z - currentNode.position.z;
-      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-      // Calculate yaw/pitch without depending on current camera position
-      const yaw = (Math.atan2(dy, dx) * 180) / Math.PI;
-      const pitch =
-        -(Math.asin(Math.max(-1, Math.min(1, dz / distance))) * 180) / Math.PI;
-
-      calculated.push({
-        nodeId: neighborId,
-        node: neighborNode,
-        yaw,
-        pitch,
-        distance,
-      });
-    }
-    return calculated;
-  }, [selectedNode, graph]);
-
-  useEffect(() => {
-    setHotspots(calculateHotspots() as HotspotData[]);
-  }, [calculateHotspots]);
+  // Hotspot computation no longer belongs to the viewer; PanoramaHotspots now reads directly from store
 
   // 2. Pengaturan Viewer (Siklus Hidup Inisialisasi)
   useEffect(() => {
     if (!containerRef.current || !selectedNode?.panorama_url) return;
 
     const instanceId = Math.random().toString(36).substring(7);
-    console.log(`[Viewer ${instanceId}] Menginisialisasi...`);
+    console.log(`[Viewer ${instanceId}] Menginisialisasi...`, { selectedNodeId: selectedNode?.id });
 
     const viewer = new View360(containerRef.current, {
       projection: new EquirectProjection({
@@ -256,14 +214,33 @@ export default function PanoramaViewer({
   useLayoutEffect(() => {
     if (!viewerInstance) return;
     // Ensure refresh runs after DOM sync to capture new data-yaw attributes
-    console.debug("PanoramaViewer: backgroundOffset changed", {
+    console.log("PanoramaViewer: backgroundOffset changed", {
       backgroundOffset,
+      panoramaYaw,
+      panoramaPitch,
+      viewerId: (viewerInstance as any)?._id,
     });
-    viewerInstance.hotspot?.refresh();
+
+    try {
+      viewerInstance.hotspot?.refresh(); // Refresh hotspots
+    } catch (err) {
+      console.error("PanoramaViewer: hotspot.refresh() failed", err);
+    }
     // Re-run on next frame and slightly later to circumvent internal timing in view360
     requestAnimationFrame(() => viewerInstance.hotspot?.refresh());
     setTimeout(() => viewerInstance.hotspot?.refresh(), 50);
-  }, [viewerInstance, backgroundOffset, hotspots]);
+
+    // Fallback (force re-layout): perform a no-op animate to prompt an internal recompute.
+    try {
+      if (viewerInstance?.camera?.animateTo) {
+        isProgrammaticRotate.current = true;
+        viewerInstance.camera.animateTo({ yaw: panoramaYaw, pitch: panoramaPitch, duration: 0 });
+        setTimeout(() => (isProgrammaticRotate.current = false), 80);
+      }
+    } catch (err) {
+      console.error("PanoramaViewer: no-op animateTo failed", err);
+    }
+  }, [viewerInstance, backgroundOffset, panoramaYaw, panoramaPitch]);
 
   return (
     <div className="flex flex-col h-full">
@@ -277,11 +254,14 @@ export default function PanoramaViewer({
             style={{ width: "100%", height: "100%" }}
           />
           <PanoramaHotspots
-            hotspots={hotspots}
-            backgroundOffset={backgroundOffset}
             viewerInstance={viewerInstance}
             onNavigateToNode={onNavigateToNode}
           />
+          <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 9999, padding: '6px 10px', borderRadius: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12 }}>
+            <div>node: <strong>{selectedNodeId ?? 'none'}</strong></div>
+            <div>offset: <strong>{backgroundOffset}</strong>°</div>
+            <div>yaw: <strong>{Math.round(panoramaYaw)}</strong>° pitch: <strong>{Math.round(panoramaPitch)}</strong>°</div>
+          </div>
         </div>
       </div>
       {!selectedNode && (

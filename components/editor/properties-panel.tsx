@@ -70,6 +70,9 @@ export function PropertiesPanel() {
 
   // Sync local state with selected node when selection changes
   const setPanoramaBackgroundOffset = graphStore.setPanoramaBackgroundOffset;
+  const storeBackgroundOffset = useGraphStore(
+    (s) => s.panoramaBackgroundOffset
+  );
 
   useEffect(() => {
     if (selectedNode) {
@@ -82,6 +85,13 @@ export function PropertiesPanel() {
       setPanoramaBackgroundOffset(nodeRotation);
     }
   }, [selectedNode, setPanoramaBackgroundOffset]);
+
+  useEffect(() => {
+    console.log("PropertiesPanel: backgroundOffset local/store", {
+      backgroundOffsetValue,
+      storeBackgroundOffset,
+    });
+  }, [backgroundOffsetValue, storeBackgroundOffset]);
 
   // Cleanup debounce timeout on unmount or node change
   useEffect(() => {
@@ -462,12 +472,17 @@ export function PropertiesPanel() {
                         >
                           Local: {backgroundOffsetValue}°
                         </span>
+                        <span className="text-xs ml-2 text-muted-foreground">Store: {storeBackgroundOffset}°</span>
                       </div>
                     </div>
                     <Slider
                       value={[backgroundOffsetValue]}
                       onValueChange={([value]) => {
                         const nextYaw = Math.round(value);
+                        console.log("PropertiesPanel: Slider changed", {
+                          nextYaw,
+                          prev: backgroundOffsetValue,
+                        });
                         setBackgroundOffsetValue(nextYaw);
                         graphStore.setPanoramaBackgroundOffset(nextYaw);
                       }}

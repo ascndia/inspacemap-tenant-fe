@@ -402,8 +402,10 @@ export const useGraphStore = create<GraphStore>()(
           panoramaLastUpdateSource: source || null,
           panoramaLastUpdatedAt: Date.now(),
         }),
-      setPanoramaBackgroundOffset: (offset) =>
-        set({ panoramaBackgroundOffset: offset }),
+      setPanoramaBackgroundOffset: (offset) => {
+        console.log("graph-store: setPanoramaBackgroundOffset", offset);
+        set({ panoramaBackgroundOffset: offset });
+      },
       setConnectingStart: (nodeId) =>
         set({
           isConnecting: true,

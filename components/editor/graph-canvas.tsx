@@ -91,6 +91,10 @@ export function GraphCanvas({
     }
   }, [panoramaNodeId, showPanoramaViewer, togglePanoramaViewer]);
 
+  useEffect(() => {
+    console.log("GraphCanvas: showPanoramaViewer changed", { showPanoramaViewer, panoramaNodeId });
+  }, [showPanoramaViewer, panoramaNodeId]);
+
   // Prevent browser zoom gestures and shortcuts
   useEffect(() => {
     const preventZoom = (e: Event) => {
@@ -451,6 +455,10 @@ export function GraphCanvas({
       // Initialize panorama rotation with node's current heading
       const node = graph?.nodes.find((n) => n.id === nodeId);
       if (node) {
+        console.log("GraphCanvas: navigateToNode", {
+          nodeId,
+          rotation: node.rotation,
+        });
         graphStore.setPanoramaBackgroundOffset(node.rotation || 0);
         graphStore.setPanoramaRotation(0, node.pitch || 0, "nav");
       }

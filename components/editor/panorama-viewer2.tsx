@@ -12,6 +12,7 @@ import View360, { EquirectProjection, EVENTS } from "@egjs/view360";
 import { useGraphStore } from "@/stores/graph-store";
 import { PanoramaHotspots } from "./panorama-hotspots";
 import "@egjs/view360/css/view360.min.css";
+import { Loader2, AlertCircle } from "lucide-react";
 
 const normalizeYaw = (yaw: number) => ((yaw % 360) + 360) % 360;
 const clampPitch = (pitch: number) => Math.max(-90, Math.min(90, pitch));
@@ -66,6 +67,8 @@ export default function PanoramaViewer({
   // [PERBAIKAN 2] Lacak status kesiapan
   // View360 sering mengabaikan perintah rotasi yang dikirim sebelum gambar dimuat.
   const [isViewerReady, setIsViewerReady] = useState(false); // [BARU] Lacak kesiapan
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Hotspots are now computed inside PanoramaHotspots (subscribe to store)
 
@@ -87,6 +90,10 @@ export default function PanoramaViewer({
   // 2. Pengaturan Viewer (Siklus Hidup Inisialisasi)
   useEffect(() => {
     if (!containerRef.current || !panoramaNode?.panorama_url) return;
+
+    setIsLoading(true);
+    setError(null);
+    setIsViewerReady(false);
 
     const instanceId = Math.random().toString(36).substring(7);
     console.log(`[Viewer ${instanceId}] Menginisialisasi...`, {
@@ -111,6 +118,7 @@ export default function PanoramaViewer({
     viewer.once(EVENTS.READY, () => {
       console.log(`[Viewer ${instanceId}] SIAP. Menerapkan rotasi awal/store.`);
       setIsViewerReady(true);
+      setIsLoading(false);
 
       const baseYaw = Number.isFinite(panoramaYaw) ? panoramaYaw : 0;
       const yawTarget = normalizeYaw(baseYaw);
@@ -249,6 +257,7 @@ export default function PanoramaViewer({
     <div className="flex flex-col h-full">
       <div className="flex-1 bg-black rounded-lg overflow-hidden mb-4 relative">
         <div
+          key={panoramaNode?.id || "empty"}
           ref={containerRef}
           className="view360-container absolute inset-0 w-full h-full"
         >
@@ -297,6 +306,18 @@ export default function PanoramaViewer({
             </div>
           </div>
         </div>
+        {isLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white z-50 backdrop-blur-sm">
+            <Loader2 className="h-8 w-8 animate-spin mb-2" />
+            <span className="text-sm font-medium">Loading Panorama...</span>
+          </div>
+        )}
+        {error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-red-500 z-50 p-4 text-center">
+            <AlertCircle className="h-8 w-8 mb-2" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+        )}
       </div>
       {!panoramaNode && (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">

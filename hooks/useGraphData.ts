@@ -85,6 +85,18 @@ export function useUpdateNode() {
       return { nodeId, updates };
     },
     onSuccess: (data, variables) => {
+      // If panorama_asset_id is updated, invalidate the query to fetch the new signed URL
+      if (variables.updates.panorama_asset_id !== undefined) {
+        queryClient.invalidateQueries({
+          queryKey: graphKeys.floor(
+            variables.venueId,
+            variables.revisionId,
+            variables.floorId
+          ),
+        });
+        return;
+      }
+
       // Update the cache directly instead of invalidating
       queryClient.setQueryData(
         graphKeys.floor(

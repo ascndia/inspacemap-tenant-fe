@@ -1,6 +1,7 @@
 // hooks/useGraphData.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { GraphService } from "@/lib/services/graph-service";
+import { GraphRevisionService } from "@/lib/services/graph-revision-service";
 import {
   GraphData,
   GraphNode,
@@ -624,6 +625,57 @@ export function useSetAreaStartNode() {
                 : area
             ),
             settings: currentGraph?.settings || oldData.settings,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+      );
+    },
+  });
+}
+
+// Update Settings Mutation
+export function useUpdateSettings() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      venueId,
+      revisionId,
+      floorId,
+      settings,
+    }: {
+      venueId: string;
+      revisionId: string;
+      floorId: string;
+      settings: Partial<GraphData["settings"]>;
+    }) => {
+      // Persist to localStorage for now as backend doesn't support settings yet
+      // This ensures settings are persisted per venue
+      if (typeof window !== "undefined") {
+        const storageKey = `graph-settings-${venueId}`;
+        const currentSettingsStr = localStorage.getItem(storageKey);
+        const currentSettings = currentSettingsStr
+          ? JSON.parse(currentSettingsStr)
+          : {};
+        const newSettings = { ...currentSettings, ...settings };
+        localStorage.setItem(storageKey, JSON.stringify(newSettings));
+      }
+
+      return settings;
+    },
+    onSuccess: (settings, variables) => {
+      // Update the cache directly
+      queryClient.setQueryData(
+        graphKeys.floor(
+          variables.venueId,
+          variables.revisionId,
+          variables.floorId
+        ),
+        (oldData: GraphData | undefined) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            settings: { ...oldData.settings, ...settings },
             updatedAt: new Date().toISOString(),
           };
         }

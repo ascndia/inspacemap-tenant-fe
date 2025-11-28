@@ -301,7 +301,7 @@ export function PropertiesPanel() {
     }
   };
 
-  const handleSettingsUpdate = (field: string, value: any) => {
+  const handleSettingsUpdate = async (field: string, value: any) => {
     if (!graph) return;
 
     const updatedGraph = {
@@ -313,6 +313,15 @@ export function PropertiesPanel() {
     };
 
     graphStore.setGraph(updatedGraph);
+
+    // Persist settings to backend
+    try {
+      await graphProvider.updateSettings({
+        [field]: value,
+      });
+    } catch (error) {
+      console.error("Failed to update settings:", error);
+    }
   };
 
   return (
@@ -602,6 +611,34 @@ export function PropertiesPanel() {
                     className="w-full"
                   />
                 </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label>Node Actions</Label>
+                  <div className="space-y-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full"
+                      onClick={async () => {
+                        if (
+                          confirm("Are you sure you want to delete this node?")
+                        ) {
+                          try {
+                            await graphProvider.deleteNode(selectedNode.id);
+                            // Deselect node after deletion
+                            graphStore.setSelectedNode(null);
+                          } catch (error) {
+                            console.error("Failed to delete node:", error);
+                          }
+                        }
+                      }}
+                    >
+                      Delete Node
+                    </Button>
+                  </div>
+                </div>
               </>
             ) : (
               <div className="p-4 text-center text-muted-foreground text-sm border border-dashed rounded-lg">
@@ -827,23 +864,6 @@ export function PropertiesPanel() {
                 value={graph?.settings.showGrid ?? true ? "on" : "off"}
                 onValueChange={(value) =>
                   handleSettingsUpdate("showGrid", value === "on")
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="on">Enabled</SelectItem>
-                  <SelectItem value="off">Disabled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Auto Save</Label>
-              <Select
-                value={graph?.settings.autoSave ?? true ? "on" : "off"}
-                onValueChange={(value) =>
-                  handleSettingsUpdate("autoSave", value === "on")
                 }
               >
                 <SelectTrigger>

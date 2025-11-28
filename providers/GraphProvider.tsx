@@ -14,6 +14,7 @@ import {
   useUpdateArea,
   useDeleteArea,
   useSetAreaStartNode,
+  useUpdateSettings,
 } from "@/hooks/useGraphData";
 import { useGraphStore } from "../stores/graph-store";
 import { GraphNode, Vector3, GraphData } from "@/types/graph";
@@ -119,6 +120,7 @@ export function useGraph() {
   const updateAreaMutation = useUpdateArea();
   const deleteAreaMutation = useDeleteArea();
   const setAreaStartNodeMutation = useSetAreaStartNode();
+  const updateSettingsMutation = useUpdateSettings();
 
   return {
     // State from Zustand store
@@ -266,6 +268,19 @@ export function useGraph() {
           floorId: floorId || "",
           areaId,
           nodeId,
+        });
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    updateSettings: async (settings: Partial<GraphData["settings"]>) => {
+      try {
+        await updateSettingsMutation.mutateAsync({
+          venueId: venueId || "",
+          revisionId: revisionId || "",
+          floorId: floorId || "",
+          settings,
         });
       } catch (error) {
         throw error;

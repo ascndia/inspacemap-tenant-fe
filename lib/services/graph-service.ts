@@ -133,6 +133,27 @@ export class GraphService {
           updatedAt: new Date(),
         })) || [];
 
+      // Load settings from localStorage
+      const storageKey = `graph-settings-${this.venueId}`;
+      const savedSettingsStr =
+        typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+      const savedSettings = savedSettingsStr
+        ? JSON.parse(savedSettingsStr)
+        : {};
+
+      const defaultSettings = {
+        gridSize: 20,
+        snapToGrid: true,
+        showGrid: true,
+        showLabels: true,
+        showConnections: true,
+        connectionStyle: "straight" as const,
+        nodeSize: 1,
+        autoSave: true,
+        collaboration: false,
+        floorplanOpacity: 0.5,
+      };
+
       return {
         id: `graph-${this.venueId}-${this.floorId}`,
         venueId: this.venueId,
@@ -144,16 +165,8 @@ export class GraphService {
         floorplan, // Include floorplan data
         panoramas: [],
         settings: {
-          gridSize: 20,
-          snapToGrid: true,
-          showGrid: true,
-          showLabels: true,
-          showConnections: true,
-          connectionStyle: "straight",
-          nodeSize: 1,
-          autoSave: true,
-          collaboration: false,
-          floorplanOpacity: 0.5,
+          ...defaultSettings,
+          ...savedSettings,
         },
         version: 1,
         isPublished: false,

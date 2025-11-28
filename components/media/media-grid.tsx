@@ -428,27 +428,27 @@ function MediaItem({
         </div>
       </div>
 
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>{item.file_name}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4">
-          <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+          <div className="bg-muted rounded-lg flex items-center justify-center overflow-auto max-h-[60vh]">
             {item.url ? (
               item.file_type && item.file_type.startsWith("video/") ? (
                 <video
                   src={item.url}
                   controls
-                  className="w-full h-full object-cover"
+                  className="max-w-full max-h-full object-contain"
                   preload="metadata"
                 />
               ) : (
                 <Image
                   src={item.url}
                   alt={item.file_name}
-                  width={item.width || 400}
-                  height={item.height || 225}
-                  className="w-full h-full object-cover"
+                  width={item.width || 800}
+                  height={item.height || 600}
+                  className="max-w-full max-h-full object-contain"
                   unoptimized
                 />
               )

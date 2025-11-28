@@ -80,6 +80,18 @@ export function PropertiesPanel() {
   }>({});
   const [hasAreaChanges, setHasAreaChanges] = useState(false);
 
+  // Initialize area changes when selected area changes
+  useEffect(() => {
+    if (selectedArea) {
+      setAreaChanges({
+        name: selectedArea.name,
+        description: selectedArea.description,
+        category: selectedArea.category,
+      });
+      setHasAreaChanges(false);
+    }
+  }, [selectedArea]);
+
   // Sync local state with selected node when selection changes
   const setPanoramaBackgroundOffset = graphStore.setPanoramaBackgroundOffset;
   const storeBackgroundOffset = useGraphStore(

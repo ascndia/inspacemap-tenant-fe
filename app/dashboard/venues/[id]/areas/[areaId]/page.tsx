@@ -338,7 +338,9 @@ export default function AreaDetailPage() {
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href={`/dashboard/venues/${venueId}/areas`}>
+        <Link
+          href={`/dashboard/venues/${venueId}/areas?revision=${area.revision_id}`}
+        >
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

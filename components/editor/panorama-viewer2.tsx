@@ -278,11 +278,22 @@ export default function PanoramaViewer({
               node: <strong>{panoramaNode?.id ?? "none"}</strong>
             </div>
             <div>
-              offset: <strong>{isNaN(backgroundOffset) ? "N/A" : backgroundOffset}</strong>°
+              offset:{" "}
+              <strong>
+                {isNaN(backgroundOffset) ? "N/A" : backgroundOffset}
+              </strong>
+              °
             </div>
             <div>
-              yaw: <strong>{isNaN(panoramaYaw) ? "N/A" : Math.round(panoramaYaw)}</strong>° pitch:{" "}
-              <strong>{isNaN(panoramaPitch) ? "N/A" : Math.round(panoramaPitch)}</strong>°
+              yaw:{" "}
+              <strong>
+                {isNaN(panoramaYaw) ? "N/A" : Math.round(panoramaYaw)}
+              </strong>
+              ° pitch:{" "}
+              <strong>
+                {isNaN(panoramaPitch) ? "N/A" : Math.round(panoramaPitch)}
+              </strong>
+              °
             </div>
           </div>
         </div>

@@ -73,6 +73,26 @@ export function PropertiesPanel() {
   const storeBackgroundOffset = useGraphStore(
     (s) => s.panoramaBackgroundOffset
   );
+  const panoramaNodeId = useGraphStore((s) => s.panoramaNodeId);
+
+  // Initialize backgroundOffset when panorama node changes
+  useEffect(() => {
+    if (panoramaNodeId && graph) {
+      const panoramaNode = graph.nodes.find((n) => n.id === panoramaNodeId);
+      if (panoramaNode) {
+        const nodeRotation = panoramaNode.rotation ?? 0;
+        console.log("PropertiesPanel: Initializing backgroundOffset from panorama node", {
+          panoramaNodeId,
+          nodeRotation,
+        });
+        setBackgroundOffsetValue(nodeRotation);
+        graphStore.setPanoramaBackgroundOffset(nodeRotation);
+      }
+    }
+  }, [panoramaNodeId, graph]);
+
+  // Check if slider should be enabled (only when selected node matches panorama node)
+  const isSliderEnabled = selectedNode && panoramaNodeId === selectedNode.id;
 
   useEffect(() => {
     if (selectedNode) {
@@ -80,11 +100,13 @@ export function PropertiesPanel() {
       setRotationValue(selectedNode.rotation);
       setHeadingValue(selectedNode.heading);
       setFovValue(selectedNode.fov);
-      const normalizedOffset = Math.round(nodeRotation);
-      setBackgroundOffsetValue(normalizedOffset);
-      setPanoramaBackgroundOffset(nodeRotation);
+      // Don't automatically set backgroundOffsetValue from selectedNode
+      // Keep current backgroundOffsetValue unless it's the first time
+      if (backgroundOffsetValue === 0 && storeBackgroundOffset === 0) {
+        setBackgroundOffsetValue(nodeRotation);
+      }
     }
-  }, [selectedNode, setPanoramaBackgroundOffset]);
+  }, [selectedNode]);
 
   useEffect(() => {
     console.log("PropertiesPanel: backgroundOffset local/store", {
@@ -234,7 +256,7 @@ export function PropertiesPanel() {
 
   // Update node rotation with current free view rotation
   const handleUpdateNodeRotation = () => {
-    if (!selectedNode) return;
+    if (!selectedNode || !isSliderEnabled) return;
     setRotationValue(backgroundOffsetValue);
     handleNodeUpdate("rotation", backgroundOffsetValue);
   };
@@ -448,29 +470,27 @@ export function PropertiesPanel() {
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">
                         Panorama Rotation Offset
+                        {!isSliderEnabled && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            (Select panorama node to adjust)
+                          </span>
+                        )}
                       </Label>
                       <div className="flex gap-2 text-xs">
                         <span
                           onClick={() => {
-                            setBackgroundOffsetValue(rotationValue);
-                            graphStore.setPanoramaBackgroundOffset(
-                              rotationValue
-                            );
+                            if (isSliderEnabled) {
+                              setBackgroundOffsetValue(rotationValue);
+                              graphStore.setPanoramaBackgroundOffset(rotationValue);
+                            }
                           }}
-                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded cursor-pointer"
+                          className={`px-2 py-1 rounded cursor-pointer ${
+                            isSliderEnabled
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-gray-100 text-gray-500 cursor-not-allowed"
+                          }`}
                         >
                           Original: {rotationValue}°
-                        </span>
-                        <span
-                          onClick={() => {
-                            setBackgroundOffsetValue(rotationValue);
-                            graphStore.setPanoramaBackgroundOffset(
-                              rotationValue
-                            );
-                          }}
-                          className="px-2 py-1 bg-green-100 text-green-800 rounded cursor-pointer"
-                        >
-                          Local: {backgroundOffsetValue}°
                         </span>
                         <span className="text-xs ml-2 text-muted-foreground">
                           Store: {storeBackgroundOffset}°
@@ -480,6 +500,7 @@ export function PropertiesPanel() {
                     <Slider
                       value={[backgroundOffsetValue]}
                       onValueChange={([value]) => {
+                        if (!isSliderEnabled) return;
                         const nextYaw = Math.round(value);
                         console.log("PropertiesPanel: Slider changed", {
                           nextYaw,
@@ -488,20 +509,26 @@ export function PropertiesPanel() {
                         setBackgroundOffsetValue(nextYaw);
                         graphStore.setPanoramaBackgroundOffset(nextYaw);
                       }}
+                      disabled={!isSliderEnabled}
                       min={0}
                       max={360}
                       step={1}
-                      className="w-full"
+                      className={`w-full ${!isSliderEnabled ? "opacity-50" : ""}`}
                     />
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">
-                        Adjust background offset to align the panorama image
+                        {isSliderEnabled
+                          ? "Adjust background offset to align the panorama image"
+                          : panoramaNodeId
+                            ? "Switch to the panorama node to adjust its offset"
+                            : "Open panorama viewer to adjust offset"
+                        }
                       </span>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={handleUpdateNodeRotation}
-                        disabled={backgroundOffsetValue === rotationValue}
+                        disabled={!isSliderEnabled || backgroundOffsetValue === rotationValue}
                       >
                         Save to Node
                       </Button>

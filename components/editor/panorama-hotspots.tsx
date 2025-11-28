@@ -17,20 +17,19 @@ interface HotspotData {
 
 interface PanoramaHotspotsProps {
   viewerInstance: View360 | null;
-  currentNode: any; // [UBAH] Terima node panorama aktif dari Props
+  currentNode: any; // Panorama node yang sedang ditampilkan
   onNavigateToNode: (nodeId: string) => void;
 }
 
 export function PanoramaHotspots({
   viewerInstance,
-  currentNode, // [UBAH] Gunakan ini, bukan dari store
+  currentNode, // Panorama node yang sedang ditampilkan
   onNavigateToNode,
 }: PanoramaHotspotsProps) {
-  const graph = useGraphStore((s) => s.graph);
   const backgroundOffset = useGraphStore((s) => s.panoramaBackgroundOffset);
+  const graph = useGraphStore((s) => s.graph); // Get graph directly from store
 
   const hotspots = useMemo(() => {
-    // Gunakan currentNode dari props, bukan selectedNodeId store
     if (!graph || !currentNode || !currentNode.position || !graph.nodes) {
       return [] as HotspotData[];
     }
@@ -48,7 +47,7 @@ export function PanoramaHotspots({
           ? connection.toNodeId
           : connection.fromNodeId;
 
-      const neighborNode = graph.nodes.find((n) => n.id === neighborId);
+      const neighborNode = graph.nodes.find((n: any) => n.id === neighborId);
       if (!neighborNode || !neighborNode.position) continue;
 
       const dx = neighborNode.position.x - currentNode.position.x;
@@ -90,7 +89,7 @@ export function PanoramaHotspots({
     }
 
     return calculated;
-  }, [graph, currentNode]); // [PENTING] Dependency berubah ke currentNode props
+  }, [graph, currentNode]); // Only depend on graph from store and currentNode
 
   const offset = Number.isFinite(backgroundOffset) ? backgroundOffset : 0;
 

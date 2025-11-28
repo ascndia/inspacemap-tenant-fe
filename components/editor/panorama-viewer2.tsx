@@ -46,14 +46,12 @@ interface HotspotData {
  */
 
 export default function PanoramaViewer({
-  selectedNode,
-  graph,
+  panoramaNode,
   onNavigateToNode,
   onRotationChange,
   onPitchChange,
 }: {
-  selectedNode: any;
-  graph?: any;
+  panoramaNode: any;
   onNavigateToNode: (nodeId: string) => void;
   onRotationChange?: (yaw: number) => void;
   onPitchChange?: (pitch: number) => void;
@@ -81,7 +79,6 @@ export default function PanoramaViewer({
   const panoramaYaw = useGraphStore((s) => s.panoramaYaw);
   const panoramaPitch = useGraphStore((s) => s.panoramaPitch);
   const backgroundOffset = useGraphStore((s) => s.panoramaBackgroundOffset);
-  const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const setPanoramaRotation = useGraphStore((s) => s.setPanoramaRotation);
   const panoramaDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -89,16 +86,16 @@ export default function PanoramaViewer({
 
   // 2. Pengaturan Viewer (Siklus Hidup Inisialisasi)
   useEffect(() => {
-    if (!containerRef.current || !selectedNode?.panorama_url) return;
+    if (!containerRef.current || !panoramaNode?.panorama_url) return;
 
     const instanceId = Math.random().toString(36).substring(7);
     console.log(`[Viewer ${instanceId}] Menginisialisasi...`, {
-      selectedNodeId: selectedNode?.id,
+      panoramaNodeId: panoramaNode?.id,
     });
 
     const viewer = new View360(containerRef.current, {
       projection: new EquirectProjection({
-        src: selectedNode.panorama_url,
+        src: panoramaNode.panorama_url,
       }),
       wheelScrollable: false,
       zoom: false,
@@ -165,7 +162,7 @@ export default function PanoramaViewer({
       resizeObserver.disconnect();
       setViewerInstance(null);
     };
-  }, [selectedNode?.panorama_url]);
+  }, [panoramaNode?.panorama_url]);
 
   // 3. Sinkronisasi Global Store -> Viewer (Perbaikan Reaktivitas)
   useEffect(() => {
@@ -260,7 +257,7 @@ export default function PanoramaViewer({
             style={{ width: "100%", height: "100%" }}
           />
           <PanoramaHotspots
-            currentNode={selectedNode}
+            currentNode={panoramaNode}
             viewerInstance={viewerInstance}
             onNavigateToNode={onNavigateToNode}
           />
@@ -278,7 +275,7 @@ export default function PanoramaViewer({
             }}
           >
             <div>
-              node: <strong>{selectedNodeId ?? "none"}</strong>
+              node: <strong>{panoramaNode?.id ?? "none"}</strong>
             </div>
             <div>
               offset: <strong>{backgroundOffset}</strong>°
@@ -290,7 +287,7 @@ export default function PanoramaViewer({
           </div>
         </div>
       </div>
-      {!selectedNode && (
+      {!panoramaNode && (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           Select a node to view panorama
         </div>

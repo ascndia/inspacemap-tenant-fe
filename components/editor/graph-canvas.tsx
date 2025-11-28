@@ -492,8 +492,6 @@ export function GraphCanvas({
         rotation: node.rotation,
       });
 
-      // Set offset
-      graphStore.setPanoramaBackgroundOffset(node.rotation || 0);
       // Reset kamera ke depan (0)
       graphStore.setPanoramaRotation(0, node.pitch || 0, "nav");
     },
@@ -621,22 +619,8 @@ export function GraphCanvas({
 
   const panoramaNode = useMemo(() => {
     const node = graph?.nodes.find((n) => n.id === panoramaNodeId);
-    return node
-      ? {
-          ...node,
-          // Only include properties that should trigger panorama updates
-          id: node.id,
-          rotation: node.rotation,
-          pitch: node.pitch,
-          panorama_url: node.panorama_url,
-        }
-      : null;
-  }, [
-    panoramaNodeId,
-    graph?.nodes.find((n) => n.id === panoramaNodeId)?.rotation,
-    graph?.nodes.find((n) => n.id === panoramaNodeId)?.pitch,
-    graph?.nodes.find((n) => n.id === panoramaNodeId)?.panorama_url,
-  ]);
+    return node || null;
+  }, [graph, panoramaNodeId]);
 
   return (
     <>
@@ -739,10 +723,6 @@ export function GraphCanvas({
                     size="sm"
                     onClick={() => {
                       togglePanoramaViewer();
-                      // Also clear the panorama node when closing
-                      if (showPanoramaViewer) {
-                        setPanoramaNode(null);
-                      }
                     }}
                     className="h-6 w-6 p-0"
                   >
@@ -750,8 +730,7 @@ export function GraphCanvas({
                   </Button>
                 </div>
                 <PanoramaViewer
-                  selectedNode={panoramaNode}
-                  graph={graph}
+                  panoramaNode={panoramaNode}
                   onNavigateToNode={handleNavigateToNode}
                 />
               </div>

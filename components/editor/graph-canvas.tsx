@@ -448,27 +448,57 @@ export function GraphCanvas({
     [graphProvider, graph, graphStore]
   );
 
+  // const handleNavigateToNode = useCallback(
+  //   (nodeId: string) => {
+  //     // Navigate to the selected node
+  //     setSelectedNode(nodeId);
+  //     // Also set as panorama node to keep it open
+  //     setPanoramaNode(nodeId);
+
+  //     // Initialize panorama rotation with node's current heading
+  //     const node = graph?.nodes.find((n) => n.id === nodeId);
+  //     if (node) {
+  //       console.log("GraphCanvas: navigateToNode", {
+  //         nodeId,
+  //         rotation: node.rotation,
+  //       });
+  //       graphStore.setPanoramaBackgroundOffset(node.rotation || 0);
+  //       graphStore.setPanoramaRotation(0, node.pitch || 0, "nav");
+  //     }
+  //   },
+  //   [setSelectedNode, setPanoramaNode, graph?.nodes, graphStore]
+  // );
+
   const handleNavigateToNode = useCallback(
     (nodeId: string) => {
-      // Navigate to the selected node
+      // 1. Cari Node target
+      const node = graph?.nodes.find((n) => n.id === nodeId);
+
+      // 2. [SAFETY CHECK]
+      // Jika node tidak ditemukan ATAU tidak punya panorama URL, jangan lakukan apa-apa.
+      // Atau tampilkan toast error "Panorama not available".
+      if (!node || !node.panorama_url) {
+        console.warn("Cannot navigate: Node has no panorama URL", nodeId);
+        return;
+      }
+
+      // 3. Jika aman, Lanjutkan Navigasi
       setSelectedNode(nodeId);
-      // Also set as panorama node to keep it open
       setPanoramaNode(nodeId);
 
-      // Initialize panorama rotation with node's current heading
-      const node = graph?.nodes.find((n) => n.id === nodeId);
-      if (node) {
-        console.log("GraphCanvas: navigateToNode", {
-          nodeId,
-          rotation: node.rotation,
-        });
-        graphStore.setPanoramaBackgroundOffset(node.rotation || 0);
-        graphStore.setPanoramaRotation(0, node.pitch || 0, "nav");
-      }
+      // Initialize panorama rotation
+      console.log("GraphCanvas: navigateToNode", {
+        nodeId,
+        rotation: node.rotation,
+      });
+
+      // Set offset
+      graphStore.setPanoramaBackgroundOffset(node.rotation || 0);
+      // Reset kamera ke depan (0)
+      graphStore.setPanoramaRotation(0, node.pitch || 0, "nav");
     },
     [setSelectedNode, setPanoramaNode, graph?.nodes, graphStore]
   );
-
   // Panorama rotation is live-synced directly from the PanoramaViewer
   // so we don't need to set up intermediate callbacks in this parent.
 

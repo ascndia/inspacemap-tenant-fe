@@ -1,8 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useMemo } from "react"; // Gunakan useLayoutEffect
+import { useLayoutEffect, useMemo } from "react";
 import View360 from "@egjs/view360";
 import { useGraphStore } from "@/stores/graph-store";
+
+const FORCE_HORIZON_MODE = true;
 
 interface HotspotData {
   nodeId: string;
@@ -10,26 +12,29 @@ interface HotspotData {
   yaw: number;
   pitch: number;
   distance: number;
+  hasPanorama: boolean; // Field baru untuk indikator visual
 }
 
 interface PanoramaHotspotsProps {
   viewerInstance: View360 | null;
+  currentNode: any; // [UBAH] Terima node panorama aktif dari Props
   onNavigateToNode: (nodeId: string) => void;
 }
 
 export function PanoramaHotspots({
   viewerInstance,
+  currentNode, // [UBAH] Gunakan ini, bukan dari store
   onNavigateToNode,
 }: PanoramaHotspotsProps) {
   const graph = useGraphStore((s) => s.graph);
-  const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const backgroundOffset = useGraphStore((s) => s.panoramaBackgroundOffset);
 
-  // 1. Kalkulasi Hotspot
   const hotspots = useMemo(() => {
-    if (!graph || !selectedNodeId) return [] as HotspotData[];
-    const currentNode = graph.nodes.find((n) => n.id === selectedNodeId);
-    if (!currentNode) return [] as HotspotData[];
+    // Gunakan currentNode dari props, bukan selectedNodeId store
+    if (!graph || !currentNode || !currentNode.position || !graph.nodes) {
+      return [] as HotspotData[];
+    }
+
     const calculated: HotspotData[] = [];
 
     const neighborConnections = graph.connections.filter(
@@ -42,72 +47,124 @@ export function PanoramaHotspots({
         connection.fromNodeId === currentNode.id
           ? connection.toNodeId
           : connection.fromNodeId;
+
       const neighborNode = graph.nodes.find((n) => n.id === neighborId);
-      if (!neighborNode) continue;
+      if (!neighborNode || !neighborNode.position) continue;
 
       const dx = neighborNode.position.x - currentNode.position.x;
       const dy = neighborNode.position.y - currentNode.position.y;
-      const dz = neighborNode.position.z - currentNode.position.z;
-      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const currentZ = currentNode.position.z || 0;
+      const neighborZ = neighborNode.position.z || 0;
+      const dz = neighborZ - currentZ;
 
-      // Asumsi koordinat standar
-      const yaw = (Math.atan2(dy, dx) * 180) / Math.PI;
-      const pitch =
-        -(Math.asin(Math.max(-1, Math.min(1, dz / distance))) * 180) / Math.PI;
+      const distance2D = Math.sqrt(dx * dx + dy * dy);
+      const distance3D = Math.sqrt(distance2D * distance2D + dz * dz);
+
+      if (distance3D < 0.001) continue;
+
+      let yaw = (Math.atan2(dy, dx) * 180) / Math.PI;
+      let pitch = 0;
+
+      if (FORCE_HORIZON_MODE) {
+        pitch = 0;
+      } else {
+        const pitchRatio = Math.max(-1, Math.min(1, dz / distance3D));
+        pitch = -(Math.asin(pitchRatio) * 180) / Math.PI;
+      }
+
+      if (isNaN(yaw) || isNaN(pitch)) continue;
+
+      // Cek ketersediaan Panorama pada tetangga
+      const hasPanorama = Boolean(
+        neighborNode.panorama_url && neighborNode.panorama_url.length > 0
+      );
 
       calculated.push({
         nodeId: neighborId,
         node: neighborNode,
         yaw,
         pitch,
-        distance,
+        distance: distance3D,
+        hasPanorama, // Simpan status
       });
     }
 
     return calculated;
-  }, [graph, selectedNodeId]);
+  }, [graph, currentNode]); // [PENTING] Dependency berubah ke currentNode props
 
   const offset = Number.isFinite(backgroundOffset) ? backgroundOffset : 0;
 
-  // 2. [FIX UTAMA] Trigger Refresh saat Data/DOM Berubah
-  // Kita gunakan useLayoutEffect agar refresh terjadi SETELAH React update DOM,
-  // tapi SEBELUM browser paint frame berikutnya (mencegah flicker).
   useLayoutEffect(() => {
-    if (viewerInstance) {
-      // console.log("Hotspots updated, refreshing viewer...");
+    if (!viewerInstance) return;
+
+    const forceRender = () => {
       viewerInstance.hotspot.refresh();
-    }
-  }, [viewerInstance, hotspots, offset]); // Dependency: Jalankan ulang jika instance, list hotspot, atau offset berubah
+      viewerInstance.camera.lookAt({
+        yaw: viewerInstance.camera.yaw,
+        pitch: viewerInstance.camera.pitch,
+      });
+    };
+
+    forceRender();
+    const rafId = requestAnimationFrame(forceRender);
+    return () => cancelAnimationFrame(rafId);
+  }, [viewerInstance, hotspots, offset]);
 
   return (
     <div className="view360-hotspots">
       {hotspots.map((hotspot) => {
-        // Logika yaw + offset
-        const mirroredYaw = (((-hotspot.yaw + offset) % 360) + 360) % 360;
+        const rawYaw = -hotspot.yaw + offset;
+        const mirroredYaw = ((rawYaw % 360) + 360) % 360;
+
+        const finalYaw = Number.isFinite(mirroredYaw) ? mirroredYaw : 0;
+        const finalPitch = Number.isFinite(hotspot.pitch) ? hotspot.pitch : 0;
+
+        // Logika Visual: Beda warna jika tidak ada panorama
+        const bgColor = hotspot.hasPanorama
+          ? "bg-blue-500/80 border-white" // Normal (Biru)
+          : "bg-gray-500/80 border-gray-300"; // No Panorama (Abu-abu)
+
+        const hoverColor = hotspot.hasPanorama
+          ? "hover:bg-blue-600 hover:scale-110"
+          : "hover:bg-gray-600"; // Sedikit efek hover tapi jangan terlalu heboh
 
         return (
           <div
             key={hotspot.nodeId}
             className="view360-hotspot"
-            // Atribut ini dibaca oleh .refresh()
-            data-yaw={mirroredYaw}
-            data-pitch={hotspot.pitch}
+            data-yaw={finalYaw}
+            data-pitch={finalPitch}
             onClick={(e) => {
               e.stopPropagation();
               onNavigateToNode(hotspot.nodeId);
             }}
             style={{ position: "absolute", zIndex: 1000 }}
           >
-            {/* Centering Fix (-ml-5 -mt-5) */}
             <div className="flex flex-col items-center justify-center w-10 h-10 -ml-5 -mt-5">
-              <div className="w-10 h-10 rounded-full bg-blue-500/80 border-2 border-white shadow-md flex items-center justify-center text-white font-bold text-xs hover:bg-blue-600 transition-colors transform hover:scale-110 duration-200 cursor-pointer">
-                {hotspot.distance < 50 && (
+              <div
+                className={`
+                  w-10 h-10 rounded-full border-2 shadow-md 
+                  flex items-center justify-center text-white font-bold text-xs 
+                  transition-all duration-200 cursor-pointer
+                  ${bgColor} ${hoverColor}
+                `}
+              >
+                {/* Tampilkan Panah Navigasi HANYA jika ada panorama */}
+                {hotspot.distance < 50 && hotspot.hasPanorama && (
                   <span className="absolute -top-5 text-lg font-bold text-white drop-shadow-lg">
                     ↑
                   </span>
                 )}
+
+                {/* Jika tidak ada panorama, mungkin tampilkan icon 'X' atau biarkan kosong */}
+                {!hotspot.hasPanorama && (
+                  <span className="absolute -top-3 text-[10px] text-white/70">
+                    🚫
+                  </span>
+                )}
+
                 <span className="text-[8px] mt-1 truncate max-w-[50px] text-center leading-tight select-none">
-                  {hotspot.node.label || hotspot.nodeId.slice(0, 4)}
+                  {hotspot.node.label || hotspot.nodeId.slice(4, 8)}
                 </span>
               </div>
             </div>

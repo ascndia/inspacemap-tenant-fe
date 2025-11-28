@@ -16,7 +16,7 @@ import {
 // Default settings
 const defaultSettings: GraphSettings = {
   gridSize: 20,
-  snapToGrid: true,
+  snapToGrid: false,
   showGrid: true,
   showLabels: true,
   showConnections: true,

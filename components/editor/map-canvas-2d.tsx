@@ -75,8 +75,6 @@ export function MapCanvas2D({
     graph,
     selectedNodeId,
     tool,
-    panoramaNodeId,
-    setPanoramaNode,
     isConnecting,
     connectingFromId,
     selectedAreaId,
@@ -457,14 +455,6 @@ export function MapCanvas2D({
     [panoramaPickerTarget, panOffset, zoom, addNode, onNodeUpdate]
   );
 
-  const handleViewPanorama = useCallback(
-    (nodeId: string) => {
-      setPanoramaNode(nodeId);
-      setContextMenu(null);
-    },
-    [setPanoramaNode]
-  );
-
   return (
     <>
       <canvas
@@ -495,7 +485,6 @@ export function MapCanvas2D({
           onAddNodeWithPanorama={handleAddNodeWithPanorama}
           onResetView={handleResetView}
           onDeleteConnection={handleDeleteConnection}
-          onViewPanorama={handleViewPanorama}
           onSetPanorama={handleSetPanorama}
           isNodeLocked={
             graph?.nodes.find((n) => n.id === contextMenu.nodeId)?.locked

@@ -52,7 +52,6 @@ export function GraphCanvas({
     zoom,
     panOffset,
     showPanoramaViewer,
-    panoramaNodeId,
     panoramaYaw,
     panoramaPitch,
     isLoading,
@@ -73,7 +72,6 @@ export function GraphCanvas({
     setZoom,
     setPanOffset,
     togglePanoramaViewer,
-    setPanoramaNode,
   } = graphProvider;
 
   const [canvasZoom, setCanvasZoom] = useState(1);
@@ -83,20 +81,6 @@ export function GraphCanvas({
   const [pendingToolChange, setPendingToolChange] = useState<string | null>(
     null
   );
-
-  // Auto-show panorama viewer when panorama node is set
-  useEffect(() => {
-    if (panoramaNodeId && !showPanoramaViewer) {
-      togglePanoramaViewer();
-    }
-  }, [panoramaNodeId, showPanoramaViewer, togglePanoramaViewer]);
-
-  useEffect(() => {
-    console.log("GraphCanvas: showPanoramaViewer changed", {
-      showPanoramaViewer,
-      panoramaNodeId,
-    });
-  }, [showPanoramaViewer, panoramaNodeId]);
 
   // Prevent browser zoom gestures and shortcuts
   useEffect(() => {
@@ -252,30 +236,11 @@ export function GraphCanvas({
     if (showPanoramaViewer) {
       // Closing panorama viewer
       togglePanoramaViewer();
-      setPanoramaNode(null);
     } else {
-      // Opening panorama viewer
-      if (selectedNodeId) {
-        const node = graph?.nodes.find((n) => n.id === selectedNodeId);
-        if (node && (node.panorama_url || node.panorama_asset_id)) {
-          // Set panorama node to current selected node if it has panorama
-          setPanoramaNode(selectedNodeId);
-        } else {
-          // Just toggle the viewer even if no panorama
-          togglePanoramaViewer();
-        }
-      } else {
-        // Just toggle the viewer
-        togglePanoramaViewer();
-      }
+      // Opening panorama viewer - it will show the currently selected node
+      togglePanoramaViewer();
     }
-  }, [
-    showPanoramaViewer,
-    togglePanoramaViewer,
-    selectedNodeId,
-    graph?.nodes,
-    setPanoramaNode,
-  ]);
+  }, [showPanoramaViewer, togglePanoramaViewer]);
 
   const handleCanvasClick = useCallback(
     (x: number, y: number) => {
@@ -291,15 +256,6 @@ export function GraphCanvas({
       setSelectedNode(nodeId);
     },
     [setSelectedNode]
-  );
-
-  const handlePitchChange = useCallback(
-    (pitch: number) => {
-      if (panoramaNodeId) {
-        updateNode(panoramaNodeId, { pitch });
-      }
-    },
-    [panoramaNodeId, updateNode]
   );
 
   const handleConnectionStart = useCallback((nodeId: string) => {
@@ -484,7 +440,6 @@ export function GraphCanvas({
 
       // 3. Jika aman, Lanjutkan Navigasi
       setSelectedNode(nodeId);
-      setPanoramaNode(nodeId);
 
       // Initialize panorama rotation
       console.log("GraphCanvas: navigateToNode", {
@@ -495,7 +450,7 @@ export function GraphCanvas({
       // Reset kamera ke depan (0)
       graphStore.setPanoramaRotation(0, node.pitch || 0, "nav");
     },
-    [setSelectedNode, setPanoramaNode, graph?.nodes, graphStore]
+    [setSelectedNode, graph?.nodes, graphStore]
   );
   // Panorama rotation is live-synced directly from the PanoramaViewer
   // so we don't need to set up intermediate callbacks in this parent.
@@ -618,9 +573,9 @@ export function GraphCanvas({
   }, []);
 
   const panoramaNode = useMemo(() => {
-    const node = graph?.nodes.find((n) => n.id === panoramaNodeId);
+    const node = graph?.nodes.find((n) => n.id === selectedNodeId);
     return node || null;
-  }, [graph, panoramaNodeId]);
+  }, [graph, selectedNodeId]);
 
   return (
     <>

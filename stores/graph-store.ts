@@ -32,7 +32,6 @@ interface GraphStore {
   zoom: number;
   panOffset: { x: number; y: number };
   showPanoramaViewer: boolean;
-  panoramaNodeId: string | null;
   panoramaYaw: number;
   panoramaPitch: number;
   panoramaBackgroundOffset: number;
@@ -70,7 +69,6 @@ interface GraphStore {
   setZoom: (zoom: number) => void;
   setPanOffset: (offset: { x: number; y: number }) => void;
   togglePanoramaViewer: () => void;
-  setPanoramaNode: (nodeId: string | null) => void;
   setPanoramaRotation: (yaw: number, pitch: number, source?: string) => void;
   setPanoramaBackgroundOffset: (offset: number) => void;
   setConnectingStart: (nodeId: string) => void;
@@ -103,7 +101,6 @@ export const useGraphStore = create<GraphStore>()(
       zoom: 1,
       panOffset: { x: 0, y: 0 },
       showPanoramaViewer: false,
-      panoramaNodeId: null,
       panoramaYaw: 0,
       panoramaPitch: 0,
       panoramaBackgroundOffset: 0,
@@ -394,7 +391,6 @@ export const useGraphStore = create<GraphStore>()(
         set((state) => ({
           showPanoramaViewer: !state.showPanoramaViewer,
         })),
-      setPanoramaNode: (nodeId) => set({ panoramaNodeId: nodeId }),
       setPanoramaRotation: (yaw, pitch, source) =>
         set({
           panoramaYaw: yaw,
@@ -453,8 +449,8 @@ export const useGraphStore = create<GraphStore>()(
       },
 
       get panoramaNode() {
-        const { graph, panoramaNodeId } = get();
-        return graph?.nodes.find((n) => n.id === panoramaNodeId) || null;
+        const { graph, selectedNodeId } = get();
+        return graph?.nodes.find((n) => n.id === selectedNodeId) || null;
       },
     }),
     { name: "graph-store" }

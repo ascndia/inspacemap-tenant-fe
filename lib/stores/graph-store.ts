@@ -46,7 +46,6 @@ const defaultUIState: GraphUIState = {
   showGrid: true,
   snapToGrid: true,
   showPanoramaViewer: false,
-  panoramaNodeId: null,
 };
 
 // Helper functions
@@ -128,7 +127,6 @@ interface GraphStore {
   toggleSnapToGrid: () => void;
   toggleProperties: () => void;
   togglePanoramaViewer: () => void;
-  setPanoramaNode: (nodeId: string | null) => void;
 
   // Connection mode
   startConnecting: (fromNodeId: string) => void;
@@ -181,6 +179,7 @@ export const useGraphStore = create<GraphStore>()(
             name,
             nodes: [],
             connections: [],
+            areas: [],
             panoramas: [],
             settings: { ...defaultSettings },
             version: 1,
@@ -561,12 +560,6 @@ export const useGraphStore = create<GraphStore>()(
           }));
         },
 
-        setPanoramaNode: (nodeId: string | null) => {
-          set((state) => ({
-            ui: { ...state.ui, panoramaNodeId: nodeId },
-          }));
-        },
-
         // Connection mode
         startConnecting: (fromNodeId: string) => {
           set((state) => ({
@@ -712,7 +705,6 @@ export const useGraphStore = create<GraphStore>()(
             showGrid: state.ui.showGrid,
             snapToGrid: state.ui.snapToGrid,
             showPanoramaViewer: state.ui.showPanoramaViewer,
-            panoramaNodeId: state.ui.panoramaNodeId,
           },
         }),
       }

@@ -73,26 +73,27 @@ export function PropertiesPanel() {
   const storeBackgroundOffset = useGraphStore(
     (s) => s.panoramaBackgroundOffset
   );
-  const panoramaNodeId = useGraphStore((s) => s.panoramaNodeId);
 
-  // Initialize backgroundOffset when panorama node changes
+  // Initialize backgroundOffset when selected node changes
   useEffect(() => {
-    if (panoramaNodeId && graph) {
-      const panoramaNode = graph.nodes.find((n) => n.id === panoramaNodeId);
-      if (panoramaNode) {
-        const nodeRotation = panoramaNode.rotation ?? 0;
-        console.log("PropertiesPanel: Initializing backgroundOffset from panorama node", {
-          panoramaNodeId,
+    if (selectedNode) {
+      const nodeRotation = selectedNode.rotation ?? 0;
+      console.log(
+        "PropertiesPanel: Initializing backgroundOffset from selected node",
+        {
+          selectedNodeId: selectedNode.id,
           nodeRotation,
-        });
-        setBackgroundOffsetValue(nodeRotation);
-        graphStore.setPanoramaBackgroundOffset(nodeRotation);
-      }
+        }
+      );
+      setBackgroundOffsetValue(nodeRotation);
+      graphStore.setPanoramaBackgroundOffset(nodeRotation);
     }
-  }, [panoramaNodeId, graph]);
+  }, [selectedNode]);
 
-  // Check if slider should be enabled (only when selected node matches panorama node)
-  const isSliderEnabled = selectedNode && panoramaNodeId === selectedNode.id;
+  // Check if slider should be enabled (only when selected node has panorama)
+  const isSliderEnabled =
+    selectedNode &&
+    (selectedNode.panorama_url || selectedNode.panorama_asset_id);
 
   useEffect(() => {
     if (selectedNode) {
@@ -481,7 +482,9 @@ export function PropertiesPanel() {
                           onClick={() => {
                             if (isSliderEnabled) {
                               setBackgroundOffsetValue(rotationValue);
-                              graphStore.setPanoramaBackgroundOffset(rotationValue);
+                              graphStore.setPanoramaBackgroundOffset(
+                                rotationValue
+                              );
                             }
                           }}
                           className={`px-2 py-1 rounded cursor-pointer ${
@@ -513,22 +516,24 @@ export function PropertiesPanel() {
                       min={0}
                       max={360}
                       step={1}
-                      className={`w-full ${!isSliderEnabled ? "opacity-50" : ""}`}
+                      className={`w-full ${
+                        !isSliderEnabled ? "opacity-50" : ""
+                      }`}
                     />
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">
                         {isSliderEnabled
                           ? "Adjust background offset to align the panorama image"
-                          : panoramaNodeId
-                            ? "Switch to the panorama node to adjust its offset"
-                            : "Open panorama viewer to adjust offset"
-                        }
+                          : "Select a node with panorama to adjust offset"}
                       </span>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={handleUpdateNodeRotation}
-                        disabled={!isSliderEnabled || backgroundOffsetValue === rotationValue}
+                        disabled={
+                          !isSliderEnabled ||
+                          backgroundOffsetValue === rotationValue
+                        }
                       >
                         Save to Node
                       </Button>

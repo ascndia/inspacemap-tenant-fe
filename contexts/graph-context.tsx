@@ -91,7 +91,6 @@ const initialState: GraphState = {
     showGrid: true,
     snapToGrid: true,
     showPanoramaViewer: true,
-    panoramaNodeId: null,
   },
   history: [],
   historyIndex: -1,
@@ -473,16 +472,6 @@ function graphReducer(state: GraphState, action: GraphAction): GraphState {
       return state;
     }
 
-    case "SET_PANORAMA_NODE": {
-      return {
-        ...state,
-        ui: {
-          ...state.ui,
-          panoramaNodeId: action.payload.nodeId,
-        },
-      };
-    }
-
     case "TOGGLE_PANORAMA_VIEWER": {
       return {
         ...state,
@@ -537,7 +526,6 @@ interface GraphContextType {
   resetGraph: () => void;
   undo: () => void;
   redo: () => void;
-  setPanoramaNode: (nodeId: string | null) => void;
   togglePanoramaViewer: () => void;
   saveGraph: () => Promise<void>;
 
@@ -866,10 +854,6 @@ export function GraphProvider({
     dispatch({ type: "REDO" });
   }, []);
 
-  const setPanoramaNode = useCallback((nodeId: string | null) => {
-    dispatch({ type: "SET_PANORAMA_NODE", payload: { nodeId } });
-  }, []);
-
   const togglePanoramaViewer = useCallback(() => {
     dispatch({ type: "TOGGLE_PANORAMA_VIEWER" });
   }, []);
@@ -969,7 +953,7 @@ export function GraphProvider({
       (c) => c.id === state.ui.selectedConnectionId
     ) || null;
   const panoramaNode =
-    state.graph?.nodes.find((n) => n.id === state.ui.panoramaNodeId) || null;
+    state.graph?.nodes.find((n) => n.id === state.ui.selectedNodeId) || null;
   const canUndo = state.historyIndex > 0;
   const canRedo = state.historyIndex < state.history.length - 1;
 
@@ -1050,7 +1034,6 @@ export function GraphProvider({
     resetGraph,
     undo,
     redo,
-    setPanoramaNode,
     togglePanoramaViewer,
     autoLayout,
     findPath,

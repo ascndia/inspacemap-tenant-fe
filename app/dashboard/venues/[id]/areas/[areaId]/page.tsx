@@ -176,42 +176,46 @@ export default function AreaDetailPage() {
     }
   };
 
-  const handleAddGalleryItem = async (media: MediaItem) => {
+  const handleAddGalleryItem = async (media: MediaItem | MediaItem[]) => {
     if (!area) return;
 
+    const mediaItems = Array.isArray(media) ? media : [media];
+    if (mediaItems.length === 0) return;
+
     try {
-      const newItem: AreaGalleryDetail = {
-        media_id: media.asset_id,
-        url: media.url,
-        thumbnail_url: media.thumbnail_url || media.url,
+      const newItemsPayload = mediaItems.map((item, index) => ({
+        media_asset_id: item.asset_id,
         caption: "",
-        sort_order: gallery.length,
-      };
+        sort_order: gallery.length + index,
+        is_visible: true,
+      }));
 
       // Add to gallery via API
-      const response = await areaService.addGalleryItems(area.id, [
-        {
-          media_asset_id: media.asset_id,
-          caption: "",
-          sort_order: gallery.length,
-          is_visible: true,
-        },
-      ]);
+      const response = await areaService.addGalleryItems(
+        area.id,
+        newItemsPayload
+      );
 
       if (response.success) {
-        const galleryItem: GalleryItem = {
-          ...newItem,
-          id: `item-${Date.now()}`,
-          media_asset_id: media.asset_id,
-          is_featured: false,
-          media_name: media.name,
-        };
+        const newGalleryItems: GalleryItem[] = mediaItems.map(
+          (item, index) => ({
+            media_id: item.asset_id,
+            url: item.url,
+            thumbnail_url: item.thumbnail_url || item.url,
+            caption: "",
+            sort_order: gallery.length + index,
+            id: `item-${Date.now()}-${index}`,
+            media_asset_id: item.asset_id,
+            is_featured: false,
+            media_name: item.name,
+          })
+        );
 
-        setGallery([...gallery, galleryItem]);
+        setGallery([...gallery, ...newGalleryItems]);
         setShowAddDialog(false);
       }
     } catch (error) {
-      console.error("Failed to add gallery item:", error);
+      console.error("Failed to add gallery items:", error);
     }
   };
 
@@ -413,6 +417,7 @@ export default function AreaDetailPage() {
             <MediaPicker
               onSelect={handleAddGalleryItem}
               acceptTypes={["image"]}
+              multiple={true}
               trigger={
                 <Button>
                   <Upload className="mr-2 h-4 w-4" />
@@ -487,6 +492,7 @@ export default function AreaDetailPage() {
               <MediaPicker
                 onSelect={handleAddGalleryItem}
                 acceptTypes={["image"]}
+                multiple={true}
                 trigger={
                   <Button>
                     <Upload className="mr-2 h-4 w-4" />

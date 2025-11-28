@@ -63,6 +63,7 @@ export function MediaLibrary({
   const [totalItems, setTotalItems] = useState(0);
   const [mediaCounts, setMediaCounts] = useState({ images: 0, videos: 0 });
   const [selectedMedia, setSelectedMedia] = useState<Set<string>>(new Set());
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const itemsPerPage = 10;
 
   const { user, token } = useAuthStore();
@@ -168,9 +169,18 @@ export function MediaLibrary({
     };
 
     loadMedia();
-  }, [user, token, currentPage, selectedFilters, debouncedSearch]);
+  }, [
+    user,
+    token,
+    currentPage,
+    selectedFilters,
+    debouncedSearch,
+    refreshTrigger,
+  ]);
   const handleUploadSuccess = (uploadedItems: MediaItem[]) => {
-    setMedia((prev) => [...uploadedItems, ...prev]);
+    // Instead of just adding to local state, trigger a fresh fetch to get complete metadata
+    setRefreshTrigger((prev) => prev + 1);
+    setActiveTab("library");
   };
 
   const handleDeleteSuccess = (deletedMediaId: string) => {
@@ -529,12 +539,7 @@ export function MediaLibrary({
         {canAccess("media:upload") && (
           <TabsContent value="upload" className="mt-0 p-4">
             <div className="max-w-2xl mx-auto">
-              <MediaUpload
-                onUploadSuccess={(uploadedItems) => {
-                  setMedia((prev) => [...uploadedItems, ...prev]);
-                  setActiveTab("library");
-                }}
-              />
+              <MediaUpload onUploadSuccess={handleUploadSuccess} />
               <div className="mt-8 flex justify-center">
                 <Button
                   variant="outline"
